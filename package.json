@@ -1,0 +1,16 @@
+{
+  "name": "sentence_permutation_generator",
+  "version": "1.0.0",
+  "description": "",
+  "main": "permute.js",
+  "scripts": {
+    "test": "node permute.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@types/node": "^14.0.5",
+    "install": "^0.13.0"
+  }
+}

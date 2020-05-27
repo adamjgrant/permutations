@@ -1,0 +1,18 @@
+{
+  "main": [
+    "A",
+    ["B", { "branch":  "other_letters" }],
+    ["C", { "branch":  "other_letters", "then": [
+      "X", "Y", "Z", [
+        "1", "2", "3", { "branch": "other_letters", "then": [
+          "$", "%", "&"
+        ] }
+      ]
+    ] }]
+  ],
+  "other_letters": [
+    "D", [
+      "E", "F"
+    ]
+  ]
+}

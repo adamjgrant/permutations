@@ -1,0 +1,31 @@
+{
+  "main": [
+    "Hello", "Hi", "Greetings", [
+      ", ", [
+        "How are you?", "How's it going?", [
+          " ", [
+            "I just wanted to ", [
+              "take the time to tell you", "remind you", [
+                " to ", { "branch": "advice" }
+              ]
+            ]
+          ]
+        ]
+      ],
+      [
+        { "branch": "advice"}
+      ]
+    ]
+  ],
+  "advice": [
+    "Please remember", "Take caution", [
+      " to ", [
+        "mind the gap", "stay six feet apart", "clean up your area", [
+          " ", [
+            "at all times.", "to be a good citizen."
+          ]
+        ]
+      ]
+    ]
+  ]
+}
