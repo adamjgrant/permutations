@@ -88,13 +88,13 @@ class Branch {
   memoized_leaves: Array<Leaf>;
   vilomah: boolean;
 
-  constructor(branch: BranchArray, tree: Tree, prefix: string = "") {
+  constructor(branch: BranchArray, tree: Tree, prefix: string = "", vilomah : boolean = false) {
     this.array = branch;
     this.tree = tree;
     this.prefix = prefix;
     this.memoized_leaves = [];
     this.sampled_array = branch;
-    this.vilomah = false;
+    this.vilomah = vilomah;
   }
 
   public get permutations(): string[] {
@@ -123,6 +123,14 @@ class Branch {
     if (this.memoized_leaves.length) return this.memoized_leaves;
     let leaves = this.leaves_as_strings;
     // @ts-ignore
+
+    // Called to trigger the sampler and to set vilomah value if exists.
+    this.sub_branches(this.tree.sampling_factor !== 1);
+
+    if (this.vilomah) {
+      this.memoized_leaves = [new Leaf("")];
+      return this.memoized_leaves;
+    }
 
     if (this.sub_branches().length && !leaves.length) {
       leaves = [""];
@@ -194,7 +202,9 @@ class Branch {
     this.sampled_array = result;
 
     // If this parent has lost all its children (vilomah), mark it so it's not confused as a leaf.
+    console.log(this.array, this.sampled_array);
     if (this.sampled_array.length === 0 && this.array.length > 0) this.vilomah = true;
+    console.log(this.vilomah);
   }
 
   private sub_branch_array_filter(array_item) { return Array.isArray(array_item) }
