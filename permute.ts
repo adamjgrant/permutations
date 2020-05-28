@@ -82,7 +82,6 @@ class Leaf {
 
 class Branch {
   array: BranchArray;
-  sampled_array: BranchArray;
   tree: Tree;
   prefix: string;
   memoized_leaves: Array<Leaf>;
@@ -93,7 +92,6 @@ class Branch {
     this.tree = tree;
     this.prefix = prefix;
     this.memoized_leaves = [];
-    this.sampled_array = branch;
     this.sampled = false;
   }
 
@@ -179,21 +177,21 @@ class Branch {
     // Round up this value only 1/sampling_factor of the time
     const one_sampleth_of_the_time : boolean = Math.floor(Math.random() * this.tree.sampling_factor) === 0;
     branches_to_sample = one_sampleth_of_the_time ? Math.ceil(branches_to_sample) : Math.floor(branches_to_sample);
-    if (branches_to_sample > this.sampled_array.length) branches_to_sample = this.sampled_array.length;
+    if (branches_to_sample > this.array.length) branches_to_sample = this.array.length;
 
     // With thanks to https://stackoverflow.com/a/19270021/393243
     let result = new Array(branches_to_sample),
-      len = this.sampled_array.length,
+      len = this.array.length,
       taken = new Array(len);
     if (branches_to_sample > len)
       throw new RangeError("getRandom: more elements taken than available");
     while (branches_to_sample--) {
       var x = Math.floor(Math.random() * len);
-      result[branches_to_sample] = this.sampled_array[x in taken ? taken[x] : x];
+      result[branches_to_sample] = this.array[x in taken ? taken[x] : x];
       taken[x] = --len in taken ? taken[len] : len;
     }
     this.sampled = true;
-    this.sampled_array = result;
+    this.array = result;
   }
 
   private sub_branch_array_filter(array_item) { return Array.isArray(array_item) }
@@ -202,11 +200,10 @@ class Branch {
     this.translate_branch_pointers();
 
     if (sample) this.sample_branches();
-    const branch_array = sample ? this.sampled_array : this.array;
 
     // Take the raw nested array and turn it into Branches.
     // @ts-ignore
-    return branch_array.filter(this.sub_branch_array_filter)
+    return this.array.filter(this.sub_branch_array_filter)
       // @ts-ignore
       .map(array_item => new Branch(array_item, this.tree));
   }
