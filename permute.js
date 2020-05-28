@@ -2,6 +2,46 @@
 // A Tree contains Branches.
 // Each Branch is [instantiated from] an array of Leaves (Interface: BranchArray)
 // A Leaf can be one of string | Branch | BranchLink
+class Sampler {
+    constructor(branch) {
+        this.branch = branch;
+    }
+    // Creates a sampling_factor-sided die and rolls it.
+    get roll() {
+        return (Math.floor(Math.random() * this.branch.tree.sampling_factor) !== 0);
+    }
+    // For this branch, determine whether sampling should occur
+    // as a function of the total number of terminal leaves and the items in this branch
+    get sampling_should_occur() {
+        if (this.branch.tree.sampling_factor === 1)
+            return false; // Just to be sure.
+        const terminal_leaf_sampling_factor = this.branch.terminal_leaf_count / this.branch.tree.sampling_factor;
+        const int_terminal_leaf_sampling_factor = this.roll ? Math.ceil(terminal_leaf_sampling_factor) : Math.floor(terminal_leaf_sampling_factor);
+        // const int_number_of_sub_branches             = this.branch.sub_branches(false).length;
+        // return int_number_of_sub_branches >= int_terminal_leaf_sampling_factor;
+        const length_of_branch = this.branch.array.length;
+        return length_of_branch >= int_terminal_leaf_sampling_factor;
+    }
+    sample() {
+        // If sampling should occur, Perform that sampling removal on this branch's array
+        if (!this.sampling_should_occur)
+            return;
+        // Traverse the raw branch array and recreate it. Skip the terminals only 1/sampling_factor of the time.
+        const parse = (array) => {
+            if (array.constructor.name === "String")
+                return array;
+            const array_has_arrays = array.some(item => Array.isArray(item));
+            if (array_has_arrays) {
+                return array.map(item => parse(item));
+            }
+            else {
+                return array.filter(item => this.roll);
+            }
+        };
+        const new_array = parse(this.branch.array);
+        this.branch.array = new_array;
+    }
+}
 class Tree {
     constructor(tree, sampling_factor = 1) {
         this.object = tree;
@@ -127,27 +167,15 @@ class Branch {
         }
     }
     sample_branches() {
+        // If we've already sampled or aren't sampling, return.
         if (this.tree.sampling_factor === 1)
             return;
         if (this.sampled)
             return;
-        let branches_to_sample = this.terminal_leaf_count / this.tree.sampling_factor;
-        // Round up this value only 1/sampling_factor of the time
-        const one_sampleth_of_the_time = Math.floor(Math.random() * this.tree.sampling_factor) === 0;
-        branches_to_sample = one_sampleth_of_the_time ? Math.ceil(branches_to_sample) : Math.floor(branches_to_sample);
-        if (branches_to_sample > this.array.length)
-            branches_to_sample = this.array.length;
-        // With thanks to https://stackoverflow.com/a/19270021/393243
-        let result = new Array(branches_to_sample), len = this.array.length, taken = new Array(len);
-        if (branches_to_sample > len)
-            throw new RangeError("getRandom: more elements taken than available");
-        while (branches_to_sample--) {
-            var x = Math.floor(Math.random() * len);
-            result[branches_to_sample] = this.array[x in taken ? taken[x] : x];
-            taken[x] = --len in taken ? taken[len] : len;
-        }
+        const sampler = new Sampler(this);
+        // This will mutate this.array for us.
+        sampler.sample();
         this.sampled = true;
-        this.array = result;
     }
     sub_branch_array_filter(array_item) { return Array.isArray(array_item); }
     sub_branches(sample = true) {
@@ -161,5 +189,5 @@ class Branch {
             .map(array_item => new Branch(array_item, this.tree));
     }
 }
-module.exports = Tree;
+module.exports = { Tree, Sampler };
 //# sourceMappingURL=permute.js.map

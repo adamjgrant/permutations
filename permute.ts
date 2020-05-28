@@ -8,6 +8,7 @@ interface BranchLink {
 }
 
 interface BranchArray {
+   some(arg0: (item: any) => boolean);
    splice: any;
    forEach(arg0: (array_item: any, index: any) => void);
    push(arg0: Branch);
@@ -18,36 +19,81 @@ interface BranchArray {
    [index: number]: string | Array<BranchArray> | BranchLink;
 }
 
+class Sampler {
+  branch: Branch;
+
+  constructor(branch : Branch) {
+    this.branch = branch;
+  }
+
+  // Creates a sampling_factor-sided die and rolls it.
+  private get roll() {
+    return (Math.floor(Math.random() * this.branch.tree.sampling_factor) !== 0)
+  }
+
+  // For this branch, determine whether sampling should occur
+  // as a function of the total number of terminal leaves and the items in this branch
+  private get sampling_should_occur() : boolean {
+    if (this.branch.tree.sampling_factor === 1) return false // Just to be sure.
+    const terminal_leaf_sampling_factor : number = this.branch.terminal_leaf_count / this.branch.tree.sampling_factor;
+    const int_terminal_leaf_sampling_factor      = this.roll ? Math.ceil(terminal_leaf_sampling_factor) : Math.floor(terminal_leaf_sampling_factor);
+    // const int_number_of_sub_branches             = this.branch.sub_branches(false).length;
+    // return int_number_of_sub_branches >= int_terminal_leaf_sampling_factor;
+    const length_of_branch                       = this.branch.array.length;
+    return length_of_branch >= int_terminal_leaf_sampling_factor;
+  }
+
+  public sample() {
+    // If sampling should occur, Perform that sampling removal on this branch's array
+    if (!this.sampling_should_occur) return
+
+    // Traverse the raw branch array and recreate it. Skip the terminals only 1/sampling_factor of the time.
+    const parse = (array : BranchArray) => {
+      if (array.constructor.name === "String") return array
+      const array_has_arrays = array.some(item => Array.isArray(item));
+
+      if (array_has_arrays) {
+        return array.map(item => parse(item));
+      } else {
+        return array.filter(item => this.roll);
+      }
+    }
+
+    const new_array = parse(this.branch.array);
+    this.branch.array = new_array;
+  }
+}
+
 class Tree {
-    object: object;
-    sampling_factor: number;
+  object: object;
+  sampling_factor: number;
 
-    constructor(tree: object, sampling_factor: number = 1) {
-      this.object = tree;
-      this.sampling_factor = sampling_factor;
-    }
+  constructor(tree: object, sampling_factor: number = 1) {
+    this.object = tree;
+    this.sampling_factor = sampling_factor;
+  }
 
-    public get main() : Branch { return this.branch("main"); }
-    public branch(key) : Branch {
-      let branch = new Branch(this.object[key], this);
-      return branch;
-    }
-    public get permutations() : string[] { return this.main.permutations; }
-    private get longest_key() : string {
-      return Object.keys(this.object).reduce((longest, key) => {
-        if (key.length > longest.length) return key;
-        else return longest;
-      }, "");
-    }
+  public get main() : Branch { return this.branch("main"); }
+  public branch(key) : Branch {
+    let branch = new Branch(this.object[key], this);
+    return branch;
+  }
+  public get permutations() : string[] { return this.main.permutations; }
+  private get longest_key() : string {
+    return Object.keys(this.object).reduce((longest, key) => {
+      if (key.length > longest.length) return key;
+      else return longest;
+    }, "");
+  }
 
-    public new_branch_reference(array: [], key: string = "") {
-      //   Make a new key on the tree to host this then branch
-      //   Use the longest length key and append an epoch stamp to avoid collisions
-      const unique_key = `${this.longest_key}$`;
+  public new_branch_reference(array: [], key: string = "") {
+    //   Make a new key on the tree to host this then branch
+    //   Use the longest length key and append an epoch stamp to avoid collisions
+    const unique_key = `${this.longest_key}$`;
 
-      this.object[unique_key] = array;
-      return unique_key;
-    }
+    this.object[unique_key] = array;
+    return unique_key;
+  }
 }
 
 class Leaf {
@@ -170,28 +216,15 @@ class Branch {
   }
 
   private sample_branches() : void {
+    // If we've already sampled or aren't sampling, return.
     if (this.tree.sampling_factor === 1) return;
     if (this.sampled) return;
-    let branches_to_sample: number = this.terminal_leaf_count / this.tree.sampling_factor;
 
-    // Round up this value only 1/sampling_factor of the time
-    const one_sampleth_of_the_time : boolean = Math.floor(Math.random() * this.tree.sampling_factor) === 0;
-    branches_to_sample = one_sampleth_of_the_time ? Math.ceil(branches_to_sample) : Math.floor(branches_to_sample);
-    if (branches_to_sample > this.array.length) branches_to_sample = this.array.length;
+    const sampler = new Sampler(this);
+    // This will mutate this.array for us.
+    sampler.sample();
 
-    // With thanks to https://stackoverflow.com/a/19270021/393243
-    let result = new Array(branches_to_sample),
-      len = this.array.length,
-      taken = new Array(len);
-    if (branches_to_sample > len)
-      throw new RangeError("getRandom: more elements taken than available");
-    while (branches_to_sample--) {
-      var x = Math.floor(Math.random() * len);
-      result[branches_to_sample] = this.array[x in taken ? taken[x] : x];
-      taken[x] = --len in taken ? taken[len] : len;
-    }
     this.sampled = true;
-    this.array = result;
   }
 
   private sub_branch_array_filter(array_item) { return Array.isArray(array_item) }
@@ -209,4 +242,4 @@ class Branch {
   }
 }
 
-module.exports = Tree;
+module.exports = { Tree, Sampler };
