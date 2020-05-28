@@ -1,7 +1,7 @@
 (() => {
     const Permute = require("./permute");
-    const assert = (name, expected, input) => {
-        const actual = new Permute(input).permutations;
+    const assert = (name, expected, input, sampling = 1) => {
+        const actual = new Permute(input, sampling).permutations;
         if (JSON.stringify(expected) === JSON.stringify(actual))
             return `PASS: ${name}`;
         else
@@ -279,6 +279,7 @@
         },
         {
             name: "A sampling factor of 10 produces only 10% of the results.",
+            sampling: 10,
             input: {
                 "main": [
                     "0", "0", [
@@ -290,6 +291,7 @@
         },
         {
             name: "A sampling factor of 100 produces only 1% of the results.",
+            sampling: 100,
             input: {
                 "main": [
                     "0", "0", [
@@ -306,7 +308,7 @@
         const prefix = `#${index}. `;
         const result = (() => {
             try {
-                return assert(test.name, test.expected, test.input);
+                return assert(test.name, test.expected, test.input, (test["sampling"] || 1));
             }
             catch (e) {
                 return `Error: ${e}`;
