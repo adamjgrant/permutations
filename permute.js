@@ -137,6 +137,26 @@ class Branch {
     get leaves_as_strings() {
         return this.array.filter(array_item => array_item.constructor.name === "String");
     }
+    // Does this branch have leaves but they are all replaced with "false" markers?
+    // TODO: Sampling may be called after we get to this step
+    get is_vilomah() {
+        let terminal_values = [];
+        const parse = (array) => {
+            if (array.constructor.name === "String")
+                return array;
+            if (array === false)
+                return false;
+            const array_has_arrays = array.some(item => Array.isArray(item));
+            if (array_has_arrays) {
+                return array.map(item => parse(item));
+            }
+            else {
+                return terminal_values = terminal_values.concat(array);
+            }
+        };
+        parse(this.array);
+        return terminal_values.every(val => val === false);
+    }
     translate_branch_pointers() {
         this.array.forEach((array_item, index) => {
             if (array_item.constructor.name === "Object" && array_item["branch"]) {
