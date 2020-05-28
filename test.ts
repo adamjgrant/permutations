@@ -375,7 +375,7 @@
 
         {
             name: "Sampling can make a significant impact on a huge dataset",
-            sampling: 5,
+            sampling: 3,
             input: {
               main: [
                   {
