@@ -6,9 +6,9 @@ class Sampler {
     constructor(branch) {
         this.branch = branch;
     }
-    // Creates a sampling_factor-sided die and rolls it.
+    // Returns true 1/s of the time.
     get roll() {
-        return (Math.floor(Math.random() * this.branch.tree.sampling_factor) !== 0);
+        return (Math.floor(Math.random() * this.branch.tree.sampling_factor) === 0);
     }
     // For this branch, determine whether sampling should occur
     // as a function of the total number of terminal leaves and the items in this branch
@@ -16,9 +16,7 @@ class Sampler {
         if (this.branch.tree.sampling_factor === 1)
             return false; // Just to be sure.
         const terminal_leaf_sampling_factor = this.branch.terminal_leaf_count / this.branch.tree.sampling_factor;
-        const int_terminal_leaf_sampling_factor = this.roll ? Math.ceil(terminal_leaf_sampling_factor) : Math.floor(terminal_leaf_sampling_factor);
-        // const int_number_of_sub_branches             = this.branch.sub_branches(false).length;
-        // return int_number_of_sub_branches >= int_terminal_leaf_sampling_factor;
+        const int_terminal_leaf_sampling_factor = this.roll ? Math.floor(terminal_leaf_sampling_factor) : Math.ceil(terminal_leaf_sampling_factor);
         const length_of_branch = this.branch.array.length;
         return length_of_branch >= int_terminal_leaf_sampling_factor;
     }
@@ -35,7 +33,10 @@ class Sampler {
                 return array.map(item => parse(item));
             }
             else {
-                return array.filter(item => !this.roll);
+                // Mark the terminal leaf as skippable (s-1)/s of the time.
+                return array.map(item => {
+                    return this.roll ? item : false;
+                });
             }
         };
         const new_array = parse(this.branch.array);
