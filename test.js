@@ -302,9 +302,36 @@
             },
             expected: ["000", "000"]
         },
+        {
+            name: "A sampling factor of 1000 produces only 0.1% of the results.",
+            sampling: 1000,
+            input: {
+                "main": [
+                    "0", "0", [
+                        {
+                            branch: "ten_zeroes", then: {
+                                branch: "ten_zeroes", then: {
+                                    branch: "ten_zeroes", then: {
+                                        branch: "ten_zeroes", then: {
+                                            branch: "ten_zeroes", then: {
+                                                branch: "ten_zeroes", then: {
+                                                    branch: "ten_zeroes"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    ]
+                ],
+                "ten_zeroes": "0000000000".split("")
+            },
+            expected: ["000", "000"]
+        },
     ];
-    // let results = [14].map(x => tests[x]).map((test, index) => {
-    let results = tests.map((test, index) => {
+    let results = [23].map(x => tests[x]).map((test, index) => {
+        // let results = tests.map((test, index) => {
         const prefix = `#${index}. `;
         const result = (() => {
             try {
