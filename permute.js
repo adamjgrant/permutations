@@ -113,11 +113,40 @@ class Branch {
             return branch;
         }
     }
+    sample_branches() {
+        if (this.tree.sampling_factor === 1)
+            return;
+        let branches_to_sample;
+        const sub_branches = this.array.filter(this.sub_branch_array_filter);
+        // @ts-ignore
+        const sub_sub_branches = sub_branches.reduce((count, b) => {
+            return count + b.filter(this.sub_branch_array_filter).length;
+        }, 0);
+        const sub_branches_more_than_sample_factor = sub_branches.length > this.tree.sampling_factor;
+        if (sub_sub_branches.length && sub_branches_more_than_sample_factor) {
+            branches_to_sample = Math.ceil((this.array.length / 2));
+        }
+        else {
+            branches_to_sample = Math.ceil(sub_branches.length / this.tree.sampling_factor);
+        }
+        // With thanks to https://stackoverflow.com/a/19270021/393243
+        let result = new Array(branches_to_sample), len = this.array.length, taken = new Array(len);
+        if (branches_to_sample > len)
+            throw new RangeError("getRandom: more elements taken than available");
+        while (branches_to_sample--) {
+            var x = Math.floor(Math.random() * len);
+            result[branches_to_sample] = this.array[x in taken ? taken[x] : x];
+            taken[x] = --len in taken ? taken[len] : len;
+        }
+        this.array = result;
+    }
+    sub_branch_array_filter(array_item) { return Array.isArray(array_item); }
     get sub_branches() {
         this.translate_branch_pointers();
+        this.sample_branches();
         // Take the raw nested array and turn it into Branches.
         // @ts-ignore
-        return this.array.filter(array_item => Array.isArray(array_item))
+        return this.array.filter(this.sub_branch_array_filter)
             // @ts-ignore
             .map(array_item => new Branch(array_item, this.tree));
     }
