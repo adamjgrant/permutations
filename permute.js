@@ -35,7 +35,7 @@ class Sampler {
                 return array.map(item => parse(item));
             }
             else {
-                return array.filter(item => this.roll);
+                return array.filter(item => !this.roll);
             }
         };
         const new_array = parse(this.branch.array);
@@ -189,5 +189,5 @@ class Branch {
             .map(array_item => new Branch(array_item, this.tree));
     }
 }
-module.exports = { Tree, Sampler };
+module.exports = Tree;
 //# sourceMappingURL=permute.js.map

@@ -55,7 +55,7 @@ class Sampler {
       if (array_has_arrays) {
         return array.map(item => parse(item));
       } else {
-        return array.filter(item => this.roll);
+        return array.filter(item => !this.roll);
       }
     }
 
@@ -242,4 +242,4 @@ class Branch {
   }
 }
 
-module.exports = { Tree, Sampler };
+module.exports = Tree;

@@ -310,8 +310,8 @@
         },
 
         {
-            name: "A sampling factor of 100 produces only 1% of the results.",
-            sampling: 100,
+            name: "A sampling factor of 10 produces only 10% of the results. (Larger data set)",
+            sampling: 10,
             input: {
                 "main": [
                     "0", "0", [
@@ -371,10 +371,32 @@
                 ]
             },
             expected: ["notsureyet"]
+        },
+
+        {
+            name: "Sampling can make a significant impact on a huge dataset",
+            sampling: 17,
+            input: {
+              main: [
+                  {
+                      "branch": "hex", then: {
+                          "branch": "hex", then: {
+                              "branch": "hex", then: {
+                                  "branch": "hex", then: {
+                                      "branch": "hex", then: { "branch": "hex" }
+                                  }
+                              }
+                          }
+                      }
+                  }
+              ],
+              hex: "0123456789ABCDEF".split("")
+            },
+            expected: ["notsureyet"]
         }
     ]
 
-    let results = [24].map(x => tests[x]).map((test, index) => {
+    let results = [26].map(x => tests[x]).map((test, index) => {
     // let results = tests.map((test, index) => {
         const prefix = `#${index}. `;
         const result = (() => {
