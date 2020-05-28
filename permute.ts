@@ -34,7 +34,7 @@ class Sampler {
   // For this branch, determine whether sampling should occur
   // as a function of the total number of terminal leaves and the items in this branch
   private get sampling_should_occur() : boolean {
-    if (this.branch.tree.sampling_factor === 1) return false // Just to be sure.
+    if (this.branch.tree.sampling_factor === 1 || this.branch.sampled) return false;
     const terminal_leaf_sampling_factor : number = this.branch.terminal_leaf_count / this.branch.tree.sampling_factor;
     const int_terminal_leaf_sampling_factor      = this.roll ? Math.floor(terminal_leaf_sampling_factor) : Math.ceil(terminal_leaf_sampling_factor);
     const length_of_branch                       = this.branch.array.length;
@@ -62,6 +62,7 @@ class Sampler {
 
     const new_array = parse(this.branch.array);
     this.branch.array = new_array;
+    this.branch.sampled = true;
   }
 }
 
@@ -140,6 +141,8 @@ class Branch {
     this.prefix = prefix;
     this.memoized_leaves = [];
     this.sampled = false;
+
+    this.sample_branches();
   }
 
   public get permutations(): string[] {
@@ -147,6 +150,8 @@ class Branch {
   }
 
   public get terminal_leaves(): Array<Leaf> {
+    if (this.is_vilomah) return [];
+
     return this.leaves.reduce((permutations, leaf) => {
       return permutations.concat(leaf.terminal_leaves);
     }, []);
@@ -156,7 +161,7 @@ class Branch {
     let num_leaves = this.leaves_as_strings.length;
     if (num_leaves === 0) num_leaves = 1;
     // @ts-ignore
-    let num_sub_leaves = this.sub_branches(false).reduce((count, sub_branch) => {
+    let num_sub_leaves = this.sub_branches.reduce((count, sub_branch) => {
       return sub_branch.terminal_leaf_count + count;
     }, 0);
     if (num_sub_leaves === 0) num_sub_leaves = 1;
@@ -169,12 +174,12 @@ class Branch {
     let leaves = this.leaves_as_strings;
     // @ts-ignore
 
-    if (this.sub_branches().length && !leaves.length) {
+    if (this.sub_branches.length && !leaves.length) {
       leaves = [""];
     }
 
     this.memoized_leaves = leaves.map((leaf) => {
-      return new Leaf(`${this.prefix}${leaf}`, this.sub_branches())
+      return new Leaf(`${this.prefix}${leaf}`, this.sub_branches)
     });
 
     return this.memoized_leaves;
@@ -237,23 +242,15 @@ class Branch {
   }
 
   private sample_branches() : void {
-    // If we've already sampled or aren't sampling, return.
-    if (this.tree.sampling_factor === 1) return;
-    if (this.sampled) return;
-
     const sampler = new Sampler(this);
     // This will mutate this.array for us.
     sampler.sample();
-
-    this.sampled = true;
   }
 
   private sub_branch_array_filter(array_item) { return Array.isArray(array_item) }
 
-  public sub_branches(sample : boolean = true) : Array<Branch> {
+  public get sub_branches() : Array<Branch> {
     this.translate_branch_pointers();
-
-    if (sample) this.sample_branches();
 
     // Take the raw nested array and turn it into Branches.
     // @ts-ignore
