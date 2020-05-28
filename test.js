@@ -350,8 +350,8 @@
             expected: ["notsureyet"]
         }
     ];
-    // let results = [24].map(x => tests[x]).map((test, index) => {
-    let results = tests.map((test, index) => {
+    let results = [24].map(x => tests[x]).map((test, index) => {
+        // let results = tests.map((test, index) => {
         const prefix = `#${index}. `;
         const result = (() => {
             try {

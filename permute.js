@@ -53,13 +53,13 @@ class Leaf {
     }
 }
 class Branch {
-    constructor(branch, tree, prefix = "", vilomah = false) {
+    constructor(branch, tree, prefix = "") {
         this.array = branch;
         this.tree = tree;
         this.prefix = prefix;
         this.memoized_leaves = [];
         this.sampled_array = branch;
-        this.vilomah = vilomah;
+        this.sampled = false;
     }
     get permutations() {
         return this.terminal_leaves.map(leaf => leaf.val);
@@ -86,12 +86,6 @@ class Branch {
             return this.memoized_leaves;
         let leaves = this.leaves_as_strings;
         // @ts-ignore
-        // Called to trigger the sampler and to set vilomah value if exists.
-        this.sub_branches(this.tree.sampling_factor !== 1);
-        if (this.vilomah) {
-            this.memoized_leaves = [new Leaf("")];
-            return this.memoized_leaves;
-        }
         if (this.sub_branches().length && !leaves.length) {
             leaves = [""];
         }
@@ -136,6 +130,8 @@ class Branch {
     sample_branches() {
         if (this.tree.sampling_factor === 1)
             return;
+        if (this.sampled)
+            return;
         let branches_to_sample = this.terminal_leaf_count / this.tree.sampling_factor;
         // Round up this value only 1/sampling_factor of the time
         const one_sampleth_of_the_time = Math.floor(Math.random() * this.tree.sampling_factor) === 0;
@@ -151,12 +147,8 @@ class Branch {
             result[branches_to_sample] = this.sampled_array[x in taken ? taken[x] : x];
             taken[x] = --len in taken ? taken[len] : len;
         }
+        this.sampled = true;
         this.sampled_array = result;
-        // If this parent has lost all its children (vilomah), mark it so it's not confused as a leaf.
-        console.log(this.array, this.sampled_array);
-        if (this.sampled_array.length === 0 && this.array.length > 0)
-            this.vilomah = true;
-        console.log(this.vilomah);
     }
     sub_branch_array_filter(array_item) { return Array.isArray(array_item); }
     sub_branches(sample = true) {
