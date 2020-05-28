@@ -371,39 +371,11 @@
                 ]
             },
             expected: ["notsureyet"]
-        },
-
-        {
-            name: "Small sampling factor, large data set",
-            sampling: 10,
-            input: {
-                "main": [
-                    "0", "0", [
-                        {
-                            branch: "ten_zeroes", then: {
-                                branch: "ten_zeroes", then: {
-                                    branch: "ten_zeroes", then: {
-                                        branch: "ten_zeroes", then: {
-                                            branch: "ten_zeroes", then: {
-                                                branch: "ten_zeroes", then: {
-                                                    branch: "ten_zeroes"
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    ]
-                ],
-                "ten_zeroes": "0000000000".split("")
-            },
-            expected: ["idk"]
-        },
+        }
     ]
 
-    let results = [24].map(x => tests[x]).map((test, index) => {
-    // let results = tests.map((test, index) => {
+    // let results = [24].map(x => tests[x]).map((test, index) => {
+    let results = tests.map((test, index) => {
         const prefix = `#${index}. `;
         const result = (() => {
             try      { return assert(test.name, test.expected, test.input, (test["sampling"] || 1)) }

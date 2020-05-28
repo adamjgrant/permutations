@@ -82,17 +82,19 @@ class Leaf {
 
 class Branch {
   array: BranchArray;
+  sampled_array: BranchArray;
   tree: Tree;
   prefix: string;
   memoized_leaves: Array<Leaf>;
+  vilomah: boolean;
 
   constructor(branch: BranchArray, tree: Tree, prefix: string = "") {
     this.array = branch;
     this.tree = tree;
     this.prefix = prefix;
     this.memoized_leaves = [];
-
-    console.log("#", this.array, this.terminal_leaf_count);
+    this.sampled_array = branch;
+    this.vilomah = false;
   }
 
   public get permutations(): string[] {
@@ -169,27 +171,30 @@ class Branch {
     }
   }
 
-  private sample_branches(this_array_copy : any[]) : any[] {
+  private sample_branches() : void {
     if (this.tree.sampling_factor === 1) return;
     let branches_to_sample: number = this.terminal_leaf_count / this.tree.sampling_factor;
 
     // Round up this value only 1/sampling_factor of the time
     const one_sampleth_of_the_time : boolean = Math.floor(Math.random() * this.tree.sampling_factor) === 0;
     branches_to_sample = one_sampleth_of_the_time ? Math.ceil(branches_to_sample) : Math.floor(branches_to_sample);
-    if (branches_to_sample > this_array_copy.length) branches_to_sample = this_array_copy.length;
+    if (branches_to_sample > this.sampled_array.length) branches_to_sample = this.sampled_array.length;
 
     // With thanks to https://stackoverflow.com/a/19270021/393243
     let result = new Array(branches_to_sample),
-      len = this_array_copy.length,
+      len = this.sampled_array.length,
       taken = new Array(len);
     if (branches_to_sample > len)
       throw new RangeError("getRandom: more elements taken than available");
     while (branches_to_sample--) {
       var x = Math.floor(Math.random() * len);
-      result[branches_to_sample] = this_array_copy[x in taken ? taken[x] : x];
+      result[branches_to_sample] = this.sampled_array[x in taken ? taken[x] : x];
       taken[x] = --len in taken ? taken[len] : len;
     }
-    return result;
+    this.sampled_array = result;
+
+    // If this parent has lost all its children (vilomah), mark it so it's not confused as a leaf.
+    if (this.sampled_array.length === 0 && this.array.length > 0) this.vilomah = true;
   }
 
   private sub_branch_array_filter(array_item) { return Array.isArray(array_item) }
@@ -197,12 +202,12 @@ class Branch {
   public sub_branches(sample : boolean = true) : Array<Branch> {
     this.translate_branch_pointers();
 
-    let this_array_copy = JSON.parse(JSON.stringify(this.array));
-    if (sample) this_array_copy = this.sample_branches(this_array_copy);
+    if (sample) this.sample_branches();
+    const branch_array = sample ? this.sampled_array : this.array;
 
     // Take the raw nested array and turn it into Branches.
     // @ts-ignore
-    return this_array_copy.filter(this.sub_branch_array_filter)
+    return branch_array.filter(this.sub_branch_array_filter)
       // @ts-ignore
       .map(array_item => new Branch(array_item, this.tree));
   }
