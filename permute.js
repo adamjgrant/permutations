@@ -58,6 +58,7 @@ class Branch {
         this.tree = tree;
         this.prefix = prefix;
         this.memoized_leaves = [];
+        console.log("#", this.array, this.terminal_leaf_count);
     }
     get permutations() {
         return this.terminal_leaves.map(leaf => leaf.val);
@@ -67,16 +68,28 @@ class Branch {
             return permutations.concat(leaf.terminal_leaves);
         }, []);
     }
+    get terminal_leaf_count() {
+        let num_leaves = this.leaves_as_strings.length;
+        if (num_leaves === 0)
+            num_leaves = 1;
+        // @ts-ignore
+        let num_sub_leaves = this.sub_branches(false).reduce((count, sub_branch) => {
+            return sub_branch.terminal_leaf_count + count;
+        }, 0);
+        if (num_sub_leaves === 0)
+            num_sub_leaves = 1;
+        return num_leaves * num_sub_leaves;
+    }
     get leaves() {
         if (this.memoized_leaves.length)
             return this.memoized_leaves;
         let leaves = this.leaves_as_strings;
         // @ts-ignore
-        if (this.sub_branches.length && !leaves.length) {
+        if (this.sub_branches().length && !leaves.length) {
             leaves = [""];
         }
         this.memoized_leaves = leaves.map((leaf) => {
-            return new Leaf(`${this.prefix}${leaf}`, this.sub_branches);
+            return new Leaf(`${this.prefix}${leaf}`, this.sub_branches());
         });
         return this.memoized_leaves;
     }
@@ -113,40 +126,35 @@ class Branch {
             return branch;
         }
     }
-    sample_branches() {
+    sample_branches(this_array_copy) {
         if (this.tree.sampling_factor === 1)
             return;
-        let branches_to_sample;
-        const sub_branches = this.array.filter(this.sub_branch_array_filter);
-        // @ts-ignore
-        const sub_sub_branches = sub_branches.reduce((count, b) => {
-            return count + b.filter(this.sub_branch_array_filter).length;
-        }, 0);
-        const sub_branches_more_than_sample_factor = sub_branches.length > this.tree.sampling_factor;
-        if (sub_sub_branches.length && sub_branches_more_than_sample_factor) {
-            branches_to_sample = Math.ceil((this.array.length / 2));
-        }
-        else {
-            branches_to_sample = Math.ceil(sub_branches.length / this.tree.sampling_factor);
-        }
+        let branches_to_sample = this.terminal_leaf_count / this.tree.sampling_factor;
+        // Round up this value only 1/sampling_factor of the time
+        const one_sampleth_of_the_time = Math.floor(Math.random() * this.tree.sampling_factor) === 0;
+        branches_to_sample = one_sampleth_of_the_time ? Math.ceil(branches_to_sample) : Math.floor(branches_to_sample);
+        if (branches_to_sample > this_array_copy.length)
+            branches_to_sample = this_array_copy.length;
         // With thanks to https://stackoverflow.com/a/19270021/393243
-        let result = new Array(branches_to_sample), len = this.array.length, taken = new Array(len);
+        let result = new Array(branches_to_sample), len = this_array_copy.length, taken = new Array(len);
         if (branches_to_sample > len)
             throw new RangeError("getRandom: more elements taken than available");
         while (branches_to_sample--) {
             var x = Math.floor(Math.random() * len);
-            result[branches_to_sample] = this.array[x in taken ? taken[x] : x];
+            result[branches_to_sample] = this_array_copy[x in taken ? taken[x] : x];
             taken[x] = --len in taken ? taken[len] : len;
         }
-        this.array = result;
+        return result;
     }
     sub_branch_array_filter(array_item) { return Array.isArray(array_item); }
-    get sub_branches() {
+    sub_branches(sample = true) {
         this.translate_branch_pointers();
-        this.sample_branches();
+        let this_array_copy = JSON.parse(JSON.stringify(this.array));
+        if (sample)
+            this_array_copy = this.sample_branches(this_array_copy);
         // Take the raw nested array and turn it into Branches.
         // @ts-ignore
-        return this.array.filter(this.sub_branch_array_filter)
+        return this_array_copy.filter(this.sub_branch_array_filter)
             // @ts-ignore
             .map(array_item => new Branch(array_item, this.tree));
     }

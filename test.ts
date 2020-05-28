@@ -350,9 +350,59 @@
             },
             expected: ["000", "000"]
         },
+
+        {
+            name: "Sampling with very small data set",
+            sampling: 10,
+            input: {
+                main: [
+                    "A", "B", ["C", "D"]
+                ]
+            },
+            expected: ["whocares"]
+        },
+
+        {
+            name: "Sampling with empty arrays in sub branches",
+            sampling: 10,
+            input: {
+                main: [
+                    "A", "B", ["C", "D", [[], []]]
+                ]
+            },
+            expected: ["notsureyet"]
+        },
+
+        {
+            name: "Small sampling factor, large data set",
+            sampling: 10,
+            input: {
+                "main": [
+                    "0", "0", [
+                        {
+                            branch: "ten_zeroes", then: {
+                                branch: "ten_zeroes", then: {
+                                    branch: "ten_zeroes", then: {
+                                        branch: "ten_zeroes", then: {
+                                            branch: "ten_zeroes", then: {
+                                                branch: "ten_zeroes", then: {
+                                                    branch: "ten_zeroes"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    ]
+                ],
+                "ten_zeroes": "0000000000".split("")
+            },
+            expected: ["idk"]
+        },
     ]
 
-    let results = [23].map(x => tests[x]).map((test, index) => {
+    let results = [24].map(x => tests[x]).map((test, index) => {
     // let results = tests.map((test, index) => {
         const prefix = `#${index}. `;
         const result = (() => {
