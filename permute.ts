@@ -47,7 +47,10 @@ class Sampler {
 
     // Traverse the raw branch array and recreate it. Skip the terminals only 1/sampling_factor of the time.
     const parse = (array : BranchArray) => {
-      if (array.constructor.name === "String") return array
+      if (array.constructor.name === "String") return array;
+      // @ts-ignore
+      if (array === false) return false;
+      console.log(array);
       const array_has_arrays = array.some(item => Array.isArray(item));
 
       if (array_has_arrays) {
@@ -142,6 +145,7 @@ class Branch {
     this.memoized_leaves = [];
     this.sampled = false;
 
+    this.translate_branch_pointers();
     this.sample_branches();
   }
 
@@ -250,13 +254,14 @@ class Branch {
   private sub_branch_array_filter(array_item) { return Array.isArray(array_item) }
 
   public get sub_branches() : Array<Branch> {
-    this.translate_branch_pointers();
-
     // Take the raw nested array and turn it into Branches.
     // @ts-ignore
     return this.array.filter(this.sub_branch_array_filter)
-      // @ts-ignore
-      .map(array_item => new Branch(array_item, this.tree));
+      .map(array_item => {
+        // @ts-ignore
+        let new_branch = new Branch(array_item, this.tree);
+        return new_branch;
+      });
   }
 }
 

@@ -28,6 +28,10 @@ class Sampler {
         const parse = (array) => {
             if (array.constructor.name === "String")
                 return array;
+            // @ts-ignore
+            if (array === false)
+                return false;
+            console.log(array);
             const array_has_arrays = array.some(item => Array.isArray(item));
             if (array_has_arrays) {
                 return array.map(item => parse(item));
@@ -101,6 +105,7 @@ class Branch {
         this.prefix = prefix;
         this.memoized_leaves = [];
         this.sampled = false;
+        this.translate_branch_pointers();
         this.sample_branches();
     }
     get permutations() {
@@ -198,12 +203,14 @@ class Branch {
     }
     sub_branch_array_filter(array_item) { return Array.isArray(array_item); }
     get sub_branches() {
-        this.translate_branch_pointers();
         // Take the raw nested array and turn it into Branches.
         // @ts-ignore
         return this.array.filter(this.sub_branch_array_filter)
+            .map(array_item => {
             // @ts-ignore
-            .map(array_item => new Branch(array_item, this.tree));
+            let new_branch = new Branch(array_item, this.tree);
+            return new_branch;
+        });
     }
 }
 module.exports = Tree;
