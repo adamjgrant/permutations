@@ -3,7 +3,10 @@
 // Each Branch is [instantiated from] an array of Leaves (Interface: BranchArray)
 // A Leaf can be one of string | Branch | BranchLink
 class Tree {
-    constructor(tree) { this.object = tree; }
+    constructor(tree, sampling_factor = 1) {
+        this.object = tree;
+        this.sampling_factor = sampling_factor;
+    }
     get main() { return this.branch("main"); }
     branch(key) {
         let branch = new Branch(this.object[key], this);

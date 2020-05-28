@@ -20,7 +20,13 @@ interface BranchArray {
 
 class Tree {
     object: object;
-    constructor(tree: object) { this.object = tree; }
+    sampling_factor: number;
+
+    constructor(tree: object, sampling_factor: number = 1) {
+      this.object = tree;
+      this.sampling_factor = sampling_factor;
+    }
+
     public get main() : Branch { return this.branch("main"); }
     public branch(key) : Branch {
       let branch = new Branch(this.object[key], this);

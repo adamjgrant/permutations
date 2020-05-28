@@ -276,7 +276,30 @@
                 "H": ["J"]
             },
             expected: ["AFJKMD"]
-        }
+        },
+        {
+            name: "A sampling factor of 10 produces only 10% of the results.",
+            input: {
+                "main": [
+                    "0", "0", [
+                        "0000000000".split("")
+                    ]
+                ]
+            },
+            expected: ["00", "00"]
+        },
+        {
+            name: "A sampling factor of 100 produces only 1% of the results.",
+            input: {
+                "main": [
+                    "0", "0", [
+                        { branch: "ten_zeroes", then: { branch: "ten_zeroes" } }
+                    ]
+                ],
+                "ten_zeroes": "0000000000".split("")
+            },
+            expected: ["000", "000"]
+        },
     ];
     // let results = [14].map(x => tests[x]).map((test, index) => {
     let results = tests.map((test, index) => {
