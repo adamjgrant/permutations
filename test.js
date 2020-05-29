@@ -351,7 +351,7 @@
         },
         {
             name: "Sampling can make a significant impact on a huge dataset",
-            sampling: 3,
+            sampling: 10,
             input: {
                 main: [
                     {

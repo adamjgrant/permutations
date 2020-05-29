@@ -59,7 +59,13 @@ class Sampler {
       } else {
         // Mark the terminal leaf as skippable (s-1)/s of the time.
         return array.map(item => {
-          return this.roll ? item : false;
+          if (this.roll) {
+            return item;
+          }
+          else {
+            this.branch.tree.terminal_leaves_removed++;
+            return false;
+          }
         });
       }
     }
@@ -72,10 +78,33 @@ class Sampler {
 class Tree {
   object: object;
   sampling_factor: number;
+  terminal_leaves_removed: number;
+  mermaid_writable: boolean;
+  mermaid_path: string;
+  fs: object;
 
   constructor(tree: object, sampling_factor: number = 1) {
     this.object = tree;
     this.sampling_factor = sampling_factor;
+    this.terminal_leaves_removed = 0;
+
+    this.mermaid_writable = false;
+    this.mermaid_path = "";
+    this.fs = {};
+  }
+
+  public write_to_mermaid_file(path: string) {
+    // TODO
+    this.mermaid_writable = true;
+    this.mermaid_path = `./mermaid/${path}.mm`;
+    this.fs = require("fs");
+    const content = "graph TD\n"
+    // @ts-ignore
+    this.fs.writeFile(path, content, (err) => {
+      if (err) throw err;
+    });
+    this.permutations;
+    this.mermaid_writable = false;
   }
 
   public get main() : Branch { return this.branch("main"); }
@@ -83,7 +112,14 @@ class Tree {
     let branch = new Branch(this.object[key], this);
     return branch;
   }
-  public get permutations() : string[] { return this.main.permutations; }
+  public get permutations() : string[] {
+    const permutations = this.main.permutations;
+    const tleaves = this.main.terminal_leaf_count;
+    const tleaves_removed = this.terminal_leaves_removed;
+    const tleaves_removed_p = tleaves_removed/tleaves * 100;
+    console.log(this.sampling_factor, tleaves, tleaves_removed, `${tleaves_removed_p}%`);
+    return permutations;
+  }
   private get longest_key() : string {
     return Object.keys(this.object).reduce((longest, key) => {
       if (key.length > longest.length) return key;
@@ -112,13 +148,6 @@ class Leaf {
 
   public get branches() : Array<Branch> {
     return this._branches.map(_branch => new Branch(_branch.array, _branch.tree, this.val, _branch.sampled));
-  }
-
-  append_branch(branch: Branch) {
-    const terminal_branch = new Branch(branch.array, branch.tree, this.val, branch.sampled);
-    // @ts-ignore
-    this._branches.push(terminal_branch);
-    // @ts-ignore
   }
 
   public get terminal_leaves() : Array<Leaf> {
@@ -182,6 +211,14 @@ class Branch {
     }
 
     this.memoized_leaves = leaves.map((leaf) => {
+      if (this.tree.mermaid_writable && this.prefix.length) {
+        const content = `    ${this.prefix} --> ${this.prefix}${leaf}\n`;
+        // @ts-ignore
+        this.tree.fs.appendFile(this.tree.mermaid_path, content, function (err) {
+          if (err) throw err;
+        });
+      }
+
       return new Leaf(`${this.prefix}${leaf}`, this.sub_branches)
     });
 
