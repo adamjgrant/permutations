@@ -28,17 +28,18 @@ class Sampler {
 
   // Returns true 1/s of the time.
   private get roll() {
-    return (Math.floor(Math.random() * this.branch.tree.sampling_factor) === 0)
+    return ( Math.floor( Math.random() * this.branch.tree.sampling_factor ) === 0 )
   }
 
   // For this branch, determine whether sampling should occur
   // as a function of the total number of terminal leaves and the items in this branch
   private get sampling_should_occur() : boolean {
-    return (this.branch.tree.sampling_factor !== 1 || !this.branch.sampled)
-    // const terminal_leaf_sampling_factor : number = this.branch.terminal_leaf_count / this.branch.tree.sampling_factor;
+    if (this.branch.tree.sampling_factor === 1 || this.branch.sampled) return false;
+    const terminal_leaf_sampling_factor : number = this.branch.terminal_leaf_count / this.branch.tree.sampling_factor;
     // const int_terminal_leaf_sampling_factor      = this.roll ? Math.floor(terminal_leaf_sampling_factor) : Math.ceil(terminal_leaf_sampling_factor);
-    // const length_of_branch                       = this.branch.array.length;
-    // return length_of_branch >= int_terminal_leaf_sampling_factor;
+    const int_terminal_leaf_sampling_factor      = Math.ceil(terminal_leaf_sampling_factor);
+    const length_of_branch                       = this.branch.array.length;
+    return length_of_branch >= int_terminal_leaf_sampling_factor;
   }
 
   public sample() {
@@ -49,6 +50,7 @@ class Sampler {
     const parse = (array : BranchArray) => {
       if (array.constructor.name === "String") return array;
       // @ts-ignore
+      // Think carefully about what this menas before you try to refactor this.
       if (array === false) return false;
       const array_has_arrays = array.some(item => Array.isArray(item));
 
@@ -62,8 +64,7 @@ class Sampler {
       }
     }
 
-    const new_array = parse(this.branch.array);
-    this.branch.array = new_array;
+    this.branch.array = parse(this.branch.array);
     this.branch.sampled = true;
   }
 }
@@ -71,23 +72,13 @@ class Sampler {
 class Tree {
   object: object;
   sampling_factor: number;
-  main_branch: Branch;
 
   constructor(tree: object, sampling_factor: number = 1) {
     this.object = tree;
     this.sampling_factor = sampling_factor;
-    this.main_branch = undefined;
   }
 
-  public get main() : Branch {
-    if (this.main_branch) return this.main_branch;
-    let main_branch = this.branch("main");
-    main_branch.translate_branch_pointers();
-    main_branch.sample_branches();
-    console.log(main_branch.array);
-    this.main_branch = main_branch;
-    return main_branch;
-  }
+  public get main() : Branch { return this.branch("main"); }
   public branch(key) : Branch {
     let branch = new Branch(this.object[key], this);
     return branch;
@@ -155,6 +146,7 @@ class Branch {
     this.sampled = sampled;
 
     this.translate_branch_pointers();
+    this.sample_branches();
   }
 
   public get permutations(): string[] {
@@ -252,24 +244,14 @@ class Branch {
     }
   }
 
-  public sample_branches() : void {
-    const sampler = new Sampler(this);
-    // This will mutate this.array for us.
-    sampler.sample();
-  }
-
-  private sub_branch_array_filter(array_item) { return Array.isArray(array_item) }
+  private sample_branches() : void { new Sampler(this).sample(); }
 
   public get sub_branches() : Array<Branch> {
     // Take the raw nested array and turn it into Branches.
     // @ts-ignore
-    return this.array.filter(this.sub_branch_array_filter)
-      .map(array_item => {
-        // @ts-ignore
-        let new_branch = new Branch(array_item, this.tree);
-        new_branch.sampled = this.sampled;
-        return new_branch;
-      });
+    return this.array.filter(item => Array.isArray(item))
+      // @ts-ignore
+      .map(array_item => new Branch(array_item, this.tree, undefined, this.sampled));
   }
 }
 

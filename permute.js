@@ -13,11 +13,13 @@ class Sampler {
     // For this branch, determine whether sampling should occur
     // as a function of the total number of terminal leaves and the items in this branch
     get sampling_should_occur() {
-        return (this.branch.tree.sampling_factor !== 1 || !this.branch.sampled);
-        // const terminal_leaf_sampling_factor : number = this.branch.terminal_leaf_count / this.branch.tree.sampling_factor;
+        if (this.branch.tree.sampling_factor === 1 || this.branch.sampled)
+            return false;
+        const terminal_leaf_sampling_factor = this.branch.terminal_leaf_count / this.branch.tree.sampling_factor;
         // const int_terminal_leaf_sampling_factor      = this.roll ? Math.floor(terminal_leaf_sampling_factor) : Math.ceil(terminal_leaf_sampling_factor);
-        // const length_of_branch                       = this.branch.array.length;
-        // return length_of_branch >= int_terminal_leaf_sampling_factor;
+        const int_terminal_leaf_sampling_factor = Math.ceil(terminal_leaf_sampling_factor);
+        const length_of_branch = this.branch.array.length;
+        return length_of_branch >= int_terminal_leaf_sampling_factor;
     }
     sample() {
         // If sampling should occur, Perform that sampling removal on this branch's array
@@ -28,6 +30,7 @@ class Sampler {
             if (array.constructor.name === "String")
                 return array;
             // @ts-ignore
+            // Think carefully about what this menas before you try to refactor this.
             if (array === false)
                 return false;
             const array_has_arrays = array.some(item => Array.isArray(item));
@@ -41,8 +44,7 @@ class Sampler {
                 });
             }
         };
-        const new_array = parse(this.branch.array);
-        this.branch.array = new_array;
+        this.branch.array = parse(this.branch.array);
         this.branch.sampled = true;
     }
 }
@@ -50,18 +52,8 @@ class Tree {
     constructor(tree, sampling_factor = 1) {
         this.object = tree;
         this.sampling_factor = sampling_factor;
-        this.main_branch = undefined;
     }
-    get main() {
-        if (this.main_branch)
-            return this.main_branch;
-        let main_branch = this.branch("main");
-        main_branch.translate_branch_pointers();
-        main_branch.sample_branches();
-        console.log(main_branch.array);
-        this.main_branch = main_branch;
-        return main_branch;
-    }
+    get main() { return this.branch("main"); }
     branch(key) {
         let branch = new Branch(this.object[key], this);
         return branch;
@@ -116,6 +108,7 @@ class Branch {
         this.memoized_leaves = [];
         this.sampled = sampled;
         this.translate_branch_pointers();
+        this.sample_branches();
     }
     get permutations() {
         return this.terminal_leaves.map(leaf => leaf.val);
@@ -205,22 +198,13 @@ class Branch {
             return branch;
         }
     }
-    sample_branches() {
-        const sampler = new Sampler(this);
-        // This will mutate this.array for us.
-        sampler.sample();
-    }
-    sub_branch_array_filter(array_item) { return Array.isArray(array_item); }
+    sample_branches() { new Sampler(this).sample(); }
     get sub_branches() {
         // Take the raw nested array and turn it into Branches.
         // @ts-ignore
-        return this.array.filter(this.sub_branch_array_filter)
-            .map(array_item => {
+        return this.array.filter(item => Array.isArray(item))
             // @ts-ignore
-            let new_branch = new Branch(array_item, this.tree);
-            new_branch.sampled = this.sampled;
-            return new_branch;
-        });
+            .map(array_item => new Branch(array_item, this.tree, undefined, this.sampled));
     }
 }
 module.exports = Tree;
