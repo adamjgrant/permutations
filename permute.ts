@@ -94,17 +94,16 @@ class Tree {
   }
 
   public write_to_mermaid_file(path: string) {
-    // TODO
     this.mermaid_writable = true;
     this.mermaid_path = `./mermaid/${path}.mm`;
     this.fs = require("fs");
     const content = "graph TD\n"
     // @ts-ignore
-    this.fs.writeFile(path, content, (err) => {
+    this.fs.writeFile(this.mermaid_path, content, (err) => {
       if (err) throw err;
+      // this.permutations;
+      // this.mermaid_writable = false;
     });
-    this.permutations;
-    this.mermaid_writable = false;
   }
 
   public get main() : Branch { return this.branch("main"); }
