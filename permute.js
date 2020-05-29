@@ -13,32 +13,19 @@ class Sampler {
     // For this branch, determine whether sampling should occur
     // as a function of the total number of terminal leaves and the items in this branch
     get sampling_should_occur() {
-        if (this.branch.tree.sampling_factor === 1 || this.branch.sampled)
-            return false;
-        const terminal_leaf_sampling_factor = this.branch.terminal_leaf_count / this.branch.tree.sampling_factor;
-        // const int_terminal_leaf_sampling_factor      = this.roll ? Math.floor(terminal_leaf_sampling_factor) : Math.ceil(terminal_leaf_sampling_factor);
-        const int_terminal_leaf_sampling_factor = Math.ceil(terminal_leaf_sampling_factor);
-        const length_of_branch = this.branch.array.length;
-        return length_of_branch >= int_terminal_leaf_sampling_factor;
+        return (this.branch.tree.sampling_factor !== 1);
     }
     sample() {
-        // If sampling should occur, Perform that sampling removal on this branch's array
         if (!this.sampling_should_occur)
             return;
-        // Traverse the raw branch array and recreate it. Skip the terminals only 1/sampling_factor of the time.
-        const parse = (array) => {
+        const mark_sampled_terminal_leaves = (array) => {
             if (array.constructor.name === "String")
                 return array;
-            // @ts-ignore
-            // Think carefully about what this menas before you try to refactor this.
-            if (array === false)
-                return false;
             const array_has_arrays = array.some(item => Array.isArray(item));
             if (array_has_arrays) {
-                return array.map(item => parse(item));
+                return array.map(item => mark_sampled_terminal_leaves(item));
             }
             else {
-                // Mark the terminal leaf as skippable (s-1)/s of the time.
                 return array.map(item => {
                     if (this.roll) {
                         return item;
@@ -50,8 +37,9 @@ class Sampler {
                 });
             }
         };
-        this.branch.array = parse(this.branch.array);
-        this.branch.sampled = true;
+        const array = JSON.parse(JSON.stringify(this.branch.array));
+        this.branch.shadow_array = mark_sampled_terminal_leaves(array);
+        console.log(this.branch.shadow_array);
     }
 }
 class Tree {
@@ -72,8 +60,8 @@ class Tree {
         this.fs.writeFile(this.mermaid_path, content, (err) => {
             if (err)
                 throw err;
-            // this.permutations;
-            // this.mermaid_writable = false;
+            this.permutations;
+            this.mermaid_writable = false;
         });
     }
     get main() { return this.branch("main"); }
@@ -82,12 +70,7 @@ class Tree {
         return branch;
     }
     get permutations() {
-        const permutations = this.main.permutations;
-        const tleaves = this.main.terminal_leaf_count;
-        const tleaves_removed = this.terminal_leaves_removed;
-        const tleaves_removed_p = tleaves_removed / tleaves * 100;
-        console.log(this.sampling_factor, tleaves, tleaves_removed, `${tleaves_removed_p}%`);
-        return permutations;
+        return this.main.permutations;
     }
     get longest_key() {
         return Object.keys(this.object).reduce((longest, key) => {
@@ -111,7 +94,7 @@ class Leaf {
         this._branches = _branches;
     }
     get branches() {
-        return this._branches.map(_branch => new Branch(_branch.array, _branch.tree, this.val, _branch.sampled));
+        return this._branches.map(_branch => new Branch(_branch.array, _branch.tree, this.val));
     }
     get terminal_leaves() {
         if (!this.branches.length)
@@ -125,12 +108,12 @@ class Leaf {
     }
 }
 class Branch {
-    constructor(branch, tree, prefix = "", sampled = false) {
+    constructor(branch, tree, prefix = "") {
         this.array = branch;
+        this.shadow_array = [];
         this.tree = tree;
         this.prefix = prefix;
         this.memoized_leaves = [];
-        this.sampled = sampled;
         this.translate_branch_pointers();
         this.sample_branches();
     }
@@ -236,7 +219,7 @@ class Branch {
         // @ts-ignore
         return this.array.filter(item => Array.isArray(item))
             // @ts-ignore
-            .map(array_item => new Branch(array_item, this.tree, undefined, this.sampled));
+            .map(array_item => new Branch(array_item, this.tree, undefined));
     }
 }
 module.exports = Tree;

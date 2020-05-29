@@ -4,11 +4,13 @@ const obj = {
     "A", [
       "B", "C", [
         "D", "E", [
-          "F", "G"
+          "F", "G", [
+            "H", "I"
+          ]
         ]
       ]
     ]
   ]
 }
-const tree = new Tree(obj, 2);
+const tree = new Tree(obj, 3);
 tree.write_to_mermaid_file('test');
