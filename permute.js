@@ -39,7 +39,6 @@ class Sampler {
         };
         const array = JSON.parse(JSON.stringify(this.branch.array));
         this.branch.shadow_array = mark_sampled_terminal_leaves(array);
-        console.log(this.branch.shadow_array);
     }
 }
 class Tree {
@@ -164,7 +163,6 @@ class Branch {
         return this.array.filter(array_item => array_item.constructor.name === "String");
     }
     // Does this branch have leaves but they are all replaced with "false" markers?
-    // TODO: Sampling may be called after we get to this step
     get is_vilomah() {
         let terminal_values = [];
         const parse = (array) => {
@@ -180,7 +178,7 @@ class Branch {
                 return terminal_values = terminal_values.concat(array);
             }
         };
-        parse(this.array);
+        parse(this.shadow_array);
         return terminal_values.every(val => val === false);
     }
     translate_branch_pointers() {

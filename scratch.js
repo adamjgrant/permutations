@@ -13,4 +13,5 @@ const obj = {
   ]
 }
 const tree = new Tree(obj, 3);
-tree.write_to_mermaid_file('test');
+// tree.write_to_mermaid_file('test');
+console.log(tree.permutations);
