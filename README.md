@@ -122,3 +122,9 @@ AFDORGJKN
 BFDPRGJLN
 BFDOQGJLN
 ~~~
+
+# Electron
+
+To test out the electron app, run `npm start`
+To build an electron app run `npm run make`
+You can find the executable in the out folder. `open out`

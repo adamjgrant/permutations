@@ -1,0 +1,77 @@
+:root {
+  --output_actions_height: 50px;
+}
+
+body {
+  padding: 0;
+  margin: 0;
+  height: 100vh;
+  max-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+* { box-sizing: border-box; }
+
+.CodeMirror {
+  height: 60vh;
+  max-height: 60vh;
+}
+
+.output_pane {
+  height: 40vh;
+  max-height: 40vh;
+  border-top: 1px solid #EEE;
+  overflow: auto;
+  font-family: 'Nunito', sans-serif;
+  display: flex;
+  flex-direction: column;
+}
+
+.output_pane main {
+  padding: 25px;
+  width: 100vw;
+  height: calc(100% - var(--output_actions_height));
+  max-height: calc(100% - var(--output_actions_height));
+  overflow: auto;
+}
+
+.output_pane aside {
+  height: var(--output_actions_height);
+}
+
+.output_pane aside button {
+  width: 100%;
+  height: var(--output_actions_height);
+  border: 0;
+  background: lightskyblue;
+  border-radius: 0;
+  color: white;
+  cursor: pointer;
+}
+
+@media screen and (min-width: 800px) {
+  :root {
+    --output-size: 350px;
+  }
+
+  body {
+    flex-direction: row;
+  }
+
+  .CodeMirror {
+    height: 100vh;
+    width: calc(100vw - var(--output-size));
+  }
+
+  .output_pane {
+    height: 100vh;
+    max-height: none;
+    width: 100vw;
+    border-top: 0;
+    border-left: 1px solid #EEE;
+  }
+}
+
+
