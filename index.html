@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <base href="./">
     <meta charset="UTF-8">
     <title>Permutation Generator</title>
     <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline';" />
@@ -11,13 +12,22 @@
     <script src="node_modules/codemirror/addon/comment/continuecomment.js"></script>
     <script src="node_modules/codemirror/addon/comment/comment.js"></script>
     <script src="node_modules/codemirror/mode/javascript/javascript.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="electron/style.css">
 </head>
 <body>
 <div><textarea id="code" name="code">
-{}
+{
+    "main": []
+}
 </textarea></div>
-<main id="output"></main>
+<div class="output_pane">
+  <main id="output"></main>
+  <aside id="actions">
+      <button id="random">📋 Random</button>
+  </aside>
+</div>
+<script src="electron/debounce.js"></script>
 <script src="electron/script.js"></script>
 </body>
 </html>
