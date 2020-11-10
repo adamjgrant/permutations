@@ -1,5 +1,7 @@
 :root {
   --output_actions_height: 50px;
+  --blue: rgb(74, 162, 255);
+  --solarized: #002b36;
 }
 
 body {
@@ -10,6 +12,7 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  background: var(--solarized);
 }
 
 * { box-sizing: border-box; }
@@ -32,28 +35,63 @@ body {
 .output_pane main {
   padding: 25px;
   width: 100vw;
+  max-width: 100%;
   height: calc(100% - var(--output_actions_height));
   max-height: calc(100% - var(--output_actions_height));
   overflow: auto;
+}
+
+.output_pane ol li {
+  margin-bottom: 10px;
 }
 
 .output_pane aside {
   height: var(--output_actions_height);
 }
 
-.output_pane aside button {
+.output_pane aside ul {
   width: 100%;
-  height: var(--output_actions_height);
-  border: 0;
-  background: lightskyblue;
-  border-radius: 0;
+  list-style: none;
+  padding: 0;
+  display: flex;
+  justify-content: space-around;
+}
+
+.output_pane aside ul a {
+  text-decoration: none;
+  opacity: 0.8;
+}
+
+.output_pane aside ul a:hover {
+  opacity: 1;
+}
+
+.output_pane aside ul a#random {
+  background: var(--blue);
+  padding: 5px 10px;
   color: white;
-  cursor: pointer;
+  border-radius: 5px;
+}
+
+.flash { display: none; }
+.flash.show {
+  display: block; 
+  background: var(--blue);
+  color: white;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 400px;
+  margin-left: -200px;
+  z-index: 10;
+  padding: 15px;
+  border-radius: 5px;
+  font-family: Nunito;
 }
 
 @media screen and (min-width: 800px) {
   :root {
-    --output-size: 350px;
+    --output-size: 33vw;
   }
 
   body {
@@ -63,6 +101,7 @@ body {
   .CodeMirror {
     height: 100vh;
     width: calc(100vw - var(--output-size));
+    max-height: none;
   }
 
   .output_pane {
@@ -71,6 +110,8 @@ body {
     width: 100vw;
     border-top: 0;
     border-left: 1px solid #EEE;
+    border-top-left-radius: 15px;
+    background: white;
   }
 }
 

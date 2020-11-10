@@ -1,16 +1,61 @@
+const default_text = `{
+    "main": [
+      "Hey there", "Well hello", "Greetings", [
+        ". ", [
+          "Permy.link", "This permutation generator", [
+            " ", [
+              "lets you make many \\"permutations\\" of a line of text using specified variations.", {
+                "branch": "keep reading"
+              }
+            ]
+          ]
+        ]
+      ]
+    ],
+    "keep reading": [
+      " ", [
+        "Permy has some neat advanced features for keeping your configuration", { "branch": "tidy", "then":  ["too. ", { "branch": "about branches" }] }
+      ]
+    ],
+    "tidy": [" ", ["tidy", "organized", "neat and streamlined", [" "]]],
+    "about branches": [
+      "You can create branches", "Branches can be created", { "branch": "why do you create branches?" }
+    ],
+    "why do you create branches?": [
+      " which let you converge separate paths or just create named shortcuts. ", [
+        "Learn more", "Read on", [
+          " about", [
+            " permy.link by clicking on the docs link below.", {
+              "branch": "smiley"
+            }
+          ]
+        ]
+      ]
+    ],
+    "smiley": ["🤓", "😁", "😀"]
+}`;
+
 const editor = CodeMirror.fromTextArea(document.getElementById("code"), {
   matchBrackets: true,
   autoCloseBrackets: true,
   mode: "application/ld+json",
-  lineWrapping: true
+  lineWrapping: true,
+  lineNumbers: true,
+  theme: "solarized dark"
 });
 const output_element = document.getElementById("output");
-const Permute = require("./permute");
+const Permute = module.exports;
 let last_permutation;
+
+// Set initial load
+const previous_code = localStorage.getObject("code")
+if (previous_code) editor.setValue(previous_code);
+// End set initial load
 
 editor.on("change", (instance, changeObj) => {
   setOutput("Permuting...");
   debounce(permute, "editor", 2000);
+  debounce(persist, "persistence", 2000);
 });
 
 const permute = () => {
@@ -20,7 +65,7 @@ const permute = () => {
     const tree  = new Permute(JSON.parse(editor.getValue()));
     let results = [];
     tree.permutations.forEach(permutation => results.push(permutation));
-    output = results.join("<br>");
+    output = results.map(result => `<li>${result}</li>`).join("");
     last_permutation = results;
     setOutput(output);
   } catch(e) {
@@ -28,11 +73,49 @@ const permute = () => {
   }
 }
 
+const persist = () => {
+  localStorage.setObject("code", editor.getValue());
+}
+
 const random_action_element = document.getElementById("random");
+
 random_action_element.addEventListener("click", () => {
   if (!last_permutation) { return alert("Please generate a permutation first"); }
   const random_selection = (last_permutation[~~(last_permutation.length * Math.random())]);
+  show_flash(`Copied to clipboard: "${random_selection}"`);
   return navigator.clipboard.writeText(random_selection);
 });
 
+const flash_element = document.getElementById("flash");
+let flash_timeout;
+const show_flash = (text) => { 
+  window.clearTimeout(flash_timeout);
+  flash_element.innerHTML = text;
+  flash_element.classList.add("show");
+  flash_timeout = window.setTimeout(() => { 
+    flash_element.classList.remove("show");
+  }, 2000);
+}
+
 const setOutput = (text) => output_element.innerHTML = text;
+
+const clear_button = document.getElementById("clear");
+clear_button.addEventListener("click", () => {
+  if (confirm("You will lose anything you've entered, are you sure?")) {
+    editor.setValue(`{ 
+  "main": [] 
+}
+    `);
+  }
+});
+
+const default_button = document.getElementById("default");
+const set_default_text = () => { editor.setValue(default_text); }
+default_button.addEventListener("click", () => {
+  if (confirm("You will lose anything you've entered, are you sure?")) {
+    set_default_text();
+  }
+});
+
+permute();
+set_default_text();
