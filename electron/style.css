@@ -1,5 +1,5 @@
 :root {
-  --output_actions_height: 50px;
+  --output_actions_height: 100px;
   --blue: rgb(74, 162, 255);
   --solarized: #002b36;
 }
@@ -35,8 +35,8 @@
   padding: 25px;
   width: 100vw;
   max-width: 100%;
-  height: calc(100% - var(--output_actions_height));
-  max-height: calc(100% - var(--output_actions_height));
+  padding-bottom: var(--output_actions_height);
+  height: var(--100vvh, 100vh);
   overflow: auto;
 }
 
@@ -44,21 +44,48 @@
   margin-bottom: 10px;
 }
 
-.output_pane aside {
+.output_pane .actions {
   height: var(--output_actions_height);
+  position: fixed;
+  background: var(--solarized);
+  bottom: var(--offset-h);
+  left: 0;
+  right: 0;
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
 }
 
-.output_pane aside ul {
+.output_pane .actions ul {
   width: 100%;
   list-style: none;
-  padding: 0;
   display: flex;
-  justify-content: space-around;
+  justify-content: space-between;
+  padding: 0;
+  margin: 0
+}
+
+.output_pane .actions ul li {
+  width: 100%;
+}
+
+.output_pane .actions ul + ul {
+  margin-top: 25px;
+}
+
+.output_pane .actions ul input[type="text"] {
+  width: 100%;
+  border: 0;
+  outline: 0;
+  border-bottom: 1px solid #CCC;
+  background: transparent;
+  color: white;
 }
 
 .output_pane aside ul a {
   text-decoration: none;
   opacity: 0.8;
+  color: white;
 }
 
 .output_pane aside ul a:hover {
@@ -92,6 +119,7 @@
 @media screen and (min-width: 800px) {
   :root {
     --output-size: 33vw;
+    --output_actions_height: 50px;
   }
 
   #viewport {
@@ -99,7 +127,7 @@
   }
 
   .CodeMirror {
-    height: 100vh;
+    height: calc(var(--100vvh, 100vh) - var(--output_actions_height));
     width: calc(100vw - var(--output-size));
     max-height: none;
   }
@@ -111,6 +139,21 @@
     border-top: 0;
     border-left: 1px solid #EEE;
     border-top-left-radius: 15px;
+  }
+
+  .output_pane .actions {
+    flex-direction: row;
+  }
+
+  .output_pane .actions ul + ul {
+    margin: 0;
+    margin-left: 100px;
+    justify-content: flex-end;
+  }
+
+  .output_pane .actions ul + ul li {
+    width: auto;
+    margin: 0 15px;
   }
 
   .flash.show {

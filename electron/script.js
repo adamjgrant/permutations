@@ -117,5 +117,9 @@ default_button.addEventListener("click", () => {
   }
 });
 
+const gist_url_element = document.getElementById("gist_url");
+// TODO: XSS Protection!
+gist_url_element.addEventListener("change", get_remote_code);
+
 permute();
 set_default_text();
