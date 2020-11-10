@@ -16,7 +16,7 @@
     <link rel="stylesheet" href="electron/style.css">
 </head>
 <body>
-<div class="flash"></div>
+<div class="flash" id="flash"></div>
 <div><textarea id="code" name="code">
 {
     "main": [
@@ -41,6 +41,9 @@ Never gonna tell a lie and hurt you</main>
   </aside>
 </div>
 <script src="electron/debounce.js"></script>
+<script>let module = { exports: undefined }</script>
+<script src="permute.js"></script>
+<script src="simper.js"></script>
 <script src="electron/script.js"></script>
 </body>
 </html>
