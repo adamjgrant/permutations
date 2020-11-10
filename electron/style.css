@@ -70,14 +70,14 @@ body {
 .flash { display: none; }
 .flash.show {
   display: block; 
-  background: var(--blue_translucent);
+  background: var(--blue);
   color: white;
   position: absolute;
   top: 50%;
   left: 50%;
   width: 400px;
   margin-left: -200px;
-  z-index: 1;
+  z-index: 10;
   padding: 15px;
   border-radius: 5px;
   font-family: Nunito;
@@ -85,7 +85,7 @@ body {
 
 @media screen and (min-width: 800px) {
   :root {
-    --output-size: 350px;
+    --output-size: 33vw;
   }
 
   body {
