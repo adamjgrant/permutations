@@ -110,10 +110,12 @@ clear_button.addEventListener("click", () => {
 });
 
 const default_button = document.getElementById("default");
+const set_default_text = () => { editor.setValue(default_text); }
 default_button.addEventListener("click", () => {
   if (confirm("You will lose anything you've entered, are you sure?")) {
-    editor.setValue(default_text);
+    set_default_text();
   }
 });
 
 permute();
+set_default_text();
