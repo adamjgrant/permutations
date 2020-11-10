@@ -2,7 +2,9 @@ const editor = CodeMirror.fromTextArea(document.getElementById("code"), {
   matchBrackets: true,
   autoCloseBrackets: true,
   mode: "application/ld+json",
-  lineWrapping: true
+  lineWrapping: true,
+  lineNumbers: true,
+  theme: "solarized dark"
 });
 const output_element = document.getElementById("output");
 const Permute = module.exports;
@@ -26,7 +28,7 @@ const permute = () => {
     const tree  = new Permute(JSON.parse(editor.getValue()));
     let results = [];
     tree.permutations.forEach(permutation => results.push(permutation));
-    output = results.join("<br>");
+    output = results.map(result => `<li>${result}</li>`).join("");
     last_permutation = results;
     setOutput(output);
   } catch(e) {
@@ -55,7 +57,7 @@ const show_flash = (text) => {
   flash_element.classList.add("show");
   flash_timeout = window.setTimeout(() => { 
     flash_element.classList.remove("show");
-  }, 1000);
+  }, 2000);
 }
 
 const setOutput = (text) => output_element.innerHTML = text;

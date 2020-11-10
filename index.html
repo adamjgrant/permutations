@@ -4,10 +4,12 @@
     <base href="./">
     <meta charset=“UTF-8”>
     <meta name=“viewport” content=“width=device-width, initial-scale=1.0”>
-    <meta http-equiv=“X-UA-Compatible” content=“ie=edge”><title>Permutation Generator</title>
+    <meta http-equiv=“X-UA-Compatible” content=“ie=edge”>
+    <title>Permutation Generator</title>
     <link rel="stylesheet" href="node_modules/normalize.css/normalize.css">
     <script src="node_modules/codemirror/lib/codemirror.js"></script>
     <link rel="stylesheet" href="node_modules/codemirror/lib/codemirror.css">
+    <link rel="stylesheet" href="node_modules/codemirror/theme/solarized.css">
     <script src="node_modules/codemirror/addon/edit/matchbrackets.js"></script>
     <script src="node_modules/codemirror/addon/comment/continuecomment.js"></script>
     <script src="node_modules/codemirror/addon/comment/comment.js"></script>
@@ -27,12 +29,9 @@
 }
 </textarea></div>
 <div class="output_pane">
-  <main id="output">Never gonna give you up<br>
-Never gonna let you down<br>
-Never gonna run around and desert you<br>
-Never gonna make you cry<br>
-Never gonna say goodbye<br>
-Never gonna tell a lie and hurt you</main>
+  <main>
+    <ol id="output"></ol>
+  </main>
   <aside id="actions" class="actions">
     <ul>
       <li><a target="_blank" href="https://github.com/adamjgrant/permutations/wiki/Quick-Start">Docs</a></li>
