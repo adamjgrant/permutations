@@ -8,9 +8,15 @@ const output_element = document.getElementById("output");
 const Permute = module.exports;
 let last_permutation;
 
+// Set initial load
+const previous_code = localStorage.getObject("code")
+if (previous_code) editor.setValue(previous_code);
+// End set initial load
+
 editor.on("change", (instance, changeObj) => {
   setOutput("Permuting...");
   debounce(permute, "editor", 2000);
+  debounce(persist, "persistence", 2000);
 });
 
 const permute = () => {
@@ -26,6 +32,10 @@ const permute = () => {
   } catch(e) {
     setOutput(`${output}: ${e}`)
   }
+}
+
+const persist = () => {
+  localStorage.setObject("code", editor.getValue());
 }
 
 const random_action_element = document.getElementById("random");

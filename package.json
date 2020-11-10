@@ -10,8 +10,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "install": "^0.13.0",
-    "requirejs": "^2.3.6"
+    "install": "^0.13.0"
   },
   "devDependencies": {
     "@types/node": "^14.14.6",
