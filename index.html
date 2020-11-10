@@ -16,6 +16,7 @@
     <link rel="stylesheet" href="electron/style.css">
 </head>
 <body>
+<div class="flash"></div>
 <div><textarea id="code" name="code">
 {
     "main": [
@@ -32,8 +33,11 @@ Never gonna run around and desert you<br>
 Never gonna make you cry<br>
 Never gonna say goodbye<br>
 Never gonna tell a lie and hurt you</main>
-  <aside id="actions">
-      <button id="random">📋 Random</button>
+  <aside id="actions" class="actions">
+    <ul>
+      <li><a target="_blank" href="https://github.com/adamjgrant/permutations">Docs</a></li>
+      <li><a id="random" href="#">📋 Random</a></li>
+    </ul>
   </aside>
 </div>
 <script src="electron/debounce.js"></script>

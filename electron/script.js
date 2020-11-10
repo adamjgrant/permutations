@@ -36,3 +36,5 @@ random_action_element.addEventListener("click", () => {
 });
 
 const setOutput = (text) => output_element.innerHTML = text;
+
+permute();
