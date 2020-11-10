@@ -22,10 +22,39 @@
 <div><textarea id="code" name="code">
 {
     "main": [
-      "Never gonna ", [
-        "give you up", "let you down", "run around and desert you", "make you cry", "say goodbye", "tell a lie and hurt you"
+      "Hey there", "Well hello", "Greetings", [
+        ". ", [
+          "Permy.link", "This permutation generator", [
+            " ", [
+              "lets you make many \"permutations\" of a line of text using specified variations.", {
+                "branch": "keep reading"
+              }
+            ]
+          ]
+        ]
       ]
-    ]
+    ],
+    "keep reading": [
+      " ", [
+        "Permy has some neat advanced features for keeping your configuration", { "branch": "tidy", "then":  ["too. ", { "branch": "about branches" }] }
+      ]
+    ],
+    "tidy": [" ", ["tidy", "organized", "neat and streamlined", [" "]]],
+    "about branches": [
+      "You can create branches", "Branches can be created", { "branch": "why do you create branches?" }
+    ],
+    "why do you create branches?": [
+      " which let you converge separate paths or just create named shortcuts. ", [
+        "Learn more", "Read on", [
+          " about", [
+            " permy.link by clicking on the docs link below.", {
+              "branch": "smiley"
+            }
+          ]
+        ]
+      ]
+    ],
+    "smiley": ["😀", "😁", "🤓"]
 }
 </textarea></div>
 <div class="output_pane">
@@ -35,6 +64,8 @@
   <aside id="actions" class="actions">
     <ul>
       <li><a target="_blank" href="https://github.com/adamjgrant/permutations/wiki/Quick-Start">Docs</a></li>
+      <li><a href="#" id="clear">Clear</a></li>
+      <li><a href="#" id="default">Default</a></li>
       <li><a id="random" href="#">📋 Random</a></li>
     </ul>
   </aside>

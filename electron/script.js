@@ -1,3 +1,40 @@
+const default_text = `{
+    "main": [
+      "Hey there", "Well hello", "Greetings", [
+        ". ", [
+          "Permy.link", "This permutation generator", [
+            " ", [
+              "lets you make many \\"permutations\\" of a line of text using specified variations.", {
+                "branch": "keep reading"
+              }
+            ]
+          ]
+        ]
+      ]
+    ],
+    "keep reading": [
+      " ", [
+        "Permy has some neat advanced features for keeping your configuration", { "branch": "tidy", "then":  ["too. ", { "branch": "about branches" }] }
+      ]
+    ],
+    "tidy": [" ", ["tidy", "organized", "neat and streamlined", [" "]]],
+    "about branches": [
+      "You can create branches", "Branches can be created", { "branch": "why do you create branches?" }
+    ],
+    "why do you create branches?": [
+      " which let you converge separate paths or just create named shortcuts. ", [
+        "Learn more", "Read on", [
+          " about", [
+            " permy.link by clicking on the docs link below.", {
+              "branch": "smiley"
+            }
+          ]
+        ]
+      ]
+    ],
+    "smiley": ["🤓", "😁", "😀"]
+}`;
+
 const editor = CodeMirror.fromTextArea(document.getElementById("code"), {
   matchBrackets: true,
   autoCloseBrackets: true,
@@ -61,5 +98,22 @@ const show_flash = (text) => {
 }
 
 const setOutput = (text) => output_element.innerHTML = text;
+
+const clear_button = document.getElementById("clear");
+clear_button.addEventListener("click", () => {
+  if (confirm("You will lose anything you've entered, are you sure?")) {
+    editor.setValue(`{ 
+  "main": [] 
+}
+    `);
+  }
+});
+
+const default_button = document.getElementById("default");
+default_button.addEventListener("click", () => {
+  if (confirm("You will lose anything you've entered, are you sure?")) {
+    editor.setValue(default_text);
+  }
+});
 
 permute();
