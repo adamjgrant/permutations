@@ -14,20 +14,24 @@
     <script src="node_modules/codemirror/mode/javascript/javascript.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Nunito&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="electron/style.css">
+    <link rel="stylesheet" href="electron/viewport-fix.css">
 </head>
 <body>
-<div><textarea id="code" name="code">
-{
+<div id="viewport">
+    <div><textarea id="code" name="code">{
     "main": []
 }
-</textarea></div>
-<div class="output_pane">
-  <main id="output"></main>
-  <aside id="actions">
-      <button id="random">📋 Random</button>
-  </aside>
+    </textarea></div>
+    <div class="output_pane">
+      <main id="output"></main>
+      <aside id="actions">
+          <button id="random">📋 Random</button>
+      </aside>
+    </div>
 </div>
 <script src="electron/debounce.js"></script>
 <script src="electron/script.js"></script>
+<script src="electron/viewport-fix.js"></script>
+<script>new VVP()</script>
 </body>
 </html>
