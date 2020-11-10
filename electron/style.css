@@ -4,11 +4,9 @@
   --solarized: #002b36;
 }
 
-body {
+#viewport {
   padding: 0;
   margin: 0;
-  height: 100vh;
-  max-height: 100vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -30,6 +28,7 @@ body {
   font-family: 'Nunito', sans-serif;
   display: flex;
   flex-direction: column;
+  background: white;
 }
 
 .output_pane main {
@@ -81,8 +80,9 @@ body {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 400px;
-  margin-left: -200px;
+  width: 95vw;
+  margin-left: calc(95vw/-2);
+  margin-top: -50px;
   z-index: 10;
   padding: 15px;
   border-radius: 5px;
@@ -94,7 +94,7 @@ body {
     --output-size: 33vw;
   }
 
-  body {
+  #viewport {
     flex-direction: row;
   }
 
@@ -111,7 +111,11 @@ body {
     border-top: 0;
     border-left: 1px solid #EEE;
     border-top-left-radius: 15px;
-    background: white;
+  }
+
+  .flash.show {
+    margin-left: -200px;
+    width: 400px;
   }
 }
 
