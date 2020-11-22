@@ -46,6 +46,8 @@
 
 .output_pane ol li {
   margin-bottom: 10px;
+  white-space: pre-line;
+  white-space: break-spaces;
 }
 
 .output_pane .actions {
@@ -105,6 +107,8 @@
 
 .flash { display: none; }
 .flash.show {
+  white-space: pre-line;
+  white-space: break-spaces;
   display: block; 
   background: var(--blue);
   color: white;
