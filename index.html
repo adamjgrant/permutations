@@ -15,8 +15,8 @@
     <script src="node_modules/codemirror/addon/comment/comment.js"></script>
     <script src="node_modules/codemirror/mode/javascript/javascript.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Nunito&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="electron/style.css">
-    <link rel="stylesheet" href="electron/viewport-fix.css">
+    <link rel="stylesheet" href="permy.link/style.css">
+    <link rel="stylesheet" href="permy.link/viewport-fix.css">
 </head>
 <body>
 <div id="viewport">
@@ -24,27 +24,26 @@
     <div><textarea id="code" name="code"></textarea></div>
     <div class="output_pane">
       <main>
+        <h1>Example permutations</h1>
         <ol id="output"></ol>
       </main>
       <aside id="actions" class="actions">
         <ul>
-          <li><input id="gist_url" type="text" placeholder="github raw gist URL"></li>
-        </ul>
-        <ul>
           <li><a target="_blank" href="https://github.com/adamjgrant/permutations/wiki/Quick-Start">Docs</a></li>
           <li><a href="#" id="clear">Clear</a></li>
           <li><a href="#" id="default">Default</a></li>
+          <li><a id="regenerate" href="#">Regenerate</a></li>
           <li><a id="random" href="#">📋 Random</a></li>
         </ul>
       </aside>
     </div>
 </div>
-<script src="electron/debounce.js"></script>
+<script src="permy.link/debounce.js"></script>
 <script>let module = { exports: undefined }</script>
-<script src="permute.js"></script>
+<script src="permute.min.js"></script>
 <script src="simper.js"></script>
-<script src="electron/script.js"></script>
-<script src="electron/viewport-fix.js"></script>
+<script src="permy.link/script.js"></script>
+<script src="permy.link/viewport-fix.js"></script>
 <script>new VVP()</script>
 </body>
 </html>

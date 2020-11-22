@@ -40,6 +40,10 @@
   overflow: auto;
 }
 
+.output_pane main h1 {
+  font-size: 1.2rem;
+}
+
 .output_pane ol li {
   margin-bottom: 10px;
 }
