@@ -54,17 +54,16 @@ if (previous_code) editor.setValue(previous_code);
 
 editor.on("change", (instance, changeObj) => {
   setOutput("Permuting...");
-  debounce(permute, "editor", 2000);
-  debounce(persist, "persistence", 2000);
+  debounce(permute, "editor", 500);
+  debounce(persist, "persistence", 500);
 });
 
 const permute = () => {
   let output = "Error parsing JSON";
 
   try {
-    const tree  = new Permute(JSON.parse(editor.getValue()));
     let results = [];
-    tree.permutations.forEach(permutation => results.push(permutation));
+    while(results.length < 5) { results.push(random_permutation()); }
     output = results.map(result => `<li>${result}</li>`).join("");
     last_permutation = results;
     setOutput(output);
@@ -73,18 +72,26 @@ const permute = () => {
   }
 }
 
+const random_permutation = () => {
+  const tree  = new Permute(JSON.parse(editor.getValue()), true);
+  return tree.permutations[0];
+}
+
 const persist = () => {
   localStorage.setObject("code", editor.getValue());
 }
 
 const random_action_element = document.getElementById("random");
+const regenerate_action_element = document.getElementById("regenerate");
 
 random_action_element.addEventListener("click", () => {
   if (!last_permutation) { return alert("Please generate a permutation first"); }
-  const random_selection = (last_permutation[~~(last_permutation.length * Math.random())]);
+  const random_selection = random_permutation();
   show_flash(`Copied to clipboard: "${random_selection}"`);
   return navigator.clipboard.writeText(random_selection);
 });
+
+regenerate_action_element.addEventListener("click", () => { permute(); });
 
 const flash_element = document.getElementById("flash");
 let flash_timeout;
