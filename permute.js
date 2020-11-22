@@ -3,7 +3,10 @@
 // Each Branch is [instantiated from] an array of Leaves (Interface: BranchArray)
 // A Leaf can be one of string | Branch | BranchLink
 class Tree {
-    constructor(tree) { this.object = tree; }
+    constructor(tree, one_random = false) {
+        this.object = tree;
+        this.one_random = one_random;
+    }
     get main() { return this.branch("main"); }
     branch(key) {
         let branch = new Branch(this.object[key], this);
@@ -17,6 +20,13 @@ class Tree {
             else
                 return longest;
         }, "");
+    }
+    randomly_orphaned_array(arr) {
+        const random_selection = arr[~~(arr.length * Math.random())];
+        let _arr = [];
+        if (random_selection)
+            _arr.push(random_selection);
+        return _arr;
     }
     new_branch_reference(array, key = "") {
         //   Make a new key on the tree to host this then branch
@@ -34,6 +44,7 @@ class Leaf {
     get branches() {
         return this._branches.map(_branch => new Branch(_branch.array, _branch.tree, this.val));
     }
+    // TODO: Remove unused?
     append_branch(branch) {
         const terminal_branch = new Branch(branch.array, branch.tree, this.val);
         // @ts-ignore
@@ -67,7 +78,8 @@ class Branch {
     get leaves() {
         if (this.memoized_leaves.length)
             return this.memoized_leaves;
-        let leaves = this.leaves_as_strings;
+        // @ts-ignore
+        let leaves = this.tree.one_random ? this.tree.randomly_orphaned_array(this.leaves_as_strings) : this.leaves_as_strings;
         // @ts-ignore
         if (this.sub_branches.length && !leaves.length) {
             leaves = [""];
@@ -114,9 +126,9 @@ class Branch {
         this.translate_branch_pointers();
         // Take the raw nested array and turn it into Branches.
         // @ts-ignore
-        return this.array.filter(array_item => Array.isArray(array_item))
-            // @ts-ignore
-            .map(array_item => new Branch(array_item, this.tree));
+        const _sub_branches = this.array.filter(array_item => Array.isArray(array_item)).map(array_item => new Branch(array_item, this.tree));
+        // @ts-ignore
+        return this.tree.one_random ? this.tree.randomly_orphaned_array(_sub_branches) : _sub_branches;
     }
 }
 module.exports = Tree;
