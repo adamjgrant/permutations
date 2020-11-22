@@ -44,13 +44,6 @@ class Leaf {
     get branches() {
         return this._branches.map(_branch => new Branch(_branch.array, _branch.tree, this.val));
     }
-    // TODO: Remove unused?
-    append_branch(branch) {
-        const terminal_branch = new Branch(branch.array, branch.tree, this.val);
-        // @ts-ignore
-        this._branches.push(terminal_branch);
-        // @ts-ignore
-    }
     get terminal_leaves() {
         if (!this.branches.length)
             return [this];
