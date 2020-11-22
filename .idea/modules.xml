@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/sentence_permutation_generator.iml" filepath="$PROJECT_DIR$/.idea/sentence_permutation_generator.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/permutation-generator.iml" filepath="$PROJECT_DIR$/.idea/permutation-generator.iml" />
     </modules>
   </component>
 </project>
