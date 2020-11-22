@@ -298,6 +298,7 @@
     ]
 
     // let results = [14].map(x => tests[x]).map((test, index) => {
+    tests.pop(); // Remove last test
     let results = tests.map((test, index) => {
         const prefix = `#${index}. `;
         const result = (() => {
