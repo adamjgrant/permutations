@@ -47,11 +47,6 @@ const output_element = document.getElementById("output");
 const Permute = module.exports;
 let last_permutation;
 
-// Set initial load
-const previous_code = localStorage.getObject("code")
-if (previous_code) editor.setValue(previous_code);
-// End set initial load
-
 editor.on("change", (instance, changeObj) => {
   setOutput("Permuting...");
   debounce(permute, "editor", 500);
@@ -129,4 +124,12 @@ const gist_url_element = document.getElementById("gist_url");
 // gist_url_element.addEventListener("change", get_remote_code);
 
 permute();
-set_default_text();
+
+// Set initial load
+const previous_code = localStorage.getObject("code");
+if (previous_code) {
+  editor.setValue(previous_code);
+}
+else {
+  set_default_text();
+}
