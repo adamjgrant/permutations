@@ -6,6 +6,6 @@
         const tree = new Permute(data, true);
 
         const permutations = tree.permutations;
-        console.log(permutations);
+        console.log(permutations[0]);
     })
 })();
