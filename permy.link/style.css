@@ -3,6 +3,7 @@
   --solarized: #002b36;
   --solarized-dark: #001b24;
   --navbar-height: calc(1.45rem + 20px);
+  --tip-height: 30px;
 }
 
 #viewport {
@@ -20,6 +21,14 @@
   height: 50vh;
   max-height: 50vh;
   padding-top: calc(1.45rem + 20px);
+}
+
+.tip {
+  line-height: var(--tip-height);
+  padding: 0 15px;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.5);
+  display: none;
 }
 
 /* Kickstrap bug fix */
@@ -41,8 +50,8 @@
 }
 
 .output_pane {
-  height: 50vh;
-  max-height: 50vh;
+  height: calc(50vh - var(--tip-height));
+  max-height: calc(50vh - var(--tip-height));
   border-top: 1px solid #EEE;
   overflow: auto;
   display: flex;
@@ -104,4 +113,6 @@
   /* end */
 }
 
-
+@media screen and (min-width: 1100px) {
+  .tip { display: block; }
+}
