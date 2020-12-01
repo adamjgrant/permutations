@@ -48,7 +48,9 @@ const Permute = module.exports;
 let last_permutation;
 
 editor.on("change", (instance, changeObj) => {
-  setOutput("Permuting...");
+  k$.status({
+    text: "Permuting...", type: "status-blue"
+  })
   debounce(permute, "editor", 500);
   debounce(persist, "persistence", 500);
 });
@@ -88,18 +90,18 @@ random_action_element.addEventListener("click", () => {
 
 regenerate_action_element.addEventListener("click", () => { permute(); });
 
-const flash_element = document.getElementById("flash");
-let flash_timeout;
-const show_flash = (text) => { 
-  window.clearTimeout(flash_timeout);
-  flash_element.innerHTML = text;
-  flash_element.classList.add("show");
-  flash_timeout = window.setTimeout(() => { 
-    flash_element.classList.remove("show");
-  }, 2000);
+const show_flash = (text) => {
+  k$.status({
+    text: text, type: 'status-blue'
+  })
 }
 
-const setOutput = (text) => output_element.innerHTML = text;
+const setOutput = (text) => {
+  output_element.innerHTML = text;
+  k$.status({
+    text: "Done", type: "status-green"
+  })
+}
 
 const clear_button = document.getElementById("clear");
 clear_button.addEventListener("click", () => {

@@ -20,7 +20,7 @@
 </head>
 <body>
 <div id="viewport">
-    <aside id="actions" class="navbar navbar-collapse navbar-fixed" data-ks-navbar>
+    <aside id="actions" class="navbar navbar-dark navbar-collapse navbar-fixed" data-ks-navbar>
         <nav>
             <ul>
                 <li class="navbar-title">
@@ -41,17 +41,17 @@
     <div class="panes">
         <textarea id="code" name="code"></textarea>
         <div class="output_pane">
+            <div class="navbar">
+                <nav>
+                    <ul>
+                        <li>Example permutations</li>
+                    </ul>
+                    <ul>
+                        <li><a id="regenerate" href="#">Make a new 5</a></li>
+                    </ul>
+                </nav>
+            </div>
             <main>
-                <div class="navbar">
-                    <nav>
-                        <ul>
-                            <li>Example permutations</li>
-                        </ul>
-                        <ul>
-                            <li><a role="button" class="button button-green" id="regenerate" href="#">Make a new 5</a></li>
-                        </ul>
-                    </nav>
-                </div>
                 <ol id="output"></ol>
             </main>
         </div>

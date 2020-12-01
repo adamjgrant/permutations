@@ -1,6 +1,7 @@
 :root {
   --blue: rgb(74, 162, 255);
   --solarized: #002b36;
+  --solarized-dark: #001b24;
   --navbar-height: calc(1.45rem + 20px);
 }
 
@@ -29,6 +30,10 @@
 
 .navbar.navbar-fixed {
   margin-bottom: 0;
+}
+
+.navbar.navbar-dark {
+  background: var(--solarized-dark);
 }
 
 .output_pane {
