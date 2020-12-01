@@ -82,7 +82,7 @@ const random_action_element = document.getElementById("random");
 const regenerate_action_element = document.getElementById("regenerate");
 
 random_action_element.addEventListener("click", () => {
-  if (!last_permutation) { return alert("Please generate a permutation first"); }
+  if (!last_permutation) { k$.status({ text: "Please generate a permutation first" }); }
   const random_selection = random_permutation();
   show_flash(`Copied to clipboard: "${random_selection}"`);
   return navigator.clipboard.writeText(random_selection);
