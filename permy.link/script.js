@@ -155,7 +155,6 @@ const get_gist_data = (url, callback) => {
     text: "Loading from GitHub gist. Please hold...",
     type: "status-info"
   })
-  url = "https://gist.githubusercontent.com/adamjgrant/dd803c8a8d83f3e759a64d07d8991391/raw/fe40a37d97aa15aa8e4f5860b46a4b32669387ec/output.json"
   var request = new XMLHttpRequest();
   request.open('GET', url, true);
 
