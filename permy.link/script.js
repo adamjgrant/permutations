@@ -141,8 +141,9 @@ const get_gist_url = () => {
 const sanitize_gist_url = (url) => {
   if (!url) return undefined;
   const regex_1 = /^https\:\/\/gist\.githubusercontent\.com\//;
+  const regex_1_1 = /^https\:\/\/github\.apple\.com\//;
   const regex_2 = /^https\:\/\/gist\.github\.com\//;
-  if (!url.match(regex_1)) {
+  if (!url.match(regex_1) && !url.match(regex_1)) {
     if (!!url.match(regex_2)) {
       console.error("URL must start with gist.githubusercontent. Try opening the gist in a new tab and following the redirect first");
       setTimeout(() => {
