@@ -127,11 +127,78 @@ const gist_url_element = document.getElementById("gist_url");
 
 permute();
 
+const return_github_gist_error = () => {
+  k$.status({
+    text: "Could not get github gist data",
+    type: "status-error"
+  })
+}
+
+const get_gist_url = () => {
+  return new URL(location.href).searchParams.get("gist") || undefined;
+}
+
+const sanitize_gist_url = (url) => {
+  if (!url) return undefined;
+  const regex = /^https\:\/\/gist\.githubusercontent\.com\//;
+  if (!url.match(regex)) {
+    return_github_gist_error();
+    return undefined;
+  }
+  else {
+    return url
+  }
+}
+
+const get_gist_data = (url, callback) => {
+  url = "https://gist.githubusercontent.com/adamjgrant/dd803c8a8d83f3e759a64d07d8991391/raw/fe40a37d97aa15aa8e4f5860b46a4b32669387ec/output.json"
+  var request = new XMLHttpRequest();
+  request.open('GET', url, true);
+
+  request.onload = function() {
+    if (this.status >= 200 && this.status < 400) {
+      // Success!
+      callback(this.response);
+    } else {
+      return_github_gist_error();
+      return undefined;
+    }
+  };
+
+  request.onerror = function() {
+    // There was a connection error of some sort
+    return_github_gist_error();
+    return undefined;
+  };
+
+  request.send();
+}
+
 // Set initial load
 const previous_code = localStorage.getObject("code");
-if (previous_code) {
-  editor.setValue(previous_code);
+const gist_url      = get_gist_url();
+const sanitized_gist_url = sanitize_gist_url(gist_url);
+
+const set_previous_code = () => {
+  if (previous_code) {
+    editor.setValue(previous_code);
+  }
+  else {
+    set_default_text();
+  }
+}
+
+if (sanitized_gist_url) {
+  get_gist_data(sanitized_gist_url, (data) => {
+    const skip_confirm = true;
+    if (skip_confirm || confirm("Confirmation needed\n\nThis URL is trying to load JSON data from a GitHub gist. Before this is loaded, please confirm if you trust this source to prevent an XSS attack.")) {
+      editor.setValue(data);
+    }
+    else {
+      set_previous_code();
+    }
+  });
 }
 else {
-  set_default_text();
+  set_previous_code();
 }

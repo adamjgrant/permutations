@@ -32,6 +32,10 @@
   margin-bottom: 0;
 }
 
+.navbar.navbar-dark nav>ul>li.navbar-title>h1 {
+  color: white;
+}
+
 .navbar.navbar-dark {
   background: var(--solarized-dark);
 }
@@ -65,24 +69,6 @@
   white-space: break-spaces;
 }
 
-.flash { display: none; }
-.flash.show {
-  white-space: pre-line;
-  white-space: break-spaces;
-  display: block; 
-  background: var(--blue);
-  color: white;
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 95vw;
-  margin-left: calc(95vw/-2);
-  margin-top: -50px;
-  z-index: 10;
-  padding: 15px;
-  border-radius: 5px;
-}
-
 @media screen and (min-width: 800px) {
   :root {
     --output-size: 450px;
@@ -107,11 +93,6 @@
     border-left: 1px solid #EEE;
     border-top-left-radius: 15px;
     padding-top: var(--navbar-height);
-  }
-
-  .flash.show {
-    margin-left: -200px;
-    width: 400px;
   }
 
   /* Kickstrap bug fix */
