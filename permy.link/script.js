@@ -130,7 +130,7 @@ permute();
 const return_github_gist_error = () => {
   k$.status({
     text: "Could not get github gist data",
-    type: "status-error"
+    type: "status-red"
   })
 }
 
@@ -140,10 +140,23 @@ const get_gist_url = () => {
 
 const sanitize_gist_url = (url) => {
   if (!url) return undefined;
-  const regex = /^https\:\/\/gist\.githubusercontent\.com\//;
-  if (!url.match(regex)) {
-    return_github_gist_error();
-    return undefined;
+  const regex_1 = /^https\:\/\/gist\.githubusercontent\.com\//;
+  const regex_2 = /^https\:\/\/gist\.github\.com\//;
+  if (!url.match(regex_1)) {
+    if (!!url.match(regex_2)) {
+      console.error("URL must start with gist.githubusercontent. Try opening the gist in a new tab and following the redirect first");
+      setTimeout(() => {
+        k$.status({
+          text: "URL must start with gist.githubusercontent. Try opening the gist in a new tab and following the redirect first",
+          type: "status-red",
+          delay: 3000
+        })
+      }, 3000);
+      return undefined;
+    } else {
+      return_github_gist_error();
+      return undefined;
+    }
   }
   else {
     return url
