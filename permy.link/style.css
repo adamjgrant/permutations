@@ -1,7 +1,7 @@
 :root {
-  --output_actions_height: 100px;
   --blue: rgb(74, 162, 255);
   --solarized: #002b36;
+  --navbar-height: calc(1.45rem + 20px);
 }
 
 #viewport {
@@ -16,16 +16,26 @@
 * { box-sizing: border-box; }
 
 .CodeMirror {
-  height: 60vh;
-  max-height: 60vh;
+  height: 50vh;
+  max-height: 50vh;
+  padding-top: calc(1.45rem + 20px);
+}
+
+/* Kickstrap bug fix */
+.navbar.navbar-collapse nav>ul>li.navbar-title {
+  display: flex;
+}
+/* end */
+
+.navbar.navbar-fixed {
+  margin-bottom: 0;
 }
 
 .output_pane {
-  height: 40vh;
-  max-height: 40vh;
+  height: 50vh;
+  max-height: 50vh;
   border-top: 1px solid #EEE;
   overflow: auto;
-  font-family: 'Nunito', sans-serif;
   display: flex;
   flex-direction: column;
   background: white;
@@ -50,61 +60,6 @@
   white-space: break-spaces;
 }
 
-.output_pane .actions {
-  height: var(--output_actions_height);
-  position: fixed;
-  background: var(--solarized);
-  bottom: var(--offset-h);
-  left: 0;
-  right: 0;
-  padding: 15px;
-  display: flex;
-  flex-direction: column;
-}
-
-.output_pane .actions ul {
-  width: 100%;
-  list-style: none;
-  display: flex;
-  justify-content: space-between;
-  padding: 0;
-  margin: 0
-}
-
-.output_pane .actions ul li {
-  width: 100%;
-}
-
-.output_pane .actions ul + ul {
-  margin-top: 25px;
-}
-
-.output_pane .actions ul input[type="text"] {
-  width: 100%;
-  border: 0;
-  outline: 0;
-  border-bottom: 1px solid #CCC;
-  background: transparent;
-  color: white;
-}
-
-.output_pane aside ul a {
-  text-decoration: none;
-  opacity: 0.8;
-  color: white;
-}
-
-.output_pane aside ul a:hover {
-  opacity: 1;
-}
-
-.output_pane aside ul a#random {
-  background: var(--blue);
-  padding: 5px 10px;
-  color: white;
-  border-radius: 5px;
-}
-
 .flash { display: none; }
 .flash.show {
   white-space: pre-line;
@@ -121,17 +76,15 @@
   z-index: 10;
   padding: 15px;
   border-radius: 5px;
-  font-family: Nunito;
 }
 
 @media screen and (min-width: 800px) {
   :root {
-    --output-size: 33vw;
-    --output_actions_height: 50px;
+    --output-size: 450px;
   }
 
-  #viewport {
-    flex-direction: row;
+  .panes {
+    display: flex;
   }
 
   .CodeMirror {
@@ -143,31 +96,26 @@
   .output_pane {
     height: 100vh;
     max-height: none;
-    width: 100vw;
+    min-width: var(--output-size);
+    width: var(--output-size);
     border-top: 0;
     border-left: 1px solid #EEE;
     border-top-left-radius: 15px;
-  }
-
-  .output_pane .actions {
-    flex-direction: row;
-  }
-
-  .output_pane .actions ul + ul {
-    margin: 0;
-    margin-left: 100px;
-    justify-content: flex-end;
-  }
-
-  .output_pane .actions ul + ul li {
-    width: auto;
-    margin: 0 15px;
+    padding-top: var(--navbar-height);
   }
 
   .flash.show {
     margin-left: -200px;
     width: 400px;
   }
+
+  /* Kickstrap bug fix */
+  .navbar nav>ul>li ul[role=button], .navbar nav>ul>li.navbar-title button[role=button], .navbar nav>ul>li>[role=button] {
+    margin-top: -0.5rem;
+    margin-bottom: -0.55rem;
+    margin-right: 0;
+  }
+  /* end */
 }
 
 

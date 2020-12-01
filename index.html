@@ -14,30 +14,50 @@
     <script src="node_modules/codemirror/addon/comment/continuecomment.js"></script>
     <script src="node_modules/codemirror/addon/comment/comment.js"></script>
     <script src="node_modules/codemirror/mode/javascript/javascript.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Nunito&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="permy.link/style.css">
+    <link rel="stylesheet" href="//cdn.everything.io/kickstart/3.x/css/kickstart.min.css">
     <link rel="stylesheet" href="permy.link/viewport-fix.css">
+    <link rel="stylesheet" href="permy.link/style.css">
 </head>
 <body>
 <div id="viewport">
+    <aside id="actions" class="navbar navbar-collapse navbar-fixed" data-ks-navbar>
+        <nav>
+            <ul>
+                <li class="navbar-title">
+                    <h1>Permy.link</h1>
+                    <button role="button">=</button>
+                </li>
+                <li><a target="_blank" href="https://github.com/adamjgrant/permutations/wiki/Quick-Start">Docs</a></li>
+                <li><a href="#" id="clear">Clear</a></li>
+                <li><a href="#" id="default">Default</a></li>
+            </ul>
+            <ul>
+                <li><a class="button button-primary" role="button" id="random" href="#">Random</a></li>
+            </ul>
+        </nav>
+    </aside>
     <div class="flash" id="flash"></div>
-    <div><textarea id="code" name="code"></textarea></div>
-    <div class="output_pane">
-      <main>
-        <h1>Example permutations</h1>
-        <ol id="output"></ol>
-      </main>
-      <aside id="actions" class="actions">
-        <ul>
-          <li><a target="_blank" href="https://github.com/adamjgrant/permutations/wiki/Quick-Start">Docs</a></li>
-          <li><a href="#" id="clear">Clear</a></li>
-          <li><a href="#" id="default">Default</a></li>
-          <li><a id="regenerate" href="#">Regenerate</a></li>
-          <li><a id="random" href="#">📋 Random</a></li>
-        </ul>
-      </aside>
+
+    <div class="panes">
+        <textarea id="code" name="code"></textarea>
+        <div class="output_pane">
+            <main>
+                <div class="navbar">
+                    <nav>
+                        <ul>
+                            <li>Example permutations</li>
+                        </ul>
+                        <ul>
+                            <li><a role="button" class="button button-green" id="regenerate" href="#">Make a new 5</a></li>
+                        </ul>
+                    </nav>
+                </div>
+                <ol id="output"></ol>
+            </main>
+        </div>
     </div>
 </div>
+<script src="//cdn.everything.io/kickstart/3.x/js/kickstart.min.js"></script>
 <script src="permy.link/debounce.js"></script>
 <script>let module = { exports: undefined }</script>
 <script src="permute.min.js"></script>
