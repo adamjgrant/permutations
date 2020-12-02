@@ -144,7 +144,7 @@ class Branch {
   private add_reference_to_branch_deep_end(args = { branch: [], reference: {} }) {
     const branch = args.branch, reference = args.reference;
     if (branch.constructor.name === "String") return branch;
-    const branch_has_arrays = branch.some(item => Array.isArray(item));
+    const branch_has_arrays = new Branch(branch, this.tree, this.prefix).sub_branches.length;
 
     if (branch_has_arrays) {
       return branch.map(item => this.add_reference_to_branch_deep_end({ branch: item, reference: reference }));
