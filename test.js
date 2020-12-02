@@ -446,6 +446,31 @@
                 return JSON.stringify([...new Set(results)].sort());
             },
             JSON.stringify(["abcd"])
+        ],
+        [
+            "Two branches in the top-level array",
+            {
+                "main": [
+                    {
+                        "branch": "a", "then": {
+                            "branch": "b"
+                        }
+                    },
+                    {
+                        "branch": "c"
+                    }
+                ],
+                "a": ["a", "a.2"], "b": ["b"], "c": ["c"]
+            },
+            (obj) => {
+                const tree = new Permute(obj, true);
+                let x = 0, results = [];
+                while (x++ < 100) {
+                    results.push(tree.permutations[0]);
+                }
+                return JSON.stringify([...new Set(results)].sort());
+            },
+            JSON.stringify(["a.2b", "ab", "c"])
         ]
     ];
     complex_tests.forEach((test, index) => {
