@@ -156,7 +156,6 @@ class Branch {
     }
     else {
       branch.push(reference);
-      console.log(branch);
       return branch
     }
   }
