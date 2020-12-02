@@ -40,19 +40,49 @@
     <div class="panes">
         <textarea id="code" name="code"></textarea>
         <div class="output_pane">
-            <div class="navbar">
-                <nav>
-                    <ul>
-                        <li>Example permutations</li>
-                    </ul>
-                    <ul>
-                        <li><a id="regenerate">Make a new 5</a></li>
-                    </ul>
-                </nav>
+            <ul class="tabs" id="ages" data-ks-tabs>
+                <li class="open" data-persist-key="random-tab">
+                    <a href="#random">Random</a>
+                </li>
+                <li data-persist-key="all-tab">
+                    <a href="#all">All</a>
+                </li>
+            </ul>
+
+            <div class="tab_pane_container">
+                <article id="random"data-persist-key="random-article">
+                    <div class="navbar">
+                        <nav>
+                            <ul>
+                                <li>Example permutations</li>
+                            </ul>
+                            <ul>
+                                <li><a id="regenerate">Make a new 5</a></li>
+                            </ul>
+                        </nav>
+                    </div>
+                    <main>
+                        <ol id="random-output"></ol>
+                    </main>
+                </article>
+                <article id="all" data-persist-key="all-article">
+                    <div class="navbar">
+                        <nav>
+                            <ul>
+                                <li>All permutations</li>
+                            </ul>
+                            <ul>
+                                <li><a id="generate-all" role="button" class="button button-primary">Generate</a></li>
+                            </ul>
+                        </nav>
+                    </div>
+                    <br>
+                    <div class="alert alert-yellow">
+                        <h1>Warning</h1>
+                        <p>Depending on the complexity of the permutation, the full permutation set could overwhelm the browser's resources.</p>
+                    </div>
+                </article>
             </div>
-            <main>
-                <ol id="output"></ol>
-            </main>
         </div>
     </div>
 

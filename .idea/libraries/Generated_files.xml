@@ -6,6 +6,7 @@
         <item url="file://$PROJECT_DIR$/permute.min.js" />
         <item url="file://$PROJECT_DIR$/permy.link/script.min.js" />
         <item url="file://$PROJECT_DIR$/random.min.js" />
+        <item url="file://$PROJECT_DIR$/simper.min.js" />
         <item url="file://$PROJECT_DIR$/test.min.js" />
       </sourceFilesUrls>
     </properties>
@@ -14,6 +15,7 @@
       <root url="file://$PROJECT_DIR$/permute.min.js" />
       <root url="file://$PROJECT_DIR$/permy.link/script.min.js" />
       <root url="file://$PROJECT_DIR$/random.min.js" />
+      <root url="file://$PROJECT_DIR$/simper.min.js" />
       <root url="file://$PROJECT_DIR$/test.min.js" />
     </CLASSES>
     <JAVADOC />

@@ -43,7 +43,7 @@ const editor = CodeMirror.fromTextArea(document.getElementById("code"), {
   lineNumbers: true,
   theme: "solarized dark"
 });
-const output_element = document.getElementById("output");
+const output_element = document.getElementById("random-output");
 const Permute = module.exports;
 let last_permutation;
 
