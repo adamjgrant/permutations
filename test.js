@@ -5,7 +5,7 @@
         if (JSON.stringify(expected) === JSON.stringify(actual))
             return `PASS: ${name}`;
         else
-            return `FAIL: ${name}. Expected: ${expected}, Actual: ${actual}`;
+            return `---FAIL: ${name}. Expected: ${expected}, Actual: ${actual}`;
     };
     let tests = [
         {
@@ -276,6 +276,21 @@
                 "H": ["J"]
             },
             expected: ["AFJKMD"]
+        },
+        {
+            name: "Branch nesting with two embedded redirects",
+            input: {
+                "main": [
+                    { "branch": "A", "then": { "branch": "D" } }
+                ],
+                "A": [
+                    "a", { "branch": "B", "then": { "branch": "C" } }
+                ],
+                "B": ["b"],
+                "C": ["c"],
+                "D": ["d"]
+            },
+            expected: ["abcd"]
         }
     ];
     // let results = [14].map(x => tests[x]).map((test, index) => {
@@ -403,6 +418,26 @@
                 return JSON.stringify([...new Set(results)].sort());
             },
             JSON.stringify(["abc"])
+        ],
+        [
+            "Branch nesting with two embedded redirects (random permutations)",
+            {
+                "main": [
+                    { "branch": "A", "then": { "branch": "C" } }
+                ],
+                "A": ["a", { "branch": "B" }],
+                "B": ["b"],
+                "C": ["c"]
+            },
+            (obj) => {
+                const tree = new Permute(obj, true);
+                let x = 0, results = [];
+                while (x++ < 100) {
+                    results.push(tree.permutations[0]);
+                }
+                return JSON.stringify([...new Set(results)].sort());
+            },
+            JSON.stringify(["abc"])
         ]
     ];
     complex_tests.forEach((test, index) => {
@@ -412,7 +447,7 @@
             message = `PASS: ${title} | (${actual})`;
         }
         else {
-            message = `FAIL: ${title}\n      Expected: ${expected}\n      Actual:   ${actual}`;
+            message = `---FAIL: ${title}\n      Expected: ${expected}\n      Actual:   ${actual}`;
         }
         console.log(`#${index + tests.length}: ${message}`);
     });
