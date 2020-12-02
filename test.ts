@@ -339,7 +339,7 @@
                 while(x++ < 100) { results.push(tree.permutations[0]) }
                 return JSON.stringify([...new Set(results)].sort())
             },
-            JSON.stringify(["ab", ""])
+            JSON.stringify(["", "a"])
         ],
         [
             "Gracefully handle empty strings #2",
@@ -362,17 +362,25 @@
                 return JSON.stringify([...new Set(results)].sort())
             },
             JSON.stringify(["abc", "ac"])
-        ]
+        ],
+          [
+          "Gracefully handle empty strings #3",
+            { "main": ["a", [""]] },
+            (obj) => {
+                const tree = new Permute(obj, true);
+                return JSON.stringify(tree.permutations)
+            },
+            JSON.stringify(["a"])
+          ]
     ];
 
-    complex_tests.forEach(test => {
+    complex_tests.forEach((test, index) => {
         const title = test[0], obj = test[1], fn = test[2], expected = test[3],
               actual = fn(obj);
         let message;
 
         if (actual === expected) { message = `PASS: ${title} | (${actual})`; }
-        else                     { message = `[31mFAIL[39m: ${title}\n      Expected: ${expected}\n      Actual:   ${actual}`; }
-        console.log("[31mHello World[39m")
-        console.log(message);
+        else                     { message = `FAIL: ${title}\n      Expected: ${expected}\n      Actual:   ${actual}`; }
+        console.log(`#${index + tests.length}: ${message}`);
     })
 })();

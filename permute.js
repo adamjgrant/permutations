@@ -24,7 +24,7 @@ class Tree {
     randomly_orphaned_array(arr) {
         const random_selection = arr[~~(arr.length * Math.random())];
         let _arr = [];
-        if (random_selection)
+        if (random_selection !== undefined)
             _arr.push(random_selection);
         return _arr;
     }
