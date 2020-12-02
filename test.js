@@ -383,6 +383,26 @@
                 return JSON.stringify([...new Set(results)].sort());
             },
             JSON.stringify(["abc"])
+        ],
+        [
+            "(#2) Nested thens handled until the final then of the parent calling branch",
+            {
+                "main": [
+                    { "branch": "A", "then": { "branch": "C" } }
+                ],
+                "A": ["a", { "branch": "B" }],
+                "B": ["b"],
+                "C": ["c"]
+            },
+            (obj) => {
+                const tree = new Permute(obj, true);
+                let x = 0, results = [];
+                while (x++ < 100) {
+                    results.push(tree.permutations[0]);
+                }
+                return JSON.stringify([...new Set(results)].sort());
+            },
+            JSON.stringify(["abc"])
         ]
     ];
     complex_tests.forEach((test, index) => {
