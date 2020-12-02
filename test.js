@@ -293,5 +293,79 @@
         return `${prefix}${result}`;
     });
     results.forEach(result => console.log(result));
+    // More complex tests
+    // [
+    //   name of test,
+    //   JSON object,
+    //   function to run with object,
+    //   expected result from function
+    // ]
+    const complex_tests = [
+        [
+            "Gracefully handle empty strings",
+            {
+                "main": ["a", "", ["b"]]
+            },
+            (obj) => {
+                const tree = new Permute(obj, true);
+                let x = 0, results = [];
+                while (x++ < 100) {
+                    results.push(tree.permutations[0]);
+                }
+                return JSON.stringify([...new Set(results)].sort());
+            },
+            JSON.stringify(["ab", "b"])
+        ],
+        [
+            "Gracefully handle empty strings #2",
+            { "main": ["a", ""] },
+            (obj) => {
+                const tree = new Permute(obj, true);
+                let x = 0, results = [];
+                while (x++ < 100) {
+                    results.push(tree.permutations[0]);
+                }
+                return JSON.stringify([...new Set(results)].sort());
+            },
+            JSON.stringify(["ab", ""])
+        ],
+        [
+            "Gracefully handle empty strings #2",
+            { "main": ["a", "b", ["", "c"]] },
+            (obj) => {
+                const tree = new Permute(obj, true);
+                let x = 0, results = [];
+                while (x++ < 100) {
+                    results.push(tree.permutations[0]);
+                }
+                return JSON.stringify([...new Set(results)].sort());
+            },
+            JSON.stringify(["a", "ac", "b", "bc"])
+        ],
+        [
+            "Gracefully handle empty strings #3",
+            { "main": ["a", ["", "b", ["c"]]] },
+            (obj) => {
+                const tree = new Permute(obj, true);
+                let x = 0, results = [];
+                while (x++ < 100) {
+                    results.push(tree.permutations[0]);
+                }
+                return JSON.stringify([...new Set(results)].sort());
+            },
+            JSON.stringify(["abc", "ac"])
+        ]
+    ];
+    complex_tests.forEach(test => {
+        const title = test[0], obj = test[1], fn = test[2], expected = test[3], actual = fn(obj);
+        let message;
+        if (actual === expected) {
+            message = `PASS: ${title} | (${actual})`;
+        }
+        else {
+            message = `FAIL: ${title}\n      Expected: ${expected}\n      Actual:   ${actual}`;
+        }
+        console.log(message);
+    });
 })();
 //# sourceMappingURL=test.js.map
