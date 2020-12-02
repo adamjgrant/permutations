@@ -258,7 +258,7 @@
             , "foo": ["b", { "branch": "bar", "then": "d" }]
             , "bar": ["e"]
           }
-          , expected: ["abed","abc"]
+          , expected: ["abedc"]
         }
 
         , {

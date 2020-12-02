@@ -240,7 +240,7 @@
                 "foo": ["b", { "branch": "bar", "then": "d" }],
                 "bar": ["e"]
             },
-            expected: ["abed", "abc"]
+            expected: ["abedc"]
         },
         {
             name: "Callback chaining with stuff after it",
