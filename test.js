@@ -423,11 +423,14 @@
             "Branch nesting with two embedded redirects (random permutations)",
             {
                 "main": [
-                    { "branch": "A", "then": { "branch": "C" } }
+                    { "branch": "A", "then": { "branch": "D" } }
                 ],
-                "A": ["a", { "branch": "B" }],
+                "A": [
+                    "a", { "branch": "B", "then": { "branch": "C" } }
+                ],
                 "B": ["b"],
-                "C": ["c"]
+                "C": ["c"],
+                "D": ["d"]
             },
             (obj) => {
                 const tree = new Permute(obj, true);
@@ -437,7 +440,7 @@
                 }
                 return JSON.stringify([...new Set(results)].sort());
             },
-            JSON.stringify(["abc"])
+            JSON.stringify(["abcd"])
         ]
     ];
     complex_tests.forEach((test, index) => {
