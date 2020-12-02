@@ -62,7 +62,7 @@
                         </nav>
                     </div>
                     <main>
-                        <ol id="random-output"></ol>
+                        <ol id="output-random"></ol>
                     </main>
                 </article>
                 <article id="all" data-persist-key="all-article">
@@ -76,11 +76,18 @@
                             </ul>
                         </nav>
                     </div>
-                    <br>
-                    <div class="alert alert-yellow">
-                        <h1>Warning</h1>
-                        <p>Depending on the complexity of the permutation, the full permutation set could overwhelm the browser's resources.</p>
+                    <div class="alert alert-blue notshown hide" id="regenerate-notice">
+                        <h1>Regenerate</h1>
+                        <p>The editor has changed since these results have run. Please press to regenerate</p>
                     </div>
+                    <ul id="output-all">
+
+                        <div class="alert alert-yellow">
+                            <h1>Warning</h1>
+                            <p>Depending on the complexity of the permutation, the full permutation set could overwhelm the browser's resources.</p>
+                        </div>
+                    </ul>
+                    <br>
                 </article>
             </div>
         </div>
