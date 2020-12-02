@@ -1,9 +1,16 @@
 (() => {
     const Permute = require("./permute");
+    let pass_fail_count = [0,0];
     const assert = (name: string, expected: string[], input: object) => {
         const actual = new Permute(input).permutations;
-        if (JSON.stringify(expected) === JSON.stringify(actual)) return `PASS: ${name}`
-        else return `---FAIL: ${name}. Expected: ${expected}, Actual: ${actual}`
+        if (JSON.stringify(expected) === JSON.stringify(actual)) {
+            pass_fail_count[0]++;
+            return `PASS: ${name}`
+        }
+        else {
+            pass_fail_count[1]++;
+            return `---FAIL: ${name}. Expected: ${expected}, Actual: ${actual}`
+        }
     }
 
     let tests = [
@@ -451,8 +458,16 @@
         const title = test[0], obj = test[1], fn = test[2], expected = test[3], actual = fn(obj);
         let message;
 
-        if (actual === expected) { message = `PASS: ${title} | (${actual})`; }
-        else                     { message = `---FAIL: ${title}\n      Expected: ${expected}\n      Actual:   ${actual}`; }
+        if (actual === expected) {
+            pass_fail_count[0]++;
+            message = `PASS: ${title} | (${actual})`;
+        }
+        else {
+            pass_fail_count[1]++;
+            message = `---FAIL: ${title}\n      Expected: ${expected}\n      Actual:   ${actual}`;
+        }
         console.log(`#${index + tests.length}: ${message}`);
     })
+
+    console.log(`\n${pass_fail_count[0]} Passing / ${pass_fail_count[1]} Failing`);
 })();

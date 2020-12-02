@@ -74,6 +74,7 @@ class Branch {
         // @ts-ignore
         let leaves = this.tree.one_random ? this.tree.randomly_orphaned_array(this.leaves_as_strings) : this.leaves_as_strings;
         // @ts-ignore
+        // console.log(this.array, this.sub_branches);
         if (this.sub_branches.length && !leaves.length) {
             leaves = [""];
         }
@@ -106,12 +107,15 @@ class Branch {
         const branch = args.branch, reference = args.reference;
         if (branch.constructor.name === "String")
             return branch;
-        const branch_has_arrays = new Branch(branch, this.tree, this.prefix).sub_branches.length;
+        const _branch = new Branch(branch, this.tree, this.prefix);
+        const branch_has_arrays = _branch.sub_branches.length || _branch.leaves.length < _branch.array.length;
+        // console.log(`The branch ${JSON.stringify(branch)}\n${branch_has_arrays ? 'Has' : 'Doesn\'t have'} sub_branches`)
         if (branch_has_arrays) {
             return branch.map(item => this.add_reference_to_branch_deep_end({ branch: item, reference: reference }));
         }
         else {
             branch.push(reference);
+            console.log(branch);
             return branch;
         }
     }
