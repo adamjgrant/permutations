@@ -488,8 +488,28 @@ const test_num = process.argv[2];
         return JSON.stringify(tree.translate_main);
       },
       JSON.stringify([["a", [["b", ["c"]]]]])
+    ],
+    [
+      "Translation: Branch linking with nested then redirection",
+      {
+        "main": [
+          "A", { "branch": "C", "then": [
+              "D"
+            ] }
+        ],
+        "C": [
+          "F", { "branch": "H", "then": ["K", ["M"]] }
+        ],
+        "H": ["J"]
+      },
+      (obj) => {
+        const tree = new Permute(obj);
+        return JSON.stringify(tree.translate_main);
+      },
+      JSON.stringify(["A", ["F", ["J", ["K", ["M", ["D"]]]]]])
     ]
   ];
+
   let complex_tests = [
     [
       "Gracefully handle empty strings",
