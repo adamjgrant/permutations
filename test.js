@@ -1,4 +1,5 @@
-(() => {
+const test_num = process.argv[2];
+((test_num) => {
   const Permute = require("./permute");
   let pass_fail_count = [0, 0];
   const assert = (name, expected, input) => {
@@ -332,7 +333,10 @@
       expected: ["MTLMBDMB", "MTRMBDMB"]
     }
   ];
-  let results = tests.map((test, index) => {
+
+  let results = tests.filter((test, index) => {
+    return test_num === undefined || parseInt(test_num) === index;
+  }).map((test, index) => {
     const prefix = `#${index}. `;
     const result = (() => {
       try { // @ts-ignore
@@ -344,6 +348,7 @@
     })();
     return `${prefix}${result}`;
   });
+
   results.forEach(result => console.log(result));
   // More complex tests
   // [
@@ -640,8 +645,8 @@
   ];
   const run_test = (test, initial_index = 0, index) => {
     const title = test[0], obj = test[1], fn = test[2], expected = test[3];
-    // @ts-ignore
-    const actual = fn(obj);
+    const actual = fn(obj), final_index = index + initial_index;
+    if (test_num !== undefined && parseInt(test_num) !== final_index) return
     let message;
     if (actual === expected) {
       pass_fail_count[0]++;
@@ -651,11 +656,11 @@
       pass_fail_count[1]++;
       message = `---FAIL: ${title}\n      Expected: ${expected}\n      Actual:   ${actual}`;
     }
-    console.log(`#${index + initial_index}: ${message}`);
+    console.log(`#${final_index}: ${message}`);
   };
   console.log("\n== Translation Tests ==");
   translation_tests.forEach((test, i) => run_test(test, tests.length, i));
   console.log("\n== Complex Tests ==");
   complex_tests.forEach((test, i) => run_test(test, tests.length + translation_tests.length, i));
   console.log(`\n${pass_fail_count[0]} Passing / ${pass_fail_count[1]} Failing`);
-})();
+})(test_num);
