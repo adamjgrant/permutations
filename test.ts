@@ -647,7 +647,7 @@
         ]
     ];
 
-    const run_test = (test, index) => {
+    const run_test = (test, initial_index = 0, index) => {
         const title = test[0], obj = test[1], fn = test[2], expected = test[3];
         // @ts-ignore
         const actual = fn(obj);
@@ -661,14 +661,14 @@
             pass_fail_count[1]++;
             message = `---FAIL: ${title}\n      Expected: ${expected}\n      Actual:   ${actual}`;
         }
-        console.log(`#${index + tests.length}: ${message}`);
+        console.log(`#${index + initial_index}: ${message}`);
     };
 
     console.log("\n== Translation Tests ==");
-    translation_tests.forEach(run_test)
+    translation_tests.forEach((test, i) => run_test(test, tests.length, i));
 
     console.log("\n== Complex Tests ==");
-    complex_tests.forEach(run_test)
+    complex_tests.forEach((test, i) => run_test(test, tests.length + translation_tests.length, i));
 
     console.log(`\n${pass_fail_count[0]} Passing / ${pass_fail_count[1]} Failing`);
 })();

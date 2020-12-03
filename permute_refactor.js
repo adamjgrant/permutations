@@ -67,17 +67,15 @@ class Branch {
       return this.translate_branch_reference(object_leaf);
     }
 
+    if (!this.branches().length && this.then_branches !== undefined) {
+      this.object.push(this.then_branches);
+    }
+
     // Otherwise, assume this is an array
     return this.object.map(_leaf => {
       const leaf = new Leaf(_leaf);
       if (leaf.is_branch_reference) return this.translate_branch_reference(leaf);
       if (leaf.is_branch) return new Branch(this.tree, leaf.node).translate_object;
-
-      // Terminal branch reached, still then branches to append
-      if (this.then_branches !== undefined) {
-        const appended_with_then_branches = [leaf.node, this.then_branches];
-        return new Branch(this.tree, appended_with_then_branches).translate_object;
-      }
 
       // No more then branches, terminal leaf.
       return leaf.node;
@@ -94,7 +92,7 @@ class Branch {
     }
 
     // Continue recursively
-    const branch = new Branch(this.tree, branch_object);
+    const branch = new Branch(this.tree, branch_object, this.then_branches);
     return branch.translate_object;
   }
   
@@ -110,7 +108,7 @@ class Branch {
   
   prepend_then_branch(branch_to_prepend) {
     if (this.then_branches === undefined) { this.then_branches = branch_to_prepend; }
-    else { this.then_branches = [...branch_to_prepend, this.then_branches]; }
+    else { this.then_branches = [...branch_to_prepend, this.then_branches] }
   }
 }
 
