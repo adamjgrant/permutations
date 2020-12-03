@@ -646,7 +646,6 @@ const test_num = process.argv[2];
   const run_test = (test, initial_index = 0, index) => {
     const title = test[0], obj = test[1], fn = test[2], expected = test[3];
     const actual = fn(obj), final_index = index + initial_index;
-    if (test_num !== undefined && parseInt(test_num) !== final_index) return
     let message;
     if (actual === expected) {
       pass_fail_count[0]++;
@@ -658,9 +657,16 @@ const test_num = process.argv[2];
     }
     console.log(`#${final_index}: ${message}`);
   };
+
   console.log("\n== Translation Tests ==");
-  translation_tests.forEach((test, i) => run_test(test, tests.length, i));
+  translation_tests.filter((test, index) => {
+    return test_num === undefined || parseInt(test_num) === index + tests.length;
+  }).forEach((test, i) => run_test(test, tests.length, i));
+
   console.log("\n== Complex Tests ==");
-  complex_tests.forEach((test, i) => run_test(test, tests.length + translation_tests.length, i));
+  complex_tests.filter((test, index) => {
+    return test_num === undefined || parseInt(test_num) === index + tests.length + translation_tests.length;
+  }).forEach((test, i) => run_test(test, tests.length + translation_tests.length, i));
+
   console.log(`\n${pass_fail_count[0]} Passing / ${pass_fail_count[1]} Failing`);
 })(test_num);
