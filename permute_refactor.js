@@ -27,11 +27,11 @@ class Branch {
 
   terminal_leaves(prefix = "") {
     if (!this.branches.length) return this.leaves.map(leaf => `${prefix}${leaf}`);
-    return this.leaves.map(leaf => {
-      return this.branches.map(branch => {
-        return new Branch(branch).terminal_leaves(`${prefix}${leaf}`);
-      });
-    })
+    return this.leaves.reduce((arr, leaf) => {
+      return arr.concat(this.branches.reduce((arr, branch) => {
+        return arr.concat(new Branch(this.tree, branch).terminal_leaves(`${prefix}${leaf}`));
+      }, []));
+    }, [])
   }
 
   get leaves() {
@@ -39,6 +39,7 @@ class Branch {
   }
 
   get branches() {
+    console.log(this)
     return this.object.filter(item => new Leaf(item).is_branch)
   }
 
