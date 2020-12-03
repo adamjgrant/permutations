@@ -61,7 +61,6 @@ class Branch {
 
   // Translations
   get translate_object() {
-    console.log(`Then branches for branch ${JSON.stringify(this.object)}: ${this.then_branches}`)
     // Incoming object could be a bare branch reference.
     const object_leaf = new Leaf(this.object)
     if (object_leaf.is_branch_reference) {
@@ -76,11 +75,7 @@ class Branch {
       if (leaf.is_branch_reference) return this.translate_branch_reference(leaf);
       if (leaf.is_branch) {
         const _branch = new Branch(this.tree, leaf.node)
-        if (!_branch.is_terminal_branch) {
-          console.log(`The branch ${JSON.stringify(_branch.object)} is not terminal`);
-          _branch.then_branches = this.then_branches;
-        } else { console.log(`The branch ${JSON.stringify(_branch.object)} is terminal`) }
-        console.log("***")
+        if (!_branch.is_terminal_branch) _branch.then_branches = this.then_branches;
         return _branch.translate_object;
       }
 
@@ -91,7 +86,6 @@ class Branch {
 
   get is_terminal_branch() {
     return !(this.branches().length && this.has_then_ranches) && this.object.every(item => {
-      console.log(`item: ${JSON.stringify(item)}`)
       return new Leaf(item).is_string
     });
   }
@@ -99,27 +93,21 @@ class Branch {
   translate_branch_reference(leaf) {
     const branch_object = this.duplicate_branch(this.tree.branch(leaf.node.branch));
 
-    console.log(branch_object, this.then_branches, leaf);
     // Continue recursively
     const branch = new Branch(this.tree, branch_object, this.then_branches);
 
     // Translate the then and append it inside the branch.
     if (leaf.has_then_reference) {
-      console.log("Leaf does have a then reference")
-      const then_object = this.translate_then_reference(leaf); // TODO: This is returning ["c", undefined]
-      console.log(`about to prepend a then_object with length ${then_object.length}`)
+      const then_object = this.translate_then_reference(leaf);
       branch.prepend_then_branch(then_object)
-      console.log(`After prepending then object, branch ${JSON.stringify(branch.object)} shows ${branch.then_branches} as then obj`);
     }
 
     return branch.translate_object;
   }
   
   translate_then_reference(leaf) {
-    console.log(`--${JSON.stringify(leaf)}`)
     let then_object = leaf.node.then;
     if (then_object.constructor.name === "String") then_object = [then_object];
-    console.log(`--${JSON.stringify(then_object)}`)
     return new Branch(this.tree, then_object).translate_object;
   }
 
@@ -130,11 +118,9 @@ class Branch {
   prepend_then_branch(branch_to_prepend) {
     if (branch_to_prepend === undefined) return;
     if (this.has_then_branches) {
-      console.log(`putting ${this.then_branches} inside ${branch_to_prepend}`);
       this.then_branches = [...branch_to_prepend, this.then_branches]
     }
     else {
-      console.log(`Setting empty then branch of ${JSON.stringify(this.object)} to ${branch_to_prepend}`)
       this.then_branches = branch_to_prepend;
     }
   }

@@ -487,7 +487,7 @@ const test_num = process.argv[2];
         const tree = new Permute(obj);
         return JSON.stringify(tree.translate_main);
       },
-      JSON.stringify([["a", ["b", ["c"]]]])
+      JSON.stringify([["a", [["b", ["c"]]]]])
     ]
   ];
   let complex_tests = [
