@@ -336,7 +336,7 @@
     let results = tests.map((test, index) => {
         const prefix = `#${index}. `;
         const result = (() => {
-            try {
+            try { // @ts-ignore
                 return assert(test.name, test.expected, test.input);
             }
             catch (e) {
@@ -396,7 +396,7 @@
         [
             "Array with a branch and a then is translated correctly",
             {
-                "main": ["a", { "branch": "B", "then": "C" }],
+                "main": ["a", { "branch": "B", "then": { "branch": "C" } }],
                 "B": ["b"],
                 "C": ["c"]
             },
@@ -561,6 +561,7 @@
     complex_tests = complex_tests.splice(0, 4);
     complex_tests.forEach((test, index) => {
         const title = test[0], obj = test[1], fn = test[2], expected = test[3];
+        // @ts-ignore
         const actual = fn(obj);
         let message;
         if (actual === expected) {

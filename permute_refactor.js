@@ -4,7 +4,9 @@ class Tree {
   }
 
   get permutations() {
-    return this.translate_main
+    const translated_object = this.translate_main;
+    // TODO: Implement
+    return []
   }
 
   // Scan through the object and make it a regular ol nested array. No nested objects
@@ -36,8 +38,20 @@ class Branch {
   translate_branch_reference(leaf) {
     const branch_object = this.tree.branch(leaf.node.branch);
 
+    // Translate the then and append it inside the branch.
+    if (leaf.has_then_reference) {
+      const then_object = this.translate_then_reference(leaf);
+      branch_object.push(then_object);
+    }
+
     const branch = new Branch(this.tree, branch_object);
     return branch.translate_object;
+  }
+  
+  translate_then_reference(leaf) {
+    let then_object = leaf.node.then;
+    if (!Array.isArray(then_object)) then_object = [then_object];
+    return new Branch(this.tree, then_object).translate_object;
   }
 }
 
@@ -48,6 +62,10 @@ class Leaf {
 
   get is_branch_reference() {
     return (typeof(this.node) === "object" && this.node["branch"] !== undefined);
+  }
+
+  get has_then_reference() {
+    return (typeof(this.node) === "object" && this.node["then"] !== undefined);
   }
 }
 
