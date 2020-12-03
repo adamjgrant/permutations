@@ -467,6 +467,22 @@
                 return JSON.stringify(tree.translate_main);
             },
             JSON.stringify([["a", "a.2", ["b"]], ["c"]])
+        ],
+        [
+            "Translation: Nested thens handled until the final then of the parent calling branch",
+            {
+                "main": [
+                    { "branch": "A", "then": { "branch": "C" } }
+                ],
+                "A": ["a", [{ "branch": "B" }]],
+                "B": ["b"],
+                "C": ["c"]
+            },
+            (obj) => {
+                const tree = new Permute(obj);
+                return JSON.stringify(tree.translate_main);
+            },
+            JSON.stringify([["a", ["b", ["c"]]]])
         ]
     ];
     let complex_tests = [
