@@ -30,12 +30,13 @@ class Tree {
     }
     public get main() : Branch { return this.branch("main"); }
     public branch(key) : Branch {
-      let branch = new Branch(this.raw_object[key], this);
+      let branch = new Branch(this.translated_object[key], this);
       return branch;
     }
     // Change all branch references recursively to arrays
     public get translated_object() {
-      return { "main": this.raw_object["main"].map(this.translate_branch_pointers) };
+      const raw_obj_main = this.raw_object["main"];
+      return { "main": this.translate_branch_pointers(raw_obj_main) };
     }
     public get permutations() : string[] { return this.main.permutations; }
     private get longest_key() : string {
@@ -61,7 +62,7 @@ class Tree {
       return unique_key;
     }
 
-    private translate_branch_pointers(array_item) : string[] {
+    private translate_branch_pointers(array_item, then_array : string[] = []) : string[] {
       if (array_item.constructor.name === "Object" && array_item["branch"]) {
         let referenced_branch_array = this.raw_object[array_item.branch];
         if (referenced_branch_array === undefined || referenced_branch_array === null) {
@@ -71,38 +72,21 @@ class Tree {
         let _referenced_branch_array : string[] = JSON.parse(JSON.stringify(referenced_branch_array));
 
         if (array_item['then']) {
-          // Force this to be inside an array if it's not one.
+          // Force this to be inside an array if it's a solitary string.
           if (array_item.then.constructor.name === "String") array_item.then = [array_item.then];
-
-          const unique_key = this.tree.new_branch_reference(array_item.then);
-          //   Put a { "branch": "<that long key>" } on the deep end of the array below.
-          const reference = { "branch": unique_key };
-          branch = this.add_reference_to_branch_deep_end({ branch: branch, reference: reference });
+          array_item.then = this.translate_branch_pointers(array_item.then, then_array);
+          array_item.then.push(then_array);
+          then_array = array_item;
         }
 
-        return _referenced_branch_array.map(this.translate_branch_pointers);
+        // @ts-ignore
+        return this.translate_branch_pointers(_referenced_branch_array, then_array);
       }
       else {
         // This array item is a string or array, we're done.
-        return array_item;
+        return array_item.push(then_array);
       }
   }
-
-  private add_reference_to_branch_deep_end(args = { branch: [], reference: {} }) {
-    const branch = args.branch, reference = args.reference;
-    if (branch.constructor.name === "String") return branch;
-
-    const _branch = new Branch(branch, this.tree, this.prefix);
-
-    if (_branch.sub_branches.length) {
-      return branch.map(item => this.add_reference_to_branch_deep_end({ branch: item, reference: reference }));
-    }
-    else {
-      branch.push(reference);
-      return branch
-    }
-  }
-
 }
 
 class Leaf {

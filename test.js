@@ -311,6 +311,23 @@
                 "miocene": ["miocene"]
             },
             expected: ["eocene", "oligocene", "miocene", "pliocene", "holocene"].join("")
+        }, {
+            name: "Bifurcated branch-then chaining",
+            input: {
+                "main": [
+                    { "branch": "middle-top", "then": { "branch": "double-middle-bottom" } }
+                ],
+                "middle-top": [
+                    "MT",
+                    { "branch": "left", "then": { "branch": "middle-bottom" } },
+                    { "branch": "right", "then": { "branch": "middle-bottom" } },
+                ],
+                "middle-bottom": ["MB"],
+                "left": ["L"],
+                "right": ["R"],
+                "double-middle-bottom": ["DMB"]
+            },
+            expected: ["MTLMBDMB", "MTRMBDMB"]
         }
     ];
     let results = tests.map((test, index) => {
