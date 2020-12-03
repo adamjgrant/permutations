@@ -638,7 +638,7 @@
             JSON.stringify(["a.2b", "ab", "c"])
         ]
     ];
-    [...translation_tests, ...complex_tests].forEach((test, index) => {
+    const run_test = (test, index) => {
         const title = test[0], obj = test[1], fn = test[2], expected = test[3];
         // @ts-ignore
         const actual = fn(obj);
@@ -652,7 +652,11 @@
             message = `---FAIL: ${title}\n      Expected: ${expected}\n      Actual:   ${actual}`;
         }
         console.log(`#${index + tests.length}: ${message}`);
-    });
+    };
+    console.log("\n== Translation Tests ==");
+    translation_tests.forEach(run_test);
+    console.log("\n== Complex Tests ==");
+    complex_tests.forEach(run_test);
     console.log(`\n${pass_fail_count[0]} Passing / ${pass_fail_count[1]} Failing`);
 })();
 //# sourceMappingURL=test.js.map

@@ -27,9 +27,10 @@ class Tree {
 }
 
 class Branch {
-  constructor(tree, object) {
+  constructor(tree, object, then_branches) {
     this.tree = tree;
     this.object = object;
+    this.then_branches = then_branches;
   }
 
   terminal_leaves(prefix = "") {
@@ -71,6 +72,14 @@ class Branch {
       const leaf = new Leaf(_leaf);
       if (leaf.is_branch_reference) return this.translate_branch_reference(leaf);
       if (leaf.is_branch) return new Branch(this.tree, leaf.node).translate_object;
+
+      // Terminal branch reached, still then branches to append
+      if (this.then_branches !== undefined) {
+        const appended_with_then_branches = [leaf.node, this.then_branches];
+        return new Branch(this.tree, appended_with_then_branches).translate_object;
+      }
+
+      // No more then branches, terminal leaf.
       return leaf.node;
     });
   }
@@ -81,7 +90,7 @@ class Branch {
     // Translate the then and append it inside the branch.
     if (leaf.has_then_reference) {
       const then_object = this.translate_then_reference(leaf);
-      branch_object.push(then_object);
+      this.prepend_then_branch(then_object)
     }
 
     // Continue recursively
@@ -97,6 +106,11 @@ class Branch {
 
   duplicate_branch(branch) {
     return JSON.parse(JSON.stringify(branch));
+  }
+  
+  prepend_then_branch(branch_to_prepend) {
+    if (this.then_branches === undefined) { this.then_branches = branch_to_prepend; }
+    else { this.then_branches = [...branch_to_prepend, this.then_branches]; }
   }
 }
 
