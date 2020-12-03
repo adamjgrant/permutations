@@ -67,7 +67,7 @@ class Branch {
       return this.translate_branch_reference(object_leaf);
     }
 
-    if (!this.branches().length && this.has_then_branches) {
+    if (this.is_terminal_branch) {
       this.object.push(this.then_branches);
     }
 
@@ -80,6 +80,11 @@ class Branch {
       // No more then branches, terminal leaf.
       return leaf.node;
     });
+  }
+
+  get is_terminal_branch() {
+    // TODO: This fires incorrectly for complex branches
+    return !this.branches().length && this.has_then_branches
   }
 
   translate_branch_reference(leaf) {
