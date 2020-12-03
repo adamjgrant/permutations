@@ -296,10 +296,23 @@
                 "D": ["d"]
             },
             expected: ["abcd"]
+        }, {
+            name: "Complex branch-then chaining",
+            input: {
+                "main": [
+                    "eocene",
+                    { "branch": "everything-in-between", "then": { "branch": "holocene" } }
+                ],
+                "everything-in-between": [
+                    { "branch": "oligocene", "then": ["pliocene"] }
+                ],
+                "oligocene": ["oligocene", { "branch": "miocene" }],
+                "holocene": ["holocene"],
+                "miocene": ["miocene"]
+            },
+            expected: ["eocene", "oligocene", "miocene", "pliocene", "holocene"].join("")
         }
     ];
-    // let results = [14].map(x => tests[x]).map((test, index) => {
-    tests.pop(); // Remove last test
     let results = tests.map((test, index) => {
         const prefix = `#${index}. `;
         const result = (() => {
@@ -474,7 +487,8 @@
         ]
     ];
     complex_tests.forEach((test, index) => {
-        const title = test[0], obj = test[1], fn = test[2], expected = test[3], actual = fn(obj);
+        const title = test[0], obj = test[1], fn = test[2], expected = test[3];
+        const actual = fn(obj);
         let message;
         if (actual === expected) {
             pass_fail_count[0]++;
