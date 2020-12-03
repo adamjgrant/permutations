@@ -507,6 +507,26 @@ const test_num = process.argv[2];
         return JSON.stringify(tree.translate_main);
       },
       JSON.stringify(["A", ["F", ["J", ["K", ["M", ["D"]]]]]])
+    ],
+    [
+      "Translation: Branch linking with nested then redirection, using branch instead",
+      {
+        "main": [
+          "A", { "branch": "C", "then": [
+              "D"
+            ] }
+        ],
+        "C": [
+          "F", { "branch": "H", "then": { "branch": "X" } }
+        ],
+        "H": ["J"],
+        "X": ["K", ["M"]]
+      },
+      (obj) => {
+        const tree = new Permute(obj);
+        return JSON.stringify(tree.translate_main);
+      },
+      JSON.stringify(["A", ["F", ["J", ["K", ["M", ["D"]]]]]])
     ]
   ];
 

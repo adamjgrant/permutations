@@ -116,6 +116,8 @@ class Branch {
   }
   
   prepend_then_branch(branch_to_prepend) {
+    // TODO: Currently, this just puts existing then_branches as the last item of the array.
+    //       It actually needs to make them the last item of the terminal branches recursively.
     if (branch_to_prepend === undefined) return;
     if (this.has_then_branches) {
       this.then_branches = [...branch_to_prepend, this.then_branches]
