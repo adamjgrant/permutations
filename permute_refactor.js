@@ -53,10 +53,9 @@ class Branch {
     // Otherwise, assume this is an array
     return this.object.map(_leaf => {
       const leaf = new Leaf(_leaf);
-      if (leaf.is_branch_reference) {
-        return this.translate_branch_reference(leaf);
-      }
-      else { return leaf.node; }
+      if (leaf.is_branch_reference) return this.translate_branch_reference(leaf);
+      if (leaf.is_branch) return new Branch(this.tree, leaf.node).translate_object;
+      return leaf.node;
     });
   }
 
