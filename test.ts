@@ -622,9 +622,9 @@
                 "a": ["a", "a.2"], "b": ["b"], "c": ["c"]
             },
             (obj) => {
-                const tree = new Permute(obj, true);
+                const tree = new Permute(obj);
                 let x = 0, results = [];
-                while(x++ < 100) { results.push(tree.permutations[0]) }
+                while(x++ < 100) { results.push(tree.one) }
                 return JSON.stringify([...new Set(results)].sort())
             },
             JSON.stringify(["a.2b", "ab", "c"])

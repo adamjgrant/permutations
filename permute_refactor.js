@@ -3,10 +3,17 @@ class Tree {
     this.object = object;
   }
 
+  get one() {
+    return this.translated_branch.one();
+  }
+
   get permutations() {
+    return this.translated_branch.terminal_leaves();
+  }
+
+  get translated_branch() {
     const translated_object = this.translate_main;
-    const translated_branch = new Branch(this, translated_object);
-    return translated_branch.terminal_leaves();
+    return new Branch(this, translated_object);
   }
 
   // Scan through the object and make it a regular ol nested array. No nested objects
@@ -26,21 +33,28 @@ class Branch {
   }
 
   terminal_leaves(prefix = "") {
-    if (!this.branches.length) return this.leaves.map(leaf => `${prefix}${leaf}`);
-    return this.leaves.reduce((arr, leaf) => {
-      return arr.concat(this.branches.reduce((arr, branch) => {
+    if (!this.branches().length) return this.leaves().map(leaf => `${prefix}${leaf}`);
+    return this.leaves().reduce((arr, leaf) => {
+      return arr.concat(this.branches().reduce((arr, branch) => {
         return arr.concat(new Branch(this.tree, branch).terminal_leaves(`${prefix}${leaf}`));
       }, []));
     }, [])
   }
 
-  get leaves() {
-    let leaves = this.object.filter(item => new Leaf(item).is_terminal);
-    return leaves.length ? leaves : [""];
+  one(prefix = "") {
+    if (!this.branches().length) return `${prefix}${this.leaves(true)}`;
+    return (new Branch(this.tree, this.branches(true))).one(`${prefix}${this.leaves(true)}`);
   }
 
-  get branches() {
-    return this.object.filter(item => new Leaf(item).is_branch)
+  leaves(random = false) {
+    let _leaves = this.object.filter(item => new Leaf(item).is_terminal);
+    const leaves = _leaves.length ? _leaves : [""];
+    return random ? leaves[~~(leaves.length * Math.random())] : leaves;
+  }
+
+  branches(random = false) {
+    const _branches = this.object.filter(item => new Leaf(item).is_branch)
+    return random ? _branches[~~(_branches.length * Math.random())] : _branches;
   }
 
   // Translations
