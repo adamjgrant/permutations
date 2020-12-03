@@ -437,6 +437,15 @@
                 return JSON.stringify(tree.translate_main);
             },
             JSON.stringify(["", ["a", ["-", ["x"]]], ["b", ["-", ["y"]]]])
+        ],
+        [
+            "Translation: Array having only arrays inside",
+            { "main": [["a"], ["b"]] },
+            (obj) => {
+                const tree = new Permute(obj);
+                return JSON.stringify(tree.translate_main);
+            },
+            JSON.stringify([["a"], ["b"]])
         ]
     ];
     let complex_tests = [

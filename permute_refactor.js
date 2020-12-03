@@ -27,7 +27,8 @@ class Branch {
 
   terminal_leaves(prefix = "") {
     if (!this.branches.length) return this.leaves.map(leaf => `${prefix}${leaf}`);
-    return this.leaves.reduce((arr, leaf) => {
+    const leaves = this.leaves.length ? this.leaves : [""];
+    return leaves.reduce((arr, leaf) => {
       return arr.concat(this.branches.reduce((arr, branch) => {
         return arr.concat(new Branch(this.tree, branch).terminal_leaves(`${prefix}${leaf}`));
       }, []));
@@ -85,17 +86,11 @@ class Branch {
 }
 
 class Leaf {
-  constructor(node) {
-    this.node = node;
-  }
+  constructor(node) { this.node = node; }
 
-  get is_branch() {
-    return Array.isArray(this.node);
-  }
+  get is_branch() { return Array.isArray(this.node); }
 
-  get is_terminal() {
-    return this.node.constructor.name === "String";
-  }
+  get is_terminal() { return this.node.constructor.name === "String"; }
 
   get is_branch_reference() {
     return (typeof(this.node) === "object" && this.node["branch"] !== undefined);
