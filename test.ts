@@ -468,7 +468,29 @@
                 return JSON.stringify(tree.translate_main);
             },
             JSON.stringify([["a"], ["b"]])
-        ]
+        ],
+      [
+        "Translation: two branches in top-level array",
+          {
+              "main": [
+                  {
+                      "branch": "a", "then": {
+                          "branch": "b"
+                      }
+                  },
+                  {
+                      "branch": "c"
+                  }
+              ],
+              "a": ["a", "a.2"], "b": ["b"], "c": ["c"]
+          },
+          (obj) => {
+            const tree = new Permute(obj);
+            return JSON.stringify(tree.translate_main);
+          },
+          JSON.stringify([["a","a.2",["b"]],["c"]])
+      ]
+
     ]
 
     let complex_tests = [
