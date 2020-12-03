@@ -42,8 +42,9 @@ class Branch {
   }
 
   one(prefix = "") {
-    if (!this.branches().length) return `${prefix}${this.leaves(true)}`;
-    return (new Branch(this.tree, this.branches(true))).one(`${prefix}${this.leaves(true)}`);
+    const new_prefix = `${prefix}${this.leaves(true)}`;
+    if (!this.branches().length) return new_prefix;
+    return (new Branch(this.tree, this.branches(true))).one(new_prefix);
   }
 
   leaves(random = false) {
