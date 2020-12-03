@@ -394,6 +394,19 @@
             JSON.stringify(["a", ["b", ["d"]], ["c"]])
         ],
         [
+            "Array with a branch and a then is translated correctly",
+            {
+                "main": ["a", { "branch": "B", "then": "C" }],
+                "B": ["b"],
+                "C": ["c"]
+            },
+            (obj) => {
+                const tree = new Permute(obj);
+                return JSON.stringify(tree.translate_main);
+            },
+            JSON.stringify(["a", ["b", ["c"]]])
+        ],
+        [
             "Gracefully handle empty strings",
             {
                 "main": ["a", "", ["b"]]
@@ -545,7 +558,7 @@
             JSON.stringify(["a.2b", "ab", "c"])
         ]
     ];
-    complex_tests = complex_tests.splice(0, 3);
+    complex_tests = complex_tests.splice(0, 4);
     complex_tests.forEach((test, index) => {
         const title = test[0], obj = test[1], fn = test[2], expected = test[3];
         const actual = fn(obj);
