@@ -332,7 +332,6 @@
             expected: ["MTLMBDMB", "MTRMBDMB"]
         }
     ];
-    tests = tests.slice(0, 4);
     let results = tests.map((test, index) => {
         const prefix = `#${index}. `;
         const result = (() => {
@@ -584,8 +583,7 @@
             JSON.stringify(["a.2b", "ab", "c"])
         ]
     ];
-    // [...translation_tests, ...complex_tests].forEach((test, index) => {
-    [...translation_tests].forEach((test, index) => {
+    [...translation_tests, ...complex_tests].forEach((test, index) => {
         const title = test[0], obj = test[1], fn = test[2], expected = test[3];
         // @ts-ignore
         const actual = fn(obj);

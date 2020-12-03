@@ -39,7 +39,6 @@ class Branch {
   }
 
   get branches() {
-    console.log(this)
     return this.object.filter(item => new Leaf(item).is_branch)
   }
 
