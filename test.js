@@ -476,10 +476,10 @@
                 "main": ["a", "", ["b"]]
             },
             (obj) => {
-                const tree = new Permute(obj, true);
+                const tree = new Permute(obj);
                 let x = 0, results = [];
                 while (x++ < 100) {
-                    results.push(tree.permutations[0]);
+                    results.push(tree.one);
                 }
                 return JSON.stringify([...new Set(results)].sort());
             },
@@ -489,10 +489,10 @@
             "Gracefully handle empty strings #2",
             { "main": ["a", ""] },
             (obj) => {
-                const tree = new Permute(obj, true);
+                const tree = new Permute(obj);
                 let x = 0, results = [];
                 while (x++ < 100) {
-                    results.push(tree.permutations[0]);
+                    results.push(tree.one);
                 }
                 return JSON.stringify([...new Set(results)].sort());
             },
@@ -502,10 +502,10 @@
             "Gracefully handle empty strings #2",
             { "main": ["a", "b", ["", "c"]] },
             (obj) => {
-                const tree = new Permute(obj, true);
+                const tree = new Permute(obj);
                 let x = 0, results = [];
                 while (x++ < 100) {
-                    results.push(tree.permutations[0]);
+                    results.push(tree.one);
                 }
                 return JSON.stringify([...new Set(results)].sort());
             },
@@ -515,10 +515,10 @@
             "Gracefully handle empty strings #3",
             { "main": ["a", ["", "b", ["c"]]] },
             (obj) => {
-                const tree = new Permute(obj, true);
+                const tree = new Permute(obj);
                 let x = 0, results = [];
                 while (x++ < 100) {
-                    results.push(tree.permutations[0]);
+                    results.push(tree.one);
                 }
                 return JSON.stringify([...new Set(results)].sort());
             },
@@ -528,7 +528,7 @@
             "Gracefully handle empty strings #3",
             { "main": ["a", [""]] },
             (obj) => {
-                const tree = new Permute(obj, true);
+                const tree = new Permute(obj);
                 return JSON.stringify(tree.permutations);
             },
             JSON.stringify(["a"])
@@ -544,10 +544,10 @@
                 "C": ["c"]
             },
             (obj) => {
-                const tree = new Permute(obj, true);
+                const tree = new Permute(obj);
                 let x = 0, results = [];
                 while (x++ < 100) {
-                    results.push(tree.permutations[0]);
+                    results.push(tree.one);
                 }
                 return JSON.stringify([...new Set(results)].sort());
             },
@@ -564,10 +564,10 @@
                 "C": ["c"]
             },
             (obj) => {
-                const tree = new Permute(obj, true);
+                const tree = new Permute(obj);
                 let x = 0, results = [];
                 while (x++ < 100) {
-                    results.push(tree.permutations[0]);
+                    results.push(tree.one);
                 }
                 return JSON.stringify([...new Set(results)].sort());
             },
@@ -587,10 +587,10 @@
                 "D": ["d"]
             },
             (obj) => {
-                const tree = new Permute(obj, true);
+                const tree = new Permute(obj);
                 let x = 0, results = [];
                 while (x++ < 100) {
-                    results.push(tree.permutations[0]);
+                    results.push(tree.one);
                 }
                 return JSON.stringify([...new Set(results)].sort());
             },
