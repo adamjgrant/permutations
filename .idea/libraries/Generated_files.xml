@@ -3,32 +3,24 @@
     <properties>
       <sourceFilesUrls>
         <item url="file://$PROJECT_DIR$/index.min.js" />
+        <item url="file://$PROJECT_DIR$/p.min.js" />
         <item url="file://$PROJECT_DIR$/permute.min.js" />
-        <item url="file://$PROJECT_DIR$/permute.min.min.js" />
         <item url="file://$PROJECT_DIR$/permute_refactor.min.js" />
-        <item url="file://$PROJECT_DIR$/permute_refactor.min.min.js" />
         <item url="file://$PROJECT_DIR$/permy.link/script.min.js" />
         <item url="file://$PROJECT_DIR$/random.min.js" />
         <item url="file://$PROJECT_DIR$/simper.min.js" />
-        <item url="file://$PROJECT_DIR$/test.min.js" />
-        <item url="file://$PROJECT_DIR$/test.min.min.js" />
-        <item url="file://$PROJECT_DIR$/test_refactor.min.js" />
-        <item url="file://$PROJECT_DIR$/test_refactor.min.min.js" />
+        <item url="file://$PROJECT_DIR$/tests.min.js" />
       </sourceFilesUrls>
     </properties>
     <CLASSES>
       <root url="file://$PROJECT_DIR$/index.min.js" />
+      <root url="file://$PROJECT_DIR$/permute_old.min.js" />
       <root url="file://$PROJECT_DIR$/permute.min.js" />
-      <root url="file://$PROJECT_DIR$/permute.min.min.js" />
-      <root url="file://$PROJECT_DIR$/permute_refactor.min.js" />
-      <root url="file://$PROJECT_DIR$/permute_refactor.min.min.js" />
+      <root url="file://$PROJECT_DIR$/permute.min.js" />
       <root url="file://$PROJECT_DIR$/permy.link/script.min.js" />
       <root url="file://$PROJECT_DIR$/random.min.js" />
       <root url="file://$PROJECT_DIR$/simper.min.js" />
-      <root url="file://$PROJECT_DIR$/test.min.js" />
-      <root url="file://$PROJECT_DIR$/test.min.min.js" />
-      <root url="file://$PROJECT_DIR$/test_refactor.min.js" />
-      <root url="file://$PROJECT_DIR$/test_refactor.min.min.js" />
+      <root url="file://$PROJECT_DIR$/tests.min.js" />
     </CLASSES>
     <JAVADOC />
     <SOURCES />
