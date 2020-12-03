@@ -81,21 +81,21 @@ class Branch {
   }
 
   get is_terminal_branch() {
-    // TODO: This fires incorrectly for complex branches
     return !this.branches().length && this.has_then_branches
   }
 
   translate_branch_reference(leaf) {
     const branch_object = this.duplicate_branch(this.tree.branch(leaf.node.branch));
 
+    // Continue recursively
+    const branch = new Branch(this.tree, branch_object, this.then_branches);
+
     // Translate the then and append it inside the branch.
     if (leaf.has_then_reference) {
       const then_object = this.translate_then_reference(leaf);
-      this.prepend_then_branch(then_object)
+      branch.prepend_then_branch(then_object)
     }
 
-    // Continue recursively
-    const branch = new Branch(this.tree, branch_object, this.then_branches);
     return branch.translate_object;
   }
   
