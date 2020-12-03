@@ -312,7 +312,7 @@ const test_num = process.argv[2];
         "holocene": ["holocene"],
         "miocene": ["miocene"]
       },
-      expected: ["eocene", "oligocene", "miocene", "pliocene", "holocene"].join("")
+      expected: [["eocene", "oligocene", "miocene", "pliocene", "holocene"].join("")]
     },
     {
       name: "Bifurcated branch-then chaining",
