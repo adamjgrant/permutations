@@ -67,7 +67,7 @@ class Branch {
       return this.translate_branch_reference(object_leaf);
     }
 
-    if (!this.branches().length && this.then_branches !== undefined) {
+    if (!this.branches().length && this.has_then_branches) {
       this.object.push(this.then_branches);
     }
 
@@ -107,8 +107,12 @@ class Branch {
   }
   
   prepend_then_branch(branch_to_prepend) {
-    if (this.then_branches === undefined) { this.then_branches = branch_to_prepend; }
+    if (!this.has_then_branches) { this.then_branches = branch_to_prepend; }
     else { this.then_branches = [...branch_to_prepend, this.then_branches] }
+  }
+
+  get has_then_branches() {
+    return this.then_branches !== undefined;
   }
 }
 
