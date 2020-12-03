@@ -332,7 +332,7 @@
             expected: ["MTLMBDMB", "MTRMBDMB"]
         }
     ];
-    tests = tests.slice(0, 2);
+    tests = tests.slice(0, 4);
     let results = tests.map((test, index) => {
         const prefix = `#${index}. `;
         const result = (() => {

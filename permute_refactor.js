@@ -5,8 +5,8 @@ class Tree {
 
   get permutations() {
     const translated_object = this.translate_main;
-    // TODO: Implement
-    return []
+    const translated_branch = new Branch(this, translated_object);
+    return translated_branch.terminal_leaves();
   }
 
   // Scan through the object and make it a regular ol nested array. No nested objects
@@ -25,6 +25,24 @@ class Branch {
     this.object = object;
   }
 
+  terminal_leaves(prefix = "") {
+    if (!this.branches.length) return this.leaves.map(leaf => `${prefix}${leaf}`);
+    return this.leaves.map(leaf => {
+      return this.branches.map(branch => {
+        return new Branch(branch).terminal_leaves(`${prefix}${leaf}`);
+      });
+    })
+  }
+
+  get leaves() {
+    return this.object.filter(item => new Leaf(item).is_terminal);
+  }
+
+  get branches() {
+    return this.object.filter(item => new Leaf(item).is_branch)
+  }
+
+  // Translations
   get translate_object() {
     // Incoming object could be a bare branch reference.
     const object_leaf = new Leaf(this.object)
@@ -32,6 +50,7 @@ class Branch {
       return this.translate_branch_reference(object_leaf);
     }
 
+    // Otherwise, assume this is an array
     return this.object.map(_leaf => {
       const leaf = new Leaf(_leaf);
       if (leaf.is_branch_reference) {
@@ -50,6 +69,7 @@ class Branch {
       branch_object.push(then_object);
     }
 
+    // Continue recursively
     const branch = new Branch(this.tree, branch_object);
     return branch.translate_object;
   }
@@ -64,6 +84,14 @@ class Branch {
 class Leaf {
   constructor(node) {
     this.node = node;
+  }
+
+  get is_branch() {
+    return Array.isArray(this.node);
+  }
+
+  get is_terminal() {
+    return this.node.constructor.name === "String";
   }
 
   get is_branch_reference() {
