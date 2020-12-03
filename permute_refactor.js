@@ -3,13 +3,17 @@ class Tree {
     this.object = object;
   }
 
-  get permutate() {
+  get permutations() {
     return this.translate_main
   }
 
   // Scan through the object and make it a regular ol nested array. No nested objects
   get translate_main() {
     return new Branch(this, this.object.main).translate_object;
+  }
+  
+  branch(key) {
+    return this.object[key] || []
   }
 }
 
@@ -30,7 +34,7 @@ class Branch {
   }
 
   translate_branch_reference(leaf) {
-    const branch_object = this.tree.object[leaf.node.branch];
+    const branch_object = this.tree.branch(leaf.node.branch);
 
     const branch = new Branch(this.tree, branch_object);
     return branch.translate_object;

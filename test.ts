@@ -1,5 +1,5 @@
 (() => {
-    const Permute = require("./permute");
+    const Permute = require("./permute_refactor");
     let pass_fail_count = [0,0];
     const assert = (name: string, expected: string[], input: object) => {
         const actual = new Permute(input).permutations;
@@ -317,7 +317,9 @@
                 "D": [ "d" ]
             }
             , expected: ["abcd"]
-        }, {
+        },
+
+        {
             name: "Complex branch-then chaining"
             , input: {
                 "main": [
@@ -332,7 +334,9 @@
                 "miocene": ["miocene"]
             }
             , expected: ["eocene", "oligocene", "miocene", "pliocene", "holocene"].join("")
-        }, {
+        },
+
+        {
           name: "Bifurcated branch-then chaining"
           , input: {
             "main": [
@@ -352,6 +356,7 @@
         }
     ]
 
+    tests = tests.slice(0, 2);
     let results = tests.map((test, index) => {
         const prefix = `#${index}. `;
         const result = (() => {
@@ -369,7 +374,46 @@
     //   function to run with object,
     //   expected result from function
     // ]
-    const complex_tests = [
+    let complex_tests = [
+        [
+            "Array with a branch is translated correctly",
+            {
+                "main": ["a", { "branch": "B" }],
+                "B": ["b"]
+            },
+            (obj) => {
+                const tree = new Permute(obj);
+                return JSON.stringify(tree.translate_main);
+            },
+            JSON.stringify(["a", ["b"]])
+        ],
+        [
+            "Array with two branches is translated correctly",
+            {
+                "main": ["a", { "branch": "B" }, { "branch": "C" }],
+                "B": ["b"],
+                "C": ["c"]
+            },
+            (obj) => {
+                const tree = new Permute(obj);
+                return JSON.stringify(tree.translate_main);
+            },
+            JSON.stringify(["a", ["b"], ["c"]])
+        ],
+        [
+            "Array with two branches, one with a child branch, is translated correctly",
+            {
+                "main": ["a", { "branch": "B" }, { "branch": "C" }],
+                "B": ["b", { "branch": "D" }],
+                "C": ["c"],
+                "D": ["d"]
+            },
+            (obj) => {
+                const tree = new Permute(obj);
+                return JSON.stringify(tree.translate_main);
+            },
+            JSON.stringify(["a", ["b", ["d"]], ["c"]])
+        ],
         [
             "Gracefully handle empty strings",
             {
@@ -507,6 +551,7 @@
         ]
     ];
 
+    complex_tests = complex_tests.splice(0, 3);
     complex_tests.forEach((test, index) => {
         const title = test[0], obj = test[1], fn = test[2], expected = test[3];
         const actual = fn(obj);
