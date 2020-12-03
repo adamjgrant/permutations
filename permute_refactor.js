@@ -26,6 +26,12 @@ class Branch {
   }
 
   get translate_object() {
+    // Incoming object could be a bare branch reference.
+    const object_leaf = new Leaf(this.object)
+    if (object_leaf.is_branch_reference) {
+      return this.translate_branch_reference(object_leaf);
+    }
+
     return this.object.map(_leaf => {
       const leaf = new Leaf(_leaf);
       if (leaf.is_branch_reference) {
@@ -50,7 +56,7 @@ class Branch {
   
   translate_then_reference(leaf) {
     let then_object = leaf.node.then;
-    if (!Array.isArray(then_object)) then_object = [then_object];
+    if (then_object.constructor.name === "String") then_object = [then_object];
     return new Branch(this.tree, then_object).translate_object;
   }
 }

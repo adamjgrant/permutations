@@ -353,7 +353,7 @@
     //   function to run with object,
     //   expected result from function
     // ]
-    let complex_tests = [
+    let translation_tests = [
         [
             "Array with a branch is translated correctly",
             {
@@ -406,6 +406,32 @@
             },
             JSON.stringify(["a", ["b", ["c"]]])
         ],
+        [
+            "Array with a branch and a then with just an array is translated correctly",
+            {
+                "main": ["a", { "branch": "B", "then": ["c"] }],
+                "B": ["b"]
+            },
+            (obj) => {
+                const tree = new Permute(obj);
+                return JSON.stringify(tree.translate_main);
+            },
+            JSON.stringify(["a", ["b", ["c"]]])
+        ],
+        [
+            "Array with a branch and a then with just a string is translated correctly",
+            {
+                "main": ["a", { "branch": "B", "then": "c" }],
+                "B": ["b"]
+            },
+            (obj) => {
+                const tree = new Permute(obj);
+                return JSON.stringify(tree.translate_main);
+            },
+            JSON.stringify(["a", ["b", ["c"]]])
+        ],
+    ];
+    let complex_tests = [
         [
             "Gracefully handle empty strings",
             {
@@ -558,8 +584,8 @@
             JSON.stringify(["a.2b", "ab", "c"])
         ]
     ];
-    complex_tests = complex_tests.splice(0, 4);
-    complex_tests.forEach((test, index) => {
+    // [...translation_tests, ...complex_tests].forEach((test, index) => {
+    [...translation_tests].forEach((test, index) => {
         const title = test[0], obj = test[1], fn = test[2], expected = test[3];
         // @ts-ignore
         const actual = fn(obj);
