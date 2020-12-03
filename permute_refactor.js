@@ -60,7 +60,7 @@ class Branch {
   }
 
   translate_branch_reference(leaf) {
-    const branch_object = this.tree.branch(leaf.node.branch);
+    const branch_object = this.duplicate_branch(this.tree.branch(leaf.node.branch));
 
     // Translate the then and append it inside the branch.
     if (leaf.has_then_reference) {
@@ -77,6 +77,10 @@ class Branch {
     let then_object = leaf.node.then;
     if (then_object.constructor.name === "String") then_object = [then_object];
     return new Branch(this.tree, then_object).translate_object;
+  }
+
+  duplicate_branch(branch) {
+    return JSON.parse(JSON.stringify(branch));
   }
 }
 

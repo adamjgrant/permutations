@@ -431,14 +431,7 @@
         ],
         [
             "Translation: Empty leaf with two sub branches, each with a branch ref with then",
-            {
-                "main": [
-                    "",
-                    ["a", { "branch": "other", "then": ["x"] }],
-                    ["b", { "branch": "other", "then": ["y"] }]
-                ],
-                "other": ["-"]
-            },
+            { "main": ["", ["a", { "branch": "other", "then": ["x"] }], ["b", { "branch": "other", "then": ["y"] }]], "other": ["-"] },
             (obj) => {
                 const tree = new Permute(obj);
                 return JSON.stringify(tree.translate_main);
