@@ -120,20 +120,20 @@ class Branch {
 
     if (branch_to_prepend === undefined) return;
     let branch = new Branch(this.tree, branch_to_prepend, this.then_branches);
-    console.log(branch_to_prepend)
-    console.log(branch.is_terminal_branch)
     if (branch.is_terminal_branch) {
       if (this.has_then_branches) {
         this.then_branches = [...branch_to_prepend, this.then_branches]
       } else {
         this.then_branches = branch_to_prepend;
       }
+      return this.then_branches;
     }
     else {
-      this.then_branches = new Tree({
-        main: { "branch": "x", "then": this.then_branches },
-        x: branch_to_prepend
-      }).translate_main;
+      const recursed_branches = branch.branches().map(_branch => {
+        return new Branch(this.tree, branch, this.then_branches).prepend_then_branch(_branch)
+      })
+      this.then_branches = [...branch.leaves(), ...recursed_branches];
+      return this.then_branches;
     }
   }
 
