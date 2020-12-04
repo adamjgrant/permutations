@@ -63,7 +63,7 @@ class Branch {
   get translate_object() {
     // Incoming object could be a bare branch reference.
     const object_leaf = new Leaf(this.object)
-    if (object_leaf.is_branch_reference) {
+    if (object_leaf.has_directive("branch")) {
       return this.translate_branch_reference(object_leaf);
     }
 
@@ -72,7 +72,7 @@ class Branch {
     // Otherwise, assume this is an array
     return this.object.map(_leaf => {
       const leaf = new Leaf(_leaf);
-      if (leaf.is_branch_reference) return this.translate_branch_reference(leaf);
+      if (leaf.has_directive("branch")) return this.translate_branch_reference(leaf);
       if (leaf.is_branch) {
         const _branch = new Branch(this.tree, leaf.node)
         if (!_branch.is_terminal_branch) _branch.then_branches = this.then_branches;
@@ -85,7 +85,7 @@ class Branch {
   }
 
   get is_terminal_branch() {
-    return !(this.branches().length && this.has_then_ranches) && this.object.every(item => new Leaf(item).is_string);
+    return !(this.branches().length && this.has_then_branches) && this.object.every(item => new Leaf(item).is_string);
   }
 
   translate_branch_reference(leaf) {
@@ -95,7 +95,7 @@ class Branch {
     const branch = new Branch(this.tree, branch_object, this.then_branches);
 
     // Translate the then and append it inside the branch.
-    if (leaf.has_then_reference) {
+    if (leaf.has_directive("then")) {
       const then_object = this.translate_then_reference(leaf);
       branch.prepend_then_branch(then_object)
     }
@@ -145,12 +145,8 @@ class Leaf {
 
   get is_string() { return this.node.constructor.name === "String"; }
 
-  get is_branch_reference() {
-    return (typeof(this.node) === "object" && this.node["branch"] !== undefined);
-  }
-
-  get has_then_reference() {
-    return (typeof(this.node) === "object" && this.node["then"] !== undefined);
+  has_directive(name = "branch") {
+    return (typeof(this.node) === "object" && this.node[name] !== undefined);
   }
 }
 
