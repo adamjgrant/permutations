@@ -73,8 +73,8 @@ const permute = () => {
 }
 
 const random_permutation = () => {
-  const tree  = new Permute(JSON.parse(editor.getValue()), true);
-  return tree.permutations[0];
+  const tree  = new Permute(JSON.parse(editor.getValue()));
+  return tree.one;
 }
 
 const persist = () => {
