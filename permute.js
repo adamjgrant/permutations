@@ -85,9 +85,7 @@ class Branch {
   }
 
   get is_terminal_branch() {
-    return !(this.branches().length && this.has_then_ranches) && this.object.every(item => {
-      return new Leaf(item).is_string
-    });
+    return !(this.branches().length && this.has_then_ranches) && this.object.every(item => new Leaf(item).is_string);
   }
 
   translate_branch_reference(leaf) {
@@ -121,11 +119,21 @@ class Branch {
     //       ["a", ["b", <appended>], ["c", <appended>]]
 
     if (branch_to_prepend === undefined) return;
-    if (this.has_then_branches) {
-      this.then_branches = [...branch_to_prepend, this.then_branches]
+    let branch = new Branch(this.tree, branch_to_prepend, this.then_branches);
+    console.log(branch_to_prepend)
+    console.log(branch.is_terminal_branch)
+    if (branch.is_terminal_branch) {
+      if (this.has_then_branches) {
+        this.then_branches = [...branch_to_prepend, this.then_branches]
+      } else {
+        this.then_branches = branch_to_prepend;
+      }
     }
     else {
-      this.then_branches = branch_to_prepend;
+      this.then_branches = new Tree({
+        main: { "branch": "x", "then": this.then_branches },
+        x: branch_to_prepend
+      }).translate_main;
     }
   }
 
