@@ -78,6 +78,16 @@
   white-space: break-spaces;
 }
 
+.alert.notshown,
+.alert.hide {
+  display: none;
+}
+
+.alert.alert-yellow {
+  margin-left: -40px;
+  margin-top: 15px;
+}
+
 @media screen and (min-width: 800px) {
   :root {
     --output-size: 450px;

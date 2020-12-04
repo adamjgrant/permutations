@@ -43,7 +43,9 @@ const editor = CodeMirror.fromTextArea(document.getElementById("code"), {
   lineNumbers: true,
   theme: "solarized dark"
 });
-const output_element = document.getElementById("output");
+const output_random_element = document.getElementById("output-random"),
+      output_all_element    = document.getElementById("output-all");
+
 const Permute = module.exports;
 let last_permutation;
 
@@ -52,6 +54,7 @@ editor.on("change", (instance, changeObj) => {
     text: "Permuting...", type: "status-blue"
   })
   debounce(permute, "editor", 500);
+  debounce(setAllNotice, "set_all_notice", 1000);
   debounce(persist, "persistence", 500);
 });
 
@@ -63,15 +66,15 @@ const permute = () => {
     while(results.length < 5) { results.push(random_permutation()); }
     output = results.map(result => `<li>${result}</li>`).join("");
     last_permutation = results;
-    setOutput(output);
+    setRandomOutput(output);
   } catch(e) {
-    setOutput(`${output}: ${e}`)
+    setRandomOutput(`${output}: ${e}`)
   }
 }
 
 const random_permutation = () => {
-  const tree  = new Permute(JSON.parse(editor.getValue()), true);
-  return tree.permutations[0];
+  const tree  = new Permute(JSON.parse(editor.getValue()));
+  return tree.one;
 }
 
 const persist = () => {
@@ -84,24 +87,49 @@ const regenerate_action_element = document.getElementById("regenerate");
 random_action_element.addEventListener("click", () => {
   if (!last_permutation) { k$.status({ text: "Please generate a permutation first" }); }
   const random_selection = random_permutation();
-  show_flash(`Copied to clipboard: "${random_selection}"`);
+  k$.status({ text: `Copied to clipboard: "${random_selection}"`});
   return navigator.clipboard.writeText(random_selection);
 });
 
 regenerate_action_element.addEventListener("click", () => { permute(); });
 
-const show_flash = (text) => {
-  k$.status({
-    text: text, type: 'status-blue'
-  })
-}
-
-const setOutput = (text) => {
-  output_element.innerHTML = text;
+const setRandomOutput = (text) => {
+  output_random_element.innerHTML = text;
   k$.status({
     text: "Done", type: "status-green"
   })
 }
+
+const setAllOutput = (text) => {
+  output_all_element.innerHTML = text;
+  k$.status({
+    text: "Done", type: "status-green"
+  })
+}
+
+const regenerate_notice = document.getElementById("regenerate-notice");
+const setAllNotice = () => {
+  regenerate_notice.classList.remove("hide")
+}
+
+const generate_all_element = document.getElementById("generate-all");
+const permute_all = () => {
+  regenerate_notice.classList.remove("notshown");
+  regenerate_notice.classList.add("hide");
+
+  let output = "Error parsing JSON";
+
+  try {
+    const tree  = new Permute(JSON.parse(editor.getValue()));
+    const results = tree.permutations;
+    output = results.map(result => `<li>${result}</li>`).join("");
+    setAllOutput(output);
+  } catch(e) {
+    setAllOutput(`${output}: ${e}`)
+  }
+}
+
+generate_all_element.addEventListener("click", permute_all)
 
 const clear_button = document.getElementById("clear");
 clear_button.addEventListener("click", () => {
@@ -120,10 +148,6 @@ default_button.addEventListener("click", () => {
     set_default_text();
   }
 });
-
-const gist_url_element = document.getElementById("gist_url");
-// TODO: XSS Protection!
-// gist_url_element.addEventListener("change", get_remote_code);
 
 permute();
 

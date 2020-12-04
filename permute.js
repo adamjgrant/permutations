@@ -1,128 +1,157 @@
-// A Tree is an object at the top level.
-// A Tree contains Branches.
-// Each Branch is [instantiated from] an array of Leaves (Interface: BranchArray)
-// A Leaf can be one of string | Branch | BranchLink
 class Tree {
-    constructor(tree, one_random = false) {
-        this.object = tree;
-        this.one_random = one_random;
-    }
-    get main() { return this.branch("main"); }
-    branch(key) {
-        let branch = new Branch(this.object[key], this);
-        return branch;
-    }
-    get permutations() { return this.main.permutations; }
-    get longest_key() {
-        return Object.keys(this.object).reduce((longest, key) => {
-            if (key.length > longest.length)
-                return key;
-            else
-                return longest;
-        }, "");
-    }
-    randomly_orphaned_array(arr) {
-        const random_selection = arr[~~(arr.length * Math.random())];
-        let _arr = [];
-        if (random_selection !== undefined)
-            _arr.push(random_selection);
-        return _arr;
-    }
-    new_branch_reference(array, key = "") {
-        //   Make a new key on the tree to host this then branch
-        //   Use the longest length key and append an epoch stamp to avoid collisions
-        const unique_key = `${this.longest_key}$`;
-        this.object[unique_key] = array;
-        return unique_key;
-    }
+  constructor(object) {
+    this.object = object;
+  }
+
+  get one() {
+    return this.translated_branch.one();
+  }
+
+  get permutations() {
+    return this.translated_branch.terminal_leaves();
+  }
+
+  get translated_branch() {
+    const translated_object = this.translate_main;
+    return new Branch(this, translated_object);
+  }
+
+  // Scan through the object and make it a regular ol nested array. No nested objects
+  get translate_main() {
+    return new Branch(this, this.object.main).translate_object;
+  }
+  
+  branch(key) {
+    return this.object[key] || []
+  }
 }
-class Leaf {
-    constructor(val, _branches = []) {
-        this.val = val;
-        this._branches = _branches;
-    }
-    get branches() {
-        return this._branches.map(_branch => new Branch(_branch.array, _branch.tree, this.val));
-    }
-    get terminal_leaves() {
-        if (!this.branches.length)
-            return [this];
-        return this.branches.reduce((arr, branch) => {
-            // @ts-ignore
-            return arr.concat(branch.terminal_leaves);
-        }, []);
-    }
-}
+
 class Branch {
-    constructor(branch, tree, prefix = "") {
-        this.array = branch;
-        this.tree = tree;
-        this.prefix = prefix;
-        this.memoized_leaves = [];
+  constructor(tree, object, then_branches) {
+    this.tree = tree;
+    this.object = object;
+    this.then_branches = then_branches;
+  }
+
+  terminal_leaves(prefix = "") {
+    if (!this.branches().length) return this.leaves().map(leaf => `${prefix}${leaf}`);
+    return this.leaves().reduce((arr, leaf) => {
+      return arr.concat(this.branches().reduce((arr, branch) => {
+        return arr.concat(new Branch(this.tree, branch).terminal_leaves(`${prefix}${leaf}`));
+      }, []));
+    }, [])
+  }
+
+  one(prefix = "") {
+    const new_prefix = `${prefix}${this.leaves(true)}`;
+    if (!this.branches().length) return new_prefix;
+    return (new Branch(this.tree, this.branches(true))).one(new_prefix);
+  }
+
+  leaves(random = false) {
+    let _leaves = this.object.filter(item => new Leaf(item).is_string) || [];
+    const leaves = _leaves.length ? _leaves : [""];
+    return random ? leaves[~~(leaves.length * Math.random())] : leaves;
+  }
+
+  branches(random = false) {
+    const _branches = this.object.filter(item => new Leaf(item).is_branch)
+    return random ? _branches[~~(_branches.length * Math.random())] : _branches;
+  }
+
+  // Translations
+  get translate_object() {
+    // Incoming object could be a bare branch reference.
+    const object_leaf = new Leaf(this.object)
+    if (object_leaf.is_branch_reference) {
+      return this.translate_branch_reference(object_leaf);
     }
-    get permutations() {
-        return this.terminal_leaves.map(leaf => leaf.val);
+
+    if (this.is_terminal_branch && this.then_branches !== undefined) this.object.push(this.then_branches);
+
+    // Otherwise, assume this is an array
+    return this.object.map(_leaf => {
+      const leaf = new Leaf(_leaf);
+      if (leaf.is_branch_reference) return this.translate_branch_reference(leaf);
+      if (leaf.is_branch) {
+        const _branch = new Branch(this.tree, leaf.node)
+        if (!_branch.is_terminal_branch) _branch.then_branches = this.then_branches;
+        return _branch.translate_object;
+      }
+
+      // No more then branches, terminal leaf.
+      return leaf.node;
+    });
+  }
+
+  get is_terminal_branch() {
+    return !(this.branches().length && this.has_then_ranches) && this.object.every(item => new Leaf(item).is_string);
+  }
+
+  translate_branch_reference(leaf) {
+    const branch_object = this.duplicate_branch(this.tree.branch(leaf.node.branch));
+
+    // Continue recursively
+    const branch = new Branch(this.tree, branch_object, this.then_branches);
+
+    // Translate the then and append it inside the branch.
+    if (leaf.has_then_reference) {
+      const then_object = this.translate_then_reference(leaf);
+      branch.prepend_then_branch(then_object)
     }
-    get terminal_leaves() {
-        return this.leaves.reduce((permutations, leaf) => {
-            return permutations.concat(leaf.terminal_leaves);
-        }, []);
+
+    return branch.translate_object;
+  }
+  
+  translate_then_reference(leaf) {
+    let then_object = leaf.node.then;
+    if (then_object.constructor.name === "String") then_object = [then_object];
+    return new Branch(this.tree, then_object).translate_object;
+  }
+
+  duplicate_branch(branch) {
+    return JSON.parse(JSON.stringify(branch));
+  }
+  
+  prepend_then_branch(branch_to_prepend) {
+    if (branch_to_prepend === undefined) return;
+    let branch = new Branch(this.tree, branch_to_prepend, this.then_branches);
+    if (branch.is_terminal_branch) {
+      if (this.has_then_branches) {
+        this.then_branches = [...branch_to_prepend, this.then_branches]
+      } else {
+        this.then_branches = branch_to_prepend;
+      }
+      return this.then_branches;
     }
-    get leaves() {
-        if (this.memoized_leaves.length)
-            return this.memoized_leaves;
-        // @ts-ignore
-        let leaves = this.tree.one_random ? this.tree.randomly_orphaned_array(this.leaves_as_strings) : this.leaves_as_strings;
-        // @ts-ignore
-        if (this.sub_branches.length && !leaves.length) {
-            leaves = [""];
-        }
-        this.memoized_leaves = leaves.map((leaf) => {
-            return new Leaf(`${this.prefix}${leaf}`, this.sub_branches);
-        });
-        return this.memoized_leaves;
+    else {
+      const recursed_branches = branch.branches().map(_branch => {
+        return new Branch(this.tree, branch, this.then_branches).prepend_then_branch(_branch)
+      })
+      this.then_branches = [...branch.leaves(), ...recursed_branches];
+      return this.then_branches;
     }
-    get leaves_as_strings() {
-        return this.array.filter(array_item => array_item.constructor.name === "String");
-    }
-    translate_branch_pointers() {
-        this.array.forEach((array_item, index) => {
-            if (array_item.constructor.name === "Object" && array_item["branch"]) {
-                let branch = JSON.parse(JSON.stringify(this.tree.object[array_item.branch]));
-                if (array_item['then']) {
-                    if (array_item.then.constructor.name === "String")
-                        array_item.then = [array_item.then];
-                    const unique_key = this.tree.new_branch_reference(array_item.then);
-                    //   Put a { "branch": "<that long key>" } on the deep end of the array below.
-                    const reference = { "branch": unique_key };
-                    branch = this.add_reference_to_branch_deep_end({ branch: branch, reference: reference });
-                }
-                // @ts-ignore
-                this.array[index] = branch;
-            }
-        });
-    }
-    add_reference_to_branch_deep_end(args = { branch: [], reference: {} }) {
-        const branch = args.branch, reference = args.reference;
-        if (branch.constructor.name === "String")
-            return branch;
-        const branch_has_arrays = branch.some(item => Array.isArray(item));
-        if (branch_has_arrays) {
-            return branch.map(item => this.add_reference_to_branch_deep_end({ branch: item, reference: reference }));
-        }
-        else {
-            branch.push(reference);
-            return branch;
-        }
-    }
-    get sub_branches() {
-        this.translate_branch_pointers();
-        // Take the raw nested array and turn it into Branches.
-        // @ts-ignore
-        const _sub_branches = this.array.filter(array_item => Array.isArray(array_item)).map(array_item => new Branch(array_item, this.tree));
-        // @ts-ignore
-        return this.tree.one_random ? this.tree.randomly_orphaned_array(_sub_branches) : _sub_branches;
-    }
+  }
+
+  get has_then_branches() {
+    return this.then_branches !== undefined;
+  }
 }
+
+class Leaf {
+  constructor(node) { this.node = node; }
+
+  get is_branch() { return Array.isArray(this.node); }
+
+  get is_string() { return this.node.constructor.name === "String"; }
+
+  get is_branch_reference() {
+    return (typeof(this.node) === "object" && this.node["branch"] !== undefined);
+  }
+
+  get has_then_reference() {
+    return (typeof(this.node) === "object" && this.node["then"] !== undefined);
+  }
+}
+
 module.exports = Tree;
-//# sourceMappingURL=permute.js.map
