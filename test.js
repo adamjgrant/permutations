@@ -700,7 +700,30 @@ const test_num = process.argv[2];
         return JSON.stringify([...new Set(results)].sort());
       },
       JSON.stringify(["a.2b", "ab", "c"])
-    ]
+    ],
+      [
+      "Random: Branch linking with nested then redirection",
+        {
+          "main": [
+            "A", { "branch": "C", "then": [
+                "D"
+              ] }
+          ],
+          "C": [
+            "F", { "branch": "H", "then": ["K", ["M"]] }
+          ],
+          "H": ["J"]
+        },
+        (obj) => {
+          const tree = new Permute(obj);
+          let x = 0, results = [];
+          while (x++ < 100) {
+            results.push(tree.one);
+          }
+          return JSON.stringify([...new Set(results)].sort());
+        },
+        JSON.stringify(["AFJKMD"])
+      ],
   ];
   const run_test = (test, initial_index = 0, index) => {
     const title = test[0], obj = test[1], fn = test[2], expected = test[3];

@@ -114,10 +114,6 @@ class Branch {
   }
   
   prepend_then_branch(branch_to_prepend) {
-    // TODO: Currently, this just puts existing then_branches as the last item of the array.
-    //       It actually needs to make them the last item of the terminal branches recursively.
-    //       ["a", ["b", <appended>], ["c", <appended>]]
-
     if (branch_to_prepend === undefined) return;
     let branch = new Branch(this.tree, branch_to_prepend, this.then_branches);
     if (branch.is_terminal_branch) {
