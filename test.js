@@ -546,21 +546,21 @@ const test_num = process.argv[2];
       "Translation: Branch linking with nested then redirection, using branch instead",
       {
         "main": [
-          "A", { "branch": "C", "then": [
-              "D"
+          "A", { "branch": "bcde", "then": [
+              "F", ["G"]
             ] }
         ],
-        "C": [
-          "F", { "branch": "H", "then": { "branch": "X" } }
+        "bcde": [
+          "B", { "branch": "c", "then": { "branch": "de" } }
         ],
-        "H": ["J"],
-        "X": ["K", ["M"]]
+        "c": ["C"],
+        "de": ["D", ["E"]]
       },
       (obj) => {
         const tree = new Permute(obj);
         return JSON.stringify(tree.translate_main);
       },
-      JSON.stringify(["A", ["F", ["J", ["K", ["M", ["D"]]]]]])
+      JSON.stringify(["A", ["B", ["C", ["D", ["E", ["F", ["G"]]]]]]])
     ]
   ];
 
@@ -752,7 +752,7 @@ const test_num = process.argv[2];
       pass_fail_count[1]++;
       message = `---FAIL: ${title}\n      Expected: ${expected}\n      Actual:   ${actual}`;
     }
-    console.log(`#${final_index}: ${message}`);
+    console.log(`#${test_num || final_index}: ${message}`);
   };
 
   console.log("\n== Translation Tests ==");
