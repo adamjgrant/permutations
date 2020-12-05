@@ -114,13 +114,15 @@ class Branch {
   }
   
   prepend_then_branch(branch_to_prepend) {
-    console.log(this.object, branch_to_prepend);
     if (branch_to_prepend === undefined) return;
     let branch = new Branch(this.tree, branch_to_prepend, this.then_branches);
 
-    if (branch.is_terminal_branch) {
+    if (branch.is_terminal_branch) { return this.prepend_to_terminal_branch(branch, branch_to_prepend) }
+    else                           { return this.prepend_to_non_terminal_branch(branch) }
+  }
+
+    prepend_to_terminal_branch(branch, branch_to_prepend) {
       // TODO: This needs to be recursive
-      console.log("terminal")
       if (this.has_then_branches) {
         this.then_branches = [...branch_to_prepend, this.then_branches]
       } else {
@@ -129,15 +131,13 @@ class Branch {
       return this.then_branches;
     }
 
-    else {
-      console.log("notterminal")
+    prepend_to_non_terminal_branch(branch) {
       const recursed_branches = branch.branches().map(_branch => {
         return new Branch(this.tree, branch, this.then_branches).prepend_then_branch(_branch)
       })
       this.then_branches = [...branch.leaves(), ...recursed_branches];
       return this.then_branches;
     }
-  }
 
   get has_then_branches() {
     return this.then_branches !== undefined;
