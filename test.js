@@ -374,6 +374,29 @@ const test_num = process.argv[2];
       JSON.stringify([["a", ["b", ["c"]]]])
     ],
     [
+      "Testing different then nesting strategies at once.",
+      {
+        "main": [
+          {
+            "branch": "A", "then": {
+              "branch": "B"
+            }
+          }
+        ],
+        "A": [
+          "A1", ["A2"]
+        ],
+        "B": [
+          "B1", ["B2"]
+        ]        
+      },
+      (obj) => {
+        const tree = new Permute(obj);
+        return JSON.stringify(tree.translate_main);
+      },
+      JSON.stringify([["A1", ["A2", ["B1", ["B2"]]]]])
+    ],
+    [
       "Array with a branch is translated correctly",
       {
         "main": ["a", { "branch": "B" }],

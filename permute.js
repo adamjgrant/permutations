@@ -113,20 +113,26 @@ class Branch {
     return JSON.parse(JSON.stringify(branch));
   }
   
-  prepend_then_branch(branch_to_prepend) {
-    if (branch_to_prepend === undefined) return;
-    let branch = new Branch(this.tree, branch_to_prepend, this.then_branches);
+  prepend_then_branch(then_object) {
+    if (then_object === undefined) return;
+    let branch = new Branch(this.tree, then_object, this.then_branches);
 
-    if (branch.is_terminal_branch) { return this.prepend_to_terminal_branch(branch, branch_to_prepend) }
+    if (branch.is_terminal_branch) { return this.prepend_to_terminal_branch(branch, then_object) }
     else                           { return this.prepend_to_non_terminal_branch(branch) }
   }
 
-    prepend_to_terminal_branch(branch, branch_to_prepend) {
+    prepend_to_terminal_branch(branch, then_object) {
       // TODO: This needs to be recursive
       if (this.has_then_branches) {
-        this.then_branches = [...branch_to_prepend, this.then_branches]
+        // We may have had then branches upstream. Make a new branch independent from this tree to recurse logic
+        this.then_branches = new Tree({ 
+          "main": { 
+            "branch": "x", "then": this.then_branches
+          }, 
+          "x": then_object
+        }).translate_main;
       } else {
-        this.then_branches = branch_to_prepend;
+        this.then_branches = then_object;
       }
       return this.then_branches;
     }
@@ -141,6 +147,15 @@ class Branch {
 
   get has_then_branches() {
     return this.then_branches !== undefined;
+  }
+
+  set add_to_deep_end(array_to_add) {
+    // Find the lowest sub branches having no subbranches within them, and add branch_to_add in it. 
+    if (!this.branches().length) {
+      this.object = this.object.push(array_to_add);
+      return this.object;
+    }
+    return this.object = [...this.leaves(), this.branches().map(_branch => _branch.add_to_deep_end(array_to_add))];
   }
 }
 
