@@ -148,6 +148,15 @@ class Branch {
   get has_then_branches() {
     return this.then_branches !== undefined;
   }
+
+  set add_to_deep_end(array_to_add) {
+    // Find the lowest sub branches having no subbranches within them, and add branch_to_add in it. 
+    if (!this.branches().length) {
+      this.object = this.object.push(array_to_add);
+      return this.object;
+    }
+    return this.object = [...this.leaves(), this.branches().map(_branch => _branch.add_to_deep_end(array_to_add))];
+  }
 }
 
 class Leaf {
