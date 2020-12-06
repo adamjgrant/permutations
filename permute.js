@@ -24,6 +24,14 @@ class Tree {
   branch(key) {
     return this.object[key] || []
   }
+
+  get unique_branch_name() {
+    const longest_key = Object.keys(this.object).reduce((longest_so_far, next) => {
+      if (next.length > longest_so_far) return next;
+      return longest_so_far;
+    }, "");
+    return `${longest_key}-${Date.now()}`
+  }
 }
 
 class Branch {
@@ -139,8 +147,9 @@ class Branch {
         // TODO: This breaks if user actually does call their branch "x"
         //       or in the next level of recursion in which this is already
         //       set. Need to ensure total uniqueness
-        modified_tree_object.main = { branch: "x", then: then_object };
-        modified_tree_object.x = translated_sub_branch;
+        const shadow_branch_name = this.tree.unique_branch_name;
+        modified_tree_object.main = { branch: shadow_branch_name, then: then_object };
+        modified_tree_object[shadow_branch_name] = translated_sub_branch;
         const tree = new Tree(modified_tree_object);
         return tree.translate_main
       })
