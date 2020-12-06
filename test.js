@@ -359,6 +359,19 @@ const test_num = process.argv[2];
   // ]
   let translation_tests = [
     [
+      "Simple A, B translation with immediate then",
+      {
+        "main": [
+          { "branch": "A", "then": ["b"] }
+        ], "A": ["a"]
+      },
+      (obj) => {
+        const tree = new Permute(obj);
+        return JSON.stringify(tree.translate_main);
+      },
+      JSON.stringify([["a", ["b"]]])
+    ],
+    [
       "Branch with then branch where first branch has an empty string sub branch",
       {
         "main": [
