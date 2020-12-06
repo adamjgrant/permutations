@@ -115,34 +115,39 @@ class Branch {
   
   prepend_then_branch(then_object) {
     if (then_object === undefined) return;
-    let branch = new Branch(this.tree, then_object, this.then_branches);
 
-    // console.log(this.object, branch, this.is_terminal_branch)
-    if (this.is_terminal_branch) { return this.prepend_to_terminal_branch(branch, then_object) }
-    else                         { return this.prepend_to_non_terminal_branch(branch) }
+    // console.log(this.object, then_object, this.is_terminal_branch)
+
+    if (this.is_terminal_branch) { return this.prepend_to_terminal_branch(then_object) }
+    else                         { return this.prepend_to_non_terminal_branch(then_object) }
   }
 
-    prepend_to_terminal_branch(branch, then_object) {
+    prepend_to_terminal_branch(then_object) {
       this.object = this.deep_end(then_object);
       this.then_object = undefined;
     }
 
-    prepend_to_non_terminal_branch(branch) {
+    prepend_to_non_terminal_branch(then_object) {
       this.object = [
         ...this.leaves(),
-        ...this.branches().map(_branch => {
-          return new Tree({
-            main: { branch: "x", then: branch.object },
-            x: _branch
-          }).translate_main;
+        ...this.branches().map(sub_branch => {
+          const tree = new Tree({
+            main: { branch: "x", then: then_object },
+            x: sub_branch
+          })
+          return tree.translate_main
         })
       ]
 
-      const recursed_branches = branch.branches().map(_branch => {
-        return new Branch(this.tree, branch, this.then_branches).prepend_then_branch(_branch)
-      })
-      this.then_branches = [...branch.leaves(), ...recursed_branches];
-      return this.then_branches;
+      // console.log("ptntb", JSON.stringify(this.object))
+
+      return this.object;
+
+      // const recursed_branches = branch.branches().map(_branch => {
+      //   return new Branch(this.tree, branch, this.then_branches).prepend_then_branch(_branch)
+      // })
+      // this.then_branches = [...branch.leaves(), ...recursed_branches];
+      // return this.then_branches;
     }
 
   get has_then_branches() {
