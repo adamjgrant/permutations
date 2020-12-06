@@ -30,7 +30,12 @@ class Tree {
       if (next.length > longest_so_far) return next;
       return longest_so_far;
     }, "");
-    return `${longest_key}-${Date.now()}`
+    const new_branch_name = `${longest_key}-${Date.now()}`
+
+    // Ensures another call to this function will see it already exists
+    this.object[new_branch_name] = ""
+
+    return new_branch_name;
   }
 }
 
@@ -60,10 +65,6 @@ class Branch {
     let _leaves = this.object.filter(item => new Leaf(item).is_string) || [];
     const leaves = _leaves.length ? _leaves : [""];
     return random ? leaves[~~(leaves.length * Math.random())] : leaves;
-  }
-
-  get has_leaves() {
-    this.object.filter(item => new Leaf(item).is_string).length;
   }
 
   branches(random = false) {
@@ -140,19 +141,18 @@ class Branch {
     }
 
     prepend_to_non_terminal_branch(then_object) {
-      const translated_sub_and_then_branches = this.branches().map(sub_branch => {
-        const translated_sub_branch = new Branch(this.tree, sub_branch, this.then_branches).translate_object;
+      const translated_sub_and_then_branches = this.object.filter(item => {
+          return !(new Leaf(item).is_string);
+        }).map(sub_branch => {
+          const translated_sub_branch = new Branch(this.tree, sub_branch, this.then_branches).translate_object;
 
-        const modified_tree_object = this.duplicate_branch(this.tree.object);
-        // TODO: This breaks if user actually does call their branch "x"
-        //       or in the next level of recursion in which this is already
-        //       set. Need to ensure total uniqueness
-        const shadow_branch_name = this.tree.unique_branch_name;
-        modified_tree_object.main = { branch: shadow_branch_name, then: then_object };
-        modified_tree_object[shadow_branch_name] = translated_sub_branch;
-        const tree = new Tree(modified_tree_object);
-        return tree.translate_main
-      })
+          const modified_tree_object = this.duplicate_branch(this.tree.object);
+          const shadow_branch_name = this.tree.unique_branch_name;
+          modified_tree_object.main = { branch: shadow_branch_name, then: then_object };
+          modified_tree_object[shadow_branch_name] = translated_sub_branch;
+          const tree = new Tree(modified_tree_object);
+          return tree.translate_main
+        })
 
       return this.object = [
         ...this.leaves(),
@@ -172,15 +172,7 @@ class Branch {
     }
     const translated_sub_branches = this.branches().map(_branch => _branch.deep_end(array_to_add));
 
-    // TODO: Splitting it like this didn't really do much, after this is all
-    //       passing, try taking just the first part and see if tests still pass.
-    if (this.has_leaves) {
-      this.object = [...this.leaves(), ...translated_sub_branches];
-    }
-    else {
-      this.object = translated_sub_branches;
-    }
-    return this.object;
+    return this.object = [...this.leaves(), ...translated_sub_branches];
   }
 }
 
