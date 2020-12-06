@@ -33,7 +33,7 @@ class Tree {
     const new_branch_name = `${longest_key}-${Date.now()}`
 
     // Ensures another call to this function will see it already exists
-    this.object[new_branch_name] = ""
+    this.object[new_branch_name] = [];
 
     return new_branch_name;
   }
@@ -98,7 +98,7 @@ class Branch {
   }
 
   get is_terminal_branch() {
-    return !(this.branches().length && this.has_then_branches) && this.object.every(item => new Leaf(item).is_string);
+    return !(this.branches().length && this.then_branches !== undefined) && this.object.every(item => new Leaf(item).is_string);
   }
 
   translate_branch_reference(leaf) {
@@ -110,7 +110,7 @@ class Branch {
     // Translate the then and append it inside the branch.
     if (leaf.has_directive("then")) {
       const then_object = this.translate_then_reference(leaf);
-      branch.prepend_then_branch(then_object)
+      branch.prepend_then_branch(then_object);
     }
 
     return branch.translate_object;
@@ -131,38 +131,25 @@ class Branch {
 
     const translated_then_object = new Branch(this.tree, then_object, this.then_branches).translate_object;
 
-    if (this.is_terminal_branch) { return this.prepend_to_terminal_branch(translated_then_object) }
-    else                         { return this.prepend_to_non_terminal_branch(translated_then_object) }
+    if (this.is_terminal_branch) { return this.object = this.deep_end(then_object); }
+    else                         { return this.prepend_to_non_terminal_branch(translated_then_object); }
   }
-
-    prepend_to_terminal_branch(then_object) {
-      this.object = this.deep_end(then_object);
-      // this.then_object = undefined;
-    }
 
     prepend_to_non_terminal_branch(then_object) {
       const translated_sub_and_then_branches = this.object.filter(item => {
           return !(new Leaf(item).is_string);
         }).map(sub_branch => {
           const translated_sub_branch = new Branch(this.tree, sub_branch, this.then_branches).translate_object;
+          const modified_tree_object  = this.duplicate_branch(this.tree.object);
+          const shadow_branch_name    = this.tree.unique_branch_name;
+          modified_tree_object.main   = { branch: shadow_branch_name, then: then_object };
 
-          const modified_tree_object = this.duplicate_branch(this.tree.object);
-          const shadow_branch_name = this.tree.unique_branch_name;
-          modified_tree_object.main = { branch: shadow_branch_name, then: then_object };
           modified_tree_object[shadow_branch_name] = translated_sub_branch;
-          const tree = new Tree(modified_tree_object);
-          return tree.translate_main
-        })
+          return new Tree(modified_tree_object).translate_main;
+        });
 
-      return this.object = [
-        ...this.leaves(),
-        ...translated_sub_and_then_branches
-      ];
+      return this.object = [...this.leaves(), ...translated_sub_and_then_branches];
     }
-
-  get has_then_branches() {
-    return this.then_branches !== undefined;
-  }
 
   deep_end(array_to_add) {
     // Find the lowest sub branches having no subbranches within them, and add array_to_add in it.
