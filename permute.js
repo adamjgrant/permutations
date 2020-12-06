@@ -54,6 +54,10 @@ class Branch {
     return random ? leaves[~~(leaves.length * Math.random())] : leaves;
   }
 
+  get has_leaves() {
+    this.object.filter(item => new Leaf(item).is_string).length;
+  }
+
   branches(random = false) {
     const _branches = this.object.filter(item => new Leaf(item).is_branch)
     return random ? _branches[~~(_branches.length * Math.random())] : _branches;
@@ -116,38 +120,35 @@ class Branch {
   prepend_then_branch(then_object) {
     if (then_object === undefined) return;
 
-    // console.log(this.object, then_object, this.is_terminal_branch)
+    const translated_then_object = new Branch(this.tree, then_object, this.then_branches).translate_object;
 
-    if (this.is_terminal_branch) { return this.prepend_to_terminal_branch(then_object) }
-    else                         { return this.prepend_to_non_terminal_branch(then_object) }
+    if (this.is_terminal_branch) { return this.prepend_to_terminal_branch(translated_then_object) }
+    else                         { return this.prepend_to_non_terminal_branch(translated_then_object) }
   }
 
     prepend_to_terminal_branch(then_object) {
       this.object = this.deep_end(then_object);
-      this.then_object = undefined;
+      // this.then_object = undefined;
     }
 
     prepend_to_non_terminal_branch(then_object) {
-      this.object = [
+      const translated_sub_and_then_branches = this.branches().map(sub_branch => {
+        const translated_sub_branch = new Branch(this.tree, sub_branch, this.then_branches).translate_object;
+
+        const modified_tree_object = this.duplicate_branch(this.tree.object);
+        // TODO: This breaks if user actually does call their branch "x"
+        //       or in the next level of recursion in which this is already
+        //       set. Need to ensure total uniqueness
+        modified_tree_object.main = { branch: "x", then: then_object };
+        modified_tree_object.x = translated_sub_branch;
+        const tree = new Tree(modified_tree_object);
+        return tree.translate_main
+      })
+
+      return this.object = [
         ...this.leaves(),
-        ...this.branches().map(sub_branch => {
-          const tree = new Tree({
-            main: { branch: "x", then: then_object },
-            x: sub_branch
-          })
-          return tree.translate_main
-        })
-      ]
-
-      // console.log("ptntb", JSON.stringify(this.object))
-
-      return this.object;
-
-      // const recursed_branches = branch.branches().map(_branch => {
-      //   return new Branch(this.tree, branch, this.then_branches).prepend_then_branch(_branch)
-      // })
-      // this.then_branches = [...branch.leaves(), ...recursed_branches];
-      // return this.then_branches;
+        ...translated_sub_and_then_branches
+      ];
     }
 
   get has_then_branches() {
@@ -160,7 +161,16 @@ class Branch {
        this.object.push(array_to_add);
        return this.object;
     }
-    this.object = [...this.leaves(), ...this.branches().map(_branch => _branch.deep_end(array_to_add))];
+    const translated_sub_branches = this.branches().map(_branch => _branch.deep_end(array_to_add));
+
+    // TODO: Splitting it like this didn't really do much, after this is all
+    //       passing, try taking just the first part and see if tests still pass.
+    if (this.has_leaves) {
+      this.object = [...this.leaves(), ...translated_sub_branches];
+    }
+    else {
+      this.object = translated_sub_branches;
+    }
     return this.object;
   }
 }
