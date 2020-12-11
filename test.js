@@ -812,7 +812,22 @@ const test_num = process.argv[2];
         const tree = new Permute(obj);
         return JSON.stringify(tree.translate_main);
       },
-      JSON.stringify(["a", ["b"]])
+      JSON.stringify([["",["a",["b"]]]])
+    ],
+    [
+    "Branches with thens",
+      {
+        "a": "_a",
+        "b": "_b",
+        "A": { "branch": "a" },
+        "B": { "branch": "b" },
+        "main": [ { "branch": "A", "then": { "branch": "B" } } ]
+      },
+      (obj) => {
+        const tree = new Permute(obj);
+        return JSON.stringify(tree.translate_main);
+      },
+      JSON.stringify([["",["_a",["_b"]]]])
     ]
   ]
 

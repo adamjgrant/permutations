@@ -68,20 +68,36 @@ class Branch {
   }
 
   branches(random = false) {
+    const leaf = new Leaf(this.object)
+
+    if (leaf.is_directive) {
+      this.object = [this.translate_directive(leaf)]
+    }
+
+    if (leaf.is_string) {
+      this.object = [this.object];
+    }
+
     const _branches = this.object.filter(item => new Leaf(item).is_branch)
     return random ? _branches[~~(_branches.length * Math.random())] : _branches;
+  }
+
+  translate_directive(leaf) {
+    if (leaf.has_directive("branch")) {
+      return this.translate_branch_reference(leaf);
+    }
+
+    if (leaf.has_directive("ps")) {
+      return this.translate_ps_reference(leaf);
+    }
   }
 
   // Translations
   get translate_object() {
     // Incoming object could be a bare branch reference.
     const object_leaf = new Leaf(this.object)
-    if (object_leaf.has_directive("branch")) {
-      return this.translate_branch_reference(object_leaf);
-    }
-
-    if (object_leaf.has_directive("ps")) {
-      return this.translate_ps_reference(object_leaf);
+    if (object_leaf.is_directive) {
+      return this.translate_directive(object_leaf);
     }
 
     if (this.is_terminal_branch && this.then_branches !== undefined) this.object.push(this.then_branches);
@@ -182,6 +198,11 @@ class Leaf {
   get is_branch() { return Array.isArray(this.node); }
 
   get is_string() { return this.node.constructor.name === "String"; }
+
+  get is_directive() {
+    // TODO: This is repetitive in the code.
+    return this.has_directive("branch") || this.has_directive("ps");
+  }
 
   has_directive(name = "branch") {
     return (typeof(this.node) === "object" && this.node[name] !== undefined);
