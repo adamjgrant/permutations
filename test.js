@@ -800,12 +800,27 @@ const test_num = process.argv[2];
           return JSON.stringify(tree.translate_main);
         },
         JSON.stringify([["Hello ", ["world", "you", [" how", ["'s it going", " are you", ["?"]]]]]])
+    ],
+    [
+      "Branches with thens",
+      {
+        "A": { "ps": "a" },
+        "B": { "ps": "b" },
+        "main": [ { "branch": "A", "then": { "branch": "B" } } ]
+      },
+      (obj) => {
+        const tree = new Permute(obj);
+        return JSON.stringify(tree.translate_main);
+      },
+      JSON.stringify(["a", ["b"]])
     ]
   ]
 
   const run_test = (test, initial_index = 0, index) => {
     const title = test[0], obj = test[1], fn = test[2], expected = test[3];
-    const actual = fn(obj), final_index = index + initial_index;
+    let actual;
+    try { actual = fn(obj) } catch(e) { actual = e; console.error(e.stack) };
+    const final_index = index + initial_index;
     let message;
     if (actual === expected) {
       pass_fail_count[0]++;
