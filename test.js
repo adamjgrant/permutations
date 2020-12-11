@@ -818,14 +818,32 @@ const test_num = process.argv[2];
       JSON.stringify({ "main": ["a", ["b", "c", ["d", ["e", "f"]]]] })
     ],
     [
-    "Use branches",
+    "Use parens",
         "foo bar (fizz|buzz) whizz bang",
         (str) => {
           const ps = new PermyScript(str);
           return JSON.stringify(ps.compile);
         },
         JSON.stringify({ "main": ["foo bar ", ["fizz", "buzz", [" whizz bang"]]] })
-    ]
+    ],
+        [
+        "Slightly more complicated",
+            "Sounds like a (great|good|awesome|pretty fucking good) idea, honestly.",
+            (str) => {
+              const ps = new PermyScript(str);
+              return JSON.stringify(ps.compile);
+            },
+            JSON.stringify({"main":["Sounds like a ",["great","good","terrific","pretty fucking good",[" idea, honestly."]]]})
+        ],
+          [
+          "Slightly more complicated #2",
+              "(I|you) (took|chose) the (road|sidewalk|street) less (traveled|voyaged)",
+              (str) => {
+                const ps = new PermyScript(str);
+                return JSON.stringify(ps.compile);
+              },
+              JSON.stringify({ "main": ["I","you", [" ", ["took","chose", [" the ", ["road","sidewalk","street", [" less ", ["traveled","voyaged"]]]]]]]})
+          ]
   ]
 
   const run_test = (test, initial_index = 0, index) => {
