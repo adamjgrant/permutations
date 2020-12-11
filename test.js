@@ -779,7 +779,6 @@ const test_num = process.argv[2];
       ],
   ];
 
-
   let permyscript_tests = [
     [
       "Encapsulate string",
@@ -846,6 +845,19 @@ const test_num = process.argv[2];
           ]
   ]
 
+  let permyscript_parens_extraction_tests = [
+    [
+      "extract one parens in the middle",
+      "a b (c d) e f",
+      (str) => {
+        const ps = new PermyScript(str);
+        return ps.extract_to_parens;
+      },
+      "a b [object Object] e f"
+    ],
+  ]
+
+
   const run_test = (test, initial_index = 0, index) => {
     const title = test[0], obj = test[1], fn = test[2], expected = test[3];
     const actual = fn(obj), final_index = index + initial_index;
@@ -875,6 +887,11 @@ const test_num = process.argv[2];
   permyscript_tests.filter((test, index) => {
     return test_num === undefined || parseInt(test_num) === index + tests.length + complex_tests.length + translation_tests.length;
   }).forEach((test, i) => run_test(test, tests.length + complex_tests.length + translation_tests.length, i));
+
+  console.log("\n== PermyScript Parens Extraction Tests ==");
+  permyscript_parens_extraction_tests.filter((test, index) => {
+    return test_num === undefined || parseInt(test_num) === index + tests.length + complex_tests.length + translation_tests.length + permyscript_tests.length;
+  }).forEach((test, i) => run_test(test, tests.length + complex_tests.length + translation_tests.length + permyscript_tests.length, i));
 
   console.log(`\n${pass_fail_count[0]} Passing / ${pass_fail_count[1]} Failing`);
 })(test_num);
