@@ -857,7 +857,6 @@ const test_num = process.argv[2];
     ],
   ]
 
-
   const run_test = (test, initial_index = 0, index) => {
     const title = test[0], obj = test[1], fn = test[2], expected = test[3];
     const actual = fn(obj), final_index = index + initial_index;
@@ -873,25 +872,20 @@ const test_num = process.argv[2];
     console.log(`#${test_num || final_index}: ${message}`);
   };
 
-  console.log("\n== Translation Tests ==");
-  translation_tests.filter((test, index) => {
-    return test_num === undefined || parseInt(test_num) === index + tests.length;
-  }).forEach((test, i) => run_test(test, tests.length, i));
+  let new_index = tests.length
 
-  console.log("\n== Complex Tests ==");
-  complex_tests.filter((test, index) => {
-    return test_num === undefined || parseInt(test_num) === index + tests.length + translation_tests.length;
-  }).forEach((test, i) => run_test(test, tests.length + translation_tests.length, i));
+  const execute_test = (name, tests) => {
+    console.log(`\n== ${name} ==`);
+    tests.filter((test, index) => {
+      return test_num === undefined || parseInt(test_num) === index + new_index;
+    }).forEach((test, i) => run_test(test, i + new_index, i));
+    new_index += tests.length;
+  }
 
-  console.log("\n== PermyScript Tests ==");
-  permyscript_tests.filter((test, index) => {
-    return test_num === undefined || parseInt(test_num) === index + tests.length + complex_tests.length + translation_tests.length;
-  }).forEach((test, i) => run_test(test, tests.length + complex_tests.length + translation_tests.length, i));
-
-  console.log("\n== PermyScript Parens Extraction Tests ==");
-  permyscript_parens_extraction_tests.filter((test, index) => {
-    return test_num === undefined || parseInt(test_num) === index + tests.length + complex_tests.length + translation_tests.length + permyscript_tests.length;
-  }).forEach((test, i) => run_test(test, tests.length + complex_tests.length + translation_tests.length + permyscript_tests.length, i));
+  execute_test("Translation Tests", translation_tests);
+  execute_test("Complex Tests", complex_tests);
+  execute_test("PermyScript Tests", permyscript_tests);
+  execute_test("PermyScript Parens Extraction Tests", permyscript_parens_extraction_tests);
 
   console.log(`\n${pass_fail_count[0]} Passing / ${pass_fail_count[1]} Failing`);
 })(test_num);
