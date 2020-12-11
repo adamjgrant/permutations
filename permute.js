@@ -202,7 +202,9 @@ class PermyScript {
 
   get break_into_parts() {
     const array = []
-    this.string.split("").reduce((previous, char) => {
+    const split_string = this.string.split("");
+
+    split_string.reduce((previous, char, index) => {
       if (char.match(/\(/)) {
         array.push(previous);
         return char;
@@ -210,6 +212,9 @@ class PermyScript {
       else if (char.match(/\)/)) {
         array.push(previous + char);
         return "";
+      }
+      else if (index === split_string.length - 1) {
+        array.push(previous + char);
       }
       else {
         return previous + char;
@@ -232,7 +237,6 @@ class PermyScript {
   get delegate_to_branches() {
     let tree = new Tree({ main: [] });
     this.tree_object.main.forEach(part => {
-      console.log("Using part ", part.string);
       if (part.is_directive) {
         const unique_branch_name        = this.unique_branch_name;
         tree.object[unique_branch_name] = part.branch;
