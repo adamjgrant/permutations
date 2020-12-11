@@ -788,7 +788,7 @@ const test_num = process.argv[2];
         const ps = new PermyScript(str);
         return JSON.stringify(ps.compile);
       },
-      JSON.stringify(["foo bar"])
+      JSON.stringify({ "main": ["foo bar"] })
     ],
     [
       "Split string",
@@ -797,7 +797,25 @@ const test_num = process.argv[2];
         const ps = new PermyScript(str);
         return JSON.stringify(ps.compile);
       },
-      JSON.stringify(["foo", "bar"])
+      JSON.stringify({ "main": ["foo", "bar"] })
+    ],
+    [
+      "Multiple split strings",
+      "I saw a (dog|cat) who was (barking|meowing)",
+      (str) => {
+        const ps = new PermyScript(str);
+        return JSON.stringify(ps.compile);
+      },
+      JSON.stringify({ "main": ["I saw a ", ["dog", "cat", [" who was ", ["barking", "meowing"]]]]})
+    ],
+    [
+      "Same but smaller version",
+      "a(b|c)d(e|f)",
+      (str) => {
+        const ps = new PermyScript(str);
+        return JSON.stringify(ps.compile);
+      },
+      JSON.stringify({ "main": ["a", ["b", "c", ["d", ["e", "f"]]]] })
     ],
     [
     "Use branches",
@@ -806,7 +824,7 @@ const test_num = process.argv[2];
           const ps = new PermyScript(str);
           return JSON.stringify(ps.compile);
         },
-        JSON.stringify(["foo bar ", ["fizz", "buzz", [" whizz bang"]]])
+        JSON.stringify({ "main": ["foo bar ", ["fizz", "buzz", [" whizz bang"]]] })
     ]
   ]
 
