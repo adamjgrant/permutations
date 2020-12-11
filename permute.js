@@ -80,12 +80,17 @@ class Branch {
       return this.translate_branch_reference(object_leaf);
     }
 
+    if (object_leaf.has_directive("ps")) {
+      return this.translate_ps_reference(object_leaf);
+    }
+
     if (this.is_terminal_branch && this.then_branches !== undefined) this.object.push(this.then_branches);
 
     // Otherwise, assume this is an array
     return this.object.map(_leaf => {
       const leaf = new Leaf(_leaf);
       if (leaf.has_directive("branch")) return this.translate_branch_reference(leaf);
+      if (leaf.has_directive("ps"))     return this.translate_ps_reference(leaf);
       if (leaf.is_branch) {
         const _branch = new Branch(this.tree, leaf.node)
         if (!_branch.is_terminal_branch) _branch.then_branches = this.then_branches;
@@ -120,6 +125,10 @@ class Branch {
     let then_object = leaf.node.then;
     if (then_object.constructor.name === "String") then_object = [then_object];
     return new Branch(this.tree, then_object).translate_object;
+  }
+
+  translate_ps_reference(leaf) {
+    return new PermyScript(leaf.node.ps).compile;
   }
 
   duplicate_branch(branch) {
@@ -157,7 +166,11 @@ class Branch {
        this.object.push(array_to_add);
        return this.object;
     }
-    const translated_sub_branches = this.branches().map(_branch => _branch.deep_end(array_to_add));
+    const translated_sub_branches = this.branches().map(_branch => {
+      const __branch = new Branch(this.tree, _branch)
+      __branch.deep_end(array_to_add);
+      return __branch.object;
+    });
 
     return this.object = [...this.leaves(), ...translated_sub_branches];
   }
@@ -189,6 +202,7 @@ class PermyScript {
 
   get break_into_parts() {
     const array = []
+    console.log(this.string)
     this.string.split("").reduce((previous, char) => {
       if (char.match(/\(/)) {
         array.push(previous);
@@ -210,8 +224,6 @@ class PermyScript {
 
   get convert_parens() {
     this.tree_object.main = this.tree_object.main.map(part => {
-      // const part_as_parens = new Part(part);
-      // return part_as_parens.is_directive ? part_as_parens : part;
       return new Part(part);
     });
 
@@ -219,22 +231,36 @@ class PermyScript {
   }
 
   get delegate_to_branches() {
-    let new_tree_object = { main: [] }
+    let tree = new Tree({ main: []});
     this.tree_object.main.forEach(part => {
       if (part.is_directive) {
-        const unique_branch_name = this.unique_branch_name;
-        new_tree_object[unique_branch_name] = part.branch;
+        const unique_branch_name        = this.unique_branch_name;
+        tree.object[unique_branch_name] = part.branch;
+        tree                            = new Tree(tree.object)
+
+        const branch = tree.translated_branch;
+        branch.deep_end([{branch: unique_branch_name}]);
+        tree.object.main = branch.object;
+        tree = new Tree(tree.object)
       }
       else {
-        // Add to deepest end
+        const branch = tree.translated_branch;
+        branch.deep_end(part.branch);
+        tree.object.main = branch.object;
+        tree = new Tree(tree.object)
       }
     });
+    this.tree_object = tree.object;
+    return this;
   }
 
   get compile() {
-    this.break_into_parts
-        .convert_parens
-        .delegate_to_branches;
+    const obj = this.break_into_parts
+                    .convert_parens
+                    .delegate_to_branches
+                    .tree_object;
+
+    return new Tree(obj).translate_main;
   }
 }
 
@@ -244,12 +270,13 @@ class Part {
   }
 
   get is_directive() {
-    return this.string.substr(0, 1) === "(" && this.string.substr(this.substr.length - 1, 1) === ")"
+    return this.string.substr(0, 1) === "("
+           && this.string.substring(this.string.length, this.string.length - 1) === ")";
   }
 
   get branch() {
     return this.string.replace(/[()]/g, "")
-        .split("|")
+                      .split("|")
   }
 }
 
