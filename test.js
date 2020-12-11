@@ -788,7 +788,7 @@ const test_num = process.argv[2];
         const tree = new Permute(obj);
         return JSON.stringify(tree.translate_main);
       },
-      JSON.stringify(["Hello ", ["world", "you"]])
+      JSON.stringify([["Hello ", ["world", "you"]]])
     ]
   ]
 
