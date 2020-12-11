@@ -789,6 +789,24 @@ const test_num = process.argv[2];
         return JSON.stringify(ps.compile);
       },
       JSON.stringify(["foo bar"])
+    ],
+    [
+      "Split string",
+      "foo|bar",
+      (str) => {
+        const ps = new PermyScript(str);
+        return JSON.stringify(ps.compile);
+      },
+      JSON.stringify(["foo", "bar"])
+    ],
+    [
+    "Use branches",
+        "foo bar (fizz|buzz) whizz bang",
+        (str) => {
+          const ps = new PermyScript(str);
+          return JSON.stringify(ps.compile);
+        },
+        JSON.stringify(["foo bar ", ["fizz", "buzz", [" whizz bang"]]])
     ]
   ]
 
