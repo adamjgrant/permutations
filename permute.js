@@ -231,21 +231,27 @@ class PermyScript {
   }
 
   get delegate_to_branches() {
-    let tree = new Tree({ main: []});
+    let tree = new Tree({ main: [] });
     this.tree_object.main.forEach(part => {
+      console.log(tree.object);
       if (part.is_directive) {
         const unique_branch_name        = this.unique_branch_name;
         tree.object[unique_branch_name] = part.branch;
         tree                            = new Tree(tree.object)
 
         const branch = tree.translated_branch;
-        branch.deep_end([{branch: unique_branch_name}]);
+        const branch_reference = {branch: unique_branch_name};
+        branch.deep_end(branch_reference);
+
         tree.object.main = branch.object;
         tree = new Tree(tree.object)
       }
       else {
-        const branch = tree.translated_branch;
-        branch.deep_end(part.branch);
+        let branch = tree.translated_branch;
+        if (JSON.stringify(branch.object) === "[]") {
+          branch = new Branch(tree, part.branch);
+        }
+        else { branch.deep_end(part.branch); }
         tree.object.main = branch.object;
         tree = new Tree(tree.object)
       }
