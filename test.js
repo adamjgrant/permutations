@@ -1,7 +1,6 @@
 const test_num = process.argv[2];
 ((test_num) => {
   const Permute = require("./permute");
-  const PermyScript = require("./permyscript");
 
   let pass_fail_count = [0, 0];
   const assert = (name, expected, input) => {
@@ -781,68 +780,27 @@ const test_num = process.argv[2];
 
   let permyscript_tests = [
     [
-      "Encapsulate string",
-      "foo bar",
-      (str) => {
-        const ps = new PermyScript(str);
-        return JSON.stringify(ps.compile);
+      "Permyscript is correctly interpreted by directive",
+      {
+        "main": [{ "ps": "Hello (world|you)" }]
       },
-      JSON.stringify({ "main": ["foo bar"] })
+      (obj) => {
+        const tree = new Permute(obj);
+        return JSON.stringify(tree.translate_main);
+      },
+      JSON.stringify([["Hello ", ["world", "you"]]])
     ],
     [
-      "Split string",
-      "foo|bar",
-      (str) => {
-        const ps = new PermyScript(str);
-        return JSON.stringify(ps.compile);
-      },
-      JSON.stringify({ "main": ["foo", "bar"] })
-    ],
-    [
-      "Multiple split strings",
-      "I saw a (dog|cat) who was (barking|meowing)",
-      (str) => {
-        const ps = new PermyScript(str);
-        return JSON.stringify(ps.compile);
-      },
-      JSON.stringify({ "main": ["I saw a ", ["dog", "cat", [" who was ", ["barking", "meowing"]]]]})
-    ],
-    [
-      "Same but smaller version",
-      "a(b|c)d(e|f)",
-      (str) => {
-        const ps = new PermyScript(str);
-        return JSON.stringify(ps.compile);
-      },
-      JSON.stringify({ "main": ["a", ["b", "c", ["d", ["e", "f"]]]] })
-    ],
-    [
-    "Use parens",
-        "foo bar (fizz|buzz) whizz bang",
-        (str) => {
-          const ps = new PermyScript(str);
-          return JSON.stringify(ps.compile);
+    "Multiple branches",
+        {
+          "main": [{ "ps": "Hello (world|you) how('s it going| are you)?" }]
         },
-        JSON.stringify({ "main": ["foo bar ", ["fizz", "buzz", [" whizz bang"]]] })
-    ],
-        [
-        "Slightly more complicated",
-            "Sounds like a (great|good|awesome|pretty fucking good) idea, honestly.",
-            (str) => {
-              const ps = new PermyScript(str);
-              return JSON.stringify(ps.compile);
-            },
-            JSON.stringify({"main":["Sounds like a ",["great","good","terrific","pretty fucking good",[" idea, honestly."]]]})
-        ],
-          [
-          "Slightly more complicated #2",
-              "(I|you) (took|chose) the (road|sidewalk|street) less (traveled|voyaged)",
-              (str) => {
-                const ps = new PermyScript(str);
-                return JSON.stringify(ps.compile);
-              },
-              JSON.stringify({ "main": ["I","you", [" ", ["took","chose", [" the ", ["road","sidewalk","street", [" less ", ["traveled","voyaged"]]]]]]]})
-          ]
+        (obj) => {
+          const tree = new Permute(obj);
+          return JSON.stringify(tree.translate_main);
+        },
+        JSON.stringify([["Hello ", ["world", "you", [" how", ["'s it going", " are you", ["?"]]]]]])
+    ]
   ]
 
   const run_test = (test, initial_index = 0, index) => {
