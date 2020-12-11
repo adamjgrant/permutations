@@ -232,6 +232,7 @@ class PermyScript {
   get delegate_to_branches() {
     let tree = new Tree({ main: [] });
     this.tree_object.main.forEach(part => {
+      console.log("Using part ", part.string);
       if (part.is_directive) {
         const unique_branch_name        = this.unique_branch_name;
         tree.object[unique_branch_name] = part.branch;

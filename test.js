@@ -780,7 +780,7 @@ const test_num = process.argv[2];
 
   let permyscript_tests = [
     [
-      "Permyscript is correct interpreted by directive",
+      "Permyscript is correctly interpreted by directive",
       {
         "main": [{ "ps": "Hello (world|you)" }]
       },
@@ -789,6 +789,17 @@ const test_num = process.argv[2];
         return JSON.stringify(tree.translate_main);
       },
       JSON.stringify([["Hello ", ["world", "you"]]])
+    ],
+    [
+    "Multiple branches",
+        {
+          "main": [{ "ps": "Hello (world|you) how('s it going| are you)?" }]
+        },
+        (obj) => {
+          const tree = new Permute(obj);
+          return JSON.stringify(tree.translate_main);
+        },
+        JSON.stringify([["Hello ", ["world", "you", [" how", ["'s it going", " are you", ["?"]]]]]])
     ]
   ]
 
