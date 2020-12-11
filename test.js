@@ -845,39 +845,6 @@ const test_num = process.argv[2];
           ]
   ]
 
-  let permyscript_parens_extraction_tests = [
-    [
-      "extract one parens in the middle",
-      "a b (c|d) e f",
-      (str) => {
-        const ps = new PermyScript(str);
-        ps.compile;
-        return JSON.stringify(ps.tree_object);
-      },
-        JSON.stringify({"1": ["c","d"], "2": ["e f"], "main": ["a b", { "branch": "1", "then": { "branch": "2"} }]})
-    ],
-    [
-      "extract one parens on the left",
-      "(a|b) c d e f",
-      (str) => {
-        const ps = new PermyScript(str);
-        ps.compile;
-        return JSON.stringify(ps.tree_object);
-      },
-      JSON.stringify({"1": ["a","b"], "2": ["c d e f"], "main": [{ "branch": "1", "then": { "branch": "2" } }]})
-    ],
-    [
-      "extract one parens on the left",
-      "a b c d (e|f)",
-      (str) => {
-        const ps = new PermyScript(str);
-        ps.compile;
-        return JSON.stringify(ps.tree_object);
-      },
-      JSON.stringify({"1": ["e", "f"], "main": ["a b c d", { "branch": "1" }]})
-    ],
-  ]
-
   const run_test = (test, initial_index = 0, index) => {
     const title = test[0], obj = test[1], fn = test[2], expected = test[3];
     const actual = fn(obj), final_index = index + initial_index;
@@ -894,7 +861,6 @@ const test_num = process.argv[2];
   };
 
   let new_index = tests.length
-
   const execute_test = (name, tests) => {
     console.log(`\n== ${name} ==`);
     tests.filter((test, index) => {
@@ -906,7 +872,6 @@ const test_num = process.argv[2];
   execute_test("Translation Tests", translation_tests);
   execute_test("Complex Tests", complex_tests);
   execute_test("PermyScript Tests", permyscript_tests);
-  execute_test("PermyScript Parens Extraction Tests", permyscript_parens_extraction_tests);
 
   console.log(`\n${pass_fail_count[0]} Passing / ${pass_fail_count[1]} Failing`);
 })(test_num);

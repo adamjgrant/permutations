@@ -1,3 +1,5 @@
+const Permute = require("./permute");
+
 class PermyScript {
   constructor(string) {
       this.string = string;
@@ -10,30 +12,60 @@ class PermyScript {
     return this.last_unique_branch_name;
   }
 
-  get extract_to_parens() {
-    this.tree_object.main = this.string.replace(/(\(.*\))/,
-        (match, p1) => {
-          const branch_name             = this.unique_branch_name;
-          this.tree_object[branch_name] = new PermyScriptParens(p1).branch;
-          return JSON.stringify({ branch: branch_name });
-        }
-    )
-    return this.tree_object.main
+  get break_into_parts() {
+      const array = []
+      this.string.split("").reduce((previous, char) => {
+          if (char.match(/\(/)) {
+              array.push(previous);
+              return char;
+          }
+          else if (char.match(/\)/)) {
+              array.push(previous + char);
+              return "";
+          }
+          else {
+              return previous + char;
+          }
+      }, "");
+
+      this.tree_object.main = array;
+
+      return this;
+  }
+
+  get convert_parens() {
+    this.tree_object.main = this.tree_object.main.map(part => {
+        // const part_as_parens = new Part(part);
+        // return part_as_parens.is_directive ? part_as_parens : part;
+        return new Part(part);
+    });
+
+    return this;
+  }
+
+  get delegate_to_branches() {
+      console.log(this.tree_object)
   }
 
   get compile() {
-    this.extract_to_parens;
+    this.break_into_parts
+        .convert_parens
+        .delegate_to_branches;
   }
 }
 
-class PermyScriptParens {
+class Part {
   constructor(string) {
-    this.string = string.replace(/[()]/g, "");
+    this.string = string;
+  }
+
+  get is_directive() {
+      return this.string.substr(0, 1) === "(" && this.string.substr(this.substr.length - 1, 1) === ")"
   }
 
   get branch() {
-    console.log(this.string)
-    return this.string.split("|")
+    return this.string.replace(/[()]/g, "")
+                      .split("|")
   }
 }
 
