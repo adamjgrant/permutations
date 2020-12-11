@@ -834,15 +834,26 @@ const test_num = process.argv[2];
             },
             JSON.stringify({"main":["Sounds like a ",["great","good","terrific","pretty fucking good",[" idea, honestly."]]]})
         ],
-          [
-          "Slightly more complicated #2",
-              "(I|you) (took|chose) the (road|sidewalk|street) less (traveled|voyaged)",
-              (str) => {
-                const ps = new PermyScript(str);
-                return JSON.stringify(ps.compile);
-              },
-              JSON.stringify({ "main": ["I","you", [" ", ["took","chose", [" the ", ["road","sidewalk","street", [" less ", ["traveled","voyaged"]]]]]]]})
-          ]
+    [
+    "Slightly more complicated #2",
+        "(I|you) (took|chose) the (road|sidewalk|street) less (traveled|voyaged)",
+        (str) => {
+          const ps = new PermyScript(str);
+          return JSON.stringify(ps.compile);
+        },
+        JSON.stringify({ "main": ["I","you", [" ", ["took","chose", [" the ", ["road","sidewalk","street", [" less ", ["traveled","voyaged"]]]]]]]})
+    ],
+    [
+      "Permyscript is correct interpreted by directive",
+      {
+        "main": [{ "ps": "Hello (world|you)" }]
+      },
+      (obj) => {
+        const tree = new Permute(obj);
+        return JSON.stringify(tree.translate_main);
+      },
+      JSON.stringify(["Hello ", ["world", "you"]])
+    ]
   ]
 
   const run_test = (test, initial_index = 0, index) => {

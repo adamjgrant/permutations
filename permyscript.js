@@ -1,5 +1,3 @@
-const Permute = require("./permute");
-
 class PermyScript {
   constructor(string) {
       this.string = string;
@@ -44,7 +42,16 @@ class PermyScript {
   }
 
   get delegate_to_branches() {
-      console.log(this.tree_object)
+      let new_tree_object = { main: [] }
+      this.tree_object.main.forEach(part => {
+        if (part.is_directive) {
+            const unique_branch_name = this.unique_branch_name;
+            new_tree_object[unique_branch_name] = part.branch;
+        }
+        else {
+            // Add to deepest end
+        }
+      });
   }
 
   get compile() {
