@@ -848,12 +848,33 @@ const test_num = process.argv[2];
   let permyscript_parens_extraction_tests = [
     [
       "extract one parens in the middle",
-      "a b (c d) e f",
+      "a b (c|d) e f",
       (str) => {
         const ps = new PermyScript(str);
-        return ps.extract_to_parens;
+        ps.compile;
+        return JSON.stringify(ps.tree_object);
       },
-      "a b [object Object] e f"
+        JSON.stringify({"1": ["c","d"], "2": ["e f"], "main": ["a b", { "branch": "1", "then": { "branch": "2"} }]})
+    ],
+    [
+      "extract one parens on the left",
+      "(a|b) c d e f",
+      (str) => {
+        const ps = new PermyScript(str);
+        ps.compile;
+        return JSON.stringify(ps.tree_object);
+      },
+      JSON.stringify({"1": ["a","b"], "2": ["c d e f"], "main": [{ "branch": "1", "then": { "branch": "2" } }]})
+    ],
+    [
+      "extract one parens on the left",
+      "a b c d (e|f)",
+      (str) => {
+        const ps = new PermyScript(str);
+        ps.compile;
+        return JSON.stringify(ps.tree_object);
+      },
+      JSON.stringify({"1": ["e", "f"], "main": ["a b c d", { "branch": "1" }]})
     ],
   ]
 
