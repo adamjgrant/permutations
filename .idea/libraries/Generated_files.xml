@@ -5,6 +5,7 @@
         <item url="file://$PROJECT_DIR$/index.min.js" />
         <item url="file://$PROJECT_DIR$/permute.min.js" />
         <item url="file://$PROJECT_DIR$/permy.link/script.min.js" />
+        <item url="file://$PROJECT_DIR$/permyscript.min.js" />
         <item url="file://$PROJECT_DIR$/random.min.js" />
         <item url="file://$PROJECT_DIR$/random.min.min.js" />
         <item url="file://$PROJECT_DIR$/simper.min.js" />
@@ -15,6 +16,7 @@
       <root url="file://$PROJECT_DIR$/index.min.js" />
       <root url="file://$PROJECT_DIR$/permute.min.js" />
       <root url="file://$PROJECT_DIR$/permy.link/script.min.js" />
+      <root url="file://$PROJECT_DIR$/permyscript.min.js" />
       <root url="file://$PROJECT_DIR$/random.min.js" />
       <root url="file://$PROJECT_DIR$/random.min.min.js" />
       <root url="file://$PROJECT_DIR$/simper.min.js" />

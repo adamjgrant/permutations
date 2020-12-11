@@ -1,6 +1,8 @@
 const test_num = process.argv[2];
 ((test_num) => {
   const Permute = require("./permute");
+  const PermyScript = require("./permyscript");
+
   let pass_fail_count = [0, 0];
   const assert = (name, expected, input) => {
     const actual = new Permute(input).permutations;
@@ -776,6 +778,20 @@ const test_num = process.argv[2];
         JSON.stringify(["AFJKMD"])
       ],
   ];
+
+
+  let permyscript_tests = [
+    [
+      "Encapsulate string",
+      "foo bar",
+      (str) => {
+        const ps = new PermyScript(str);
+        return JSON.stringify(ps.compile);
+      },
+      JSON.stringify(["foo bar"])
+    ]
+  ]
+
   const run_test = (test, initial_index = 0, index) => {
     const title = test[0], obj = test[1], fn = test[2], expected = test[3];
     const actual = fn(obj), final_index = index + initial_index;
@@ -800,6 +816,11 @@ const test_num = process.argv[2];
   complex_tests.filter((test, index) => {
     return test_num === undefined || parseInt(test_num) === index + tests.length + translation_tests.length;
   }).forEach((test, i) => run_test(test, tests.length + translation_tests.length, i));
+
+  console.log("\n== PermyScript Tests ==");
+  permyscript_tests.filter((test, index) => {
+    return test_num === undefined || parseInt(test_num) === index + tests.length + complex_tests.length + translation_tests.length;
+  }).forEach((test, i) => run_test(test, tests.length + complex_tests.length + translation_tests.length, i));
 
   console.log(`\n${pass_fail_count[0]} Passing / ${pass_fail_count[1]} Failing`);
 })(test_num);
