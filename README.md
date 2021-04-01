@@ -122,3 +122,25 @@ AFDORGJKN
 BFDPRGJLN
 BFDOQGJLN
 ~~~
+
+## Permyscript, shorthand syntax
+
+Instead of
+
+~~~json
+{
+  "main": [
+    "Johnny Appleseed", "Jane Doe", "Ponsonby Britt"
+  ]
+}
+~~~
+
+Save yourself the trouble of writing `", "` over and over again.
+
+~~~json
+{
+  "main": [
+    { "ps": "Johnny Appleseed|Jane Doe|Ponsonby Britt" }
+  ]
+}
+~~~
