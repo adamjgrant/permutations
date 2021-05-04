@@ -100,7 +100,7 @@
   .CodeMirror {
     height: calc(var(--100vvh, 100vh) - var(--output_actions_height));
     width: calc(100vw - var(--output-size));
-    max-height: none;
+    max-height: calc(var(--100vvh, 100vh));
   }
 
   .output_pane {
