@@ -3,6 +3,7 @@
     <properties>
       <sourceFilesUrls>
         <item url="file://$PROJECT_DIR$/app/app.min.js" />
+        <item url="file://$PROJECT_DIR$/app/bin/www.min.js" />
         <item url="file://$PROJECT_DIR$/app/index.min.js" />
         <item url="file://$PROJECT_DIR$/app/mozart.min.js" />
         <item url="file://$PROJECT_DIR$/app/node_modules/.bin/mime.min.js" />
@@ -29,6 +30,8 @@
         <item url="file://$PROJECT_DIR$/app/permy.link/viewport-fix.min.js" />
         <item url="file://$PROJECT_DIR$/app/permy.link/viewport-fix.min.min.js" />
         <item url="file://$PROJECT_DIR$/app/random.min.js" />
+        <item url="file://$PROJECT_DIR$/app/routes/index.min.js" />
+        <item url="file://$PROJECT_DIR$/app/routes/users.min.js" />
         <item url="file://$PROJECT_DIR$/app/scratch.min.js" />
         <item url="file://$PROJECT_DIR$/app/simper.min.js" />
         <item url="file://$PROJECT_DIR$/app/test.min.js" />
@@ -37,6 +40,7 @@
     </properties>
     <CLASSES>
       <root url="file://$PROJECT_DIR$/app/app.min.js" />
+      <root url="file://$PROJECT_DIR$/app/bin/www.min.js" />
       <root url="file://$PROJECT_DIR$/app/index.min.js" />
       <root url="file://$PROJECT_DIR$/app/mozart.min.js" />
       <root url="file://$PROJECT_DIR$/app/node_modules/.bin/mime.min.js" />
@@ -63,6 +67,8 @@
       <root url="file://$PROJECT_DIR$/app/permy.link/viewport-fix.min.js" />
       <root url="file://$PROJECT_DIR$/app/permy.link/viewport-fix.min.min.js" />
       <root url="file://$PROJECT_DIR$/app/random.min.js" />
+      <root url="file://$PROJECT_DIR$/app/routes/index.min.js" />
+      <root url="file://$PROJECT_DIR$/app/routes/users.min.js" />
       <root url="file://$PROJECT_DIR$/app/scratch.min.js" />
       <root url="file://$PROJECT_DIR$/app/simper.min.js" />
       <root url="file://$PROJECT_DIR$/app/test.min.js" />
