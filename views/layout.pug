@@ -33,6 +33,18 @@ html
     script(src='viewport-fix.js')
     script.
       new VVP()
+    - var components = ['persistence']
+    - var component_list = components.map(component => `"${component}"`);
     script.
-      Mozart.init();
+      class Component extends Mozart {};
+      const components = [!{ component_list.join(", ") }];
+      components.forEach(component => new Component(component));
+      let m = Component.index;
+    each component in components
+      script(src=`components/${component}/${component}_acts.js`)
+      script(src=`components/${component}/${component}_events.js`)
+      script(src=`components/${component}/${component}_routes.js`)
+
+    script.
+        Mozart.init();
 

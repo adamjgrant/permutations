@@ -4,6 +4,9 @@
       <sourceFilesUrls>
         <item url="file://$PROJECT_DIR$/app.min.js" />
         <item url="file://$PROJECT_DIR$/index.min.js" />
+        <item url="file://$PROJECT_DIR$/public/components/persistence/persistence_acts.min.js" />
+        <item url="file://$PROJECT_DIR$/public/components/persistence/persistence_events.min.js" />
+        <item url="file://$PROJECT_DIR$/public/components/persistence/persistence_routes.min.js" />
         <item url="file://$PROJECT_DIR$/public/script.min.js" />
         <item url="file://$PROJECT_DIR$/random.min.js" />
       </sourceFilesUrls>
@@ -11,6 +14,9 @@
     <CLASSES>
       <root url="file://$PROJECT_DIR$/app.min.js" />
       <root url="file://$PROJECT_DIR$/index.min.js" />
+      <root url="file://$PROJECT_DIR$/public/components/persistence/persistence_acts.min.js" />
+      <root url="file://$PROJECT_DIR$/public/components/persistence/persistence_events.min.js" />
+      <root url="file://$PROJECT_DIR$/public/components/persistence/persistence_routes.min.js" />
       <root url="file://$PROJECT_DIR$/public/script.min.js" />
       <root url="file://$PROJECT_DIR$/random.min.js" />
     </CLASSES>
