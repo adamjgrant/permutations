@@ -17,19 +17,22 @@ html
     script(src='node_modules/codemirror/addon/comment/comment.js')
     script(src='node_modules/codemirror/mode/javascript/javascript.js')
     link(rel='stylesheet' href='//cdn.everything.io/kickstart/3.x/css/kickstart.min.css')
-    link(rel='stylesheet' href='permy.link/viewport-fix.css')
-    link(rel='stylesheet' href='permy.link/style.css')
+    link(rel='stylesheet' href='viewport-fix.css')
+    link(rel='stylesheet' href='style.css')
   body
     block content
 
     script(src='//cdn.everything.io/kickstart/3.x/js/kickstart.min.js')
-    script(src='permy.link/debounce.js')
+    script(src='mozart.js')
+    script(src='debounce.js')
     script.
       let module = {exports: undefined}
     script(src='permute.min.js')
     script(src='simper.js')
-    script(src='permy.link/script.js')
-    script(src='permy.link/viewport-fix.js')
+    script(src='script.js')
+    script(src='viewport-fix.js')
     script.
       new VVP()
+    script.
+      Mozart.init();
 

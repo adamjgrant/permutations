@@ -1,3 +1,8 @@
+class Component extends Mozart {};
+let m = Component.index;
+
+// Everything below is getting refactored into Mozart
+
 const default_text = `{
     "main": [
       "Hey there", "Well hello", "Greetings", [

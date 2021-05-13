@@ -3,16 +3,16 @@
     <properties>
       <sourceFilesUrls>
         <item url="file://$PROJECT_DIR$/app.min.js" />
-        <item url="file://$PROJECT_DIR$/permy.link/debounce.min.min.js" />
-        <item url="file://$PROJECT_DIR$/permy.link/script.min.min.js" />
-        <item url="file://$PROJECT_DIR$/permy.link/viewport-fix.min.min.js" />
+        <item url="file://$PROJECT_DIR$/index.min.js" />
+        <item url="file://$PROJECT_DIR$/public/script.min.js" />
+        <item url="file://$PROJECT_DIR$/random.min.js" />
       </sourceFilesUrls>
     </properties>
     <CLASSES>
       <root url="file://$PROJECT_DIR$/app.min.js" />
-      <root url="file://$PROJECT_DIR$/permy.link/debounce.min.min.js" />
-      <root url="file://$PROJECT_DIR$/permy.link/script.min.min.js" />
-      <root url="file://$PROJECT_DIR$/permy.link/viewport-fix.min.min.js" />
+      <root url="file://$PROJECT_DIR$/index.min.js" />
+      <root url="file://$PROJECT_DIR$/public/script.min.js" />
+      <root url="file://$PROJECT_DIR$/random.min.js" />
     </CLASSES>
     <JAVADOC />
     <SOURCES />

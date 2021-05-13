@@ -18,7 +18,7 @@ app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/node_modules/', express.static(path.join(__dirname, 'node_modules')));
-app.use('/permy.link/', express.static(path.join(__dirname, 'permy.link')));
+app.use('/components/', express.static(path.join(__dirname, 'components')));
 
 app.use('/', indexRouter);
 
