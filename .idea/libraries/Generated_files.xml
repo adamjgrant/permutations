@@ -2,11 +2,26 @@
   <library name="Generated files" type="javaScript">
     <properties>
       <sourceFilesUrls>
+        <item url="file://$PROJECT_DIR$/app/app.min.js" />
         <item url="file://$PROJECT_DIR$/app/index.min.js" />
-        <item url="file://$PROJECT_DIR$/app/index.min.min.js" />
+        <item url="file://$PROJECT_DIR$/app/mozart.min.js" />
+        <item url="file://$PROJECT_DIR$/app/node_modules/.bin/mime.min.js" />
+        <item url="file://$PROJECT_DIR$/app/node_modules/.bin/uglifyjs.min.js" />
+        <item url="file://$PROJECT_DIR$/app/node_modules/depd/lib/compat/callsite-tostring.min.js" />
+        <item url="file://$PROJECT_DIR$/app/node_modules/depd/lib/compat/event-listener-count.min.js" />
+        <item url="file://$PROJECT_DIR$/app/node_modules/depd/lib/compat/index.min.js" />
+        <item url="file://$PROJECT_DIR$/app/node_modules/ms/index.min.js" />
+        <item url="file://$PROJECT_DIR$/app/node_modules/qs/dist/qs.min.js" />
+        <item url="file://$PROJECT_DIR$/app/node_modules/qs/lib/formats.min.js" />
+        <item url="file://$PROJECT_DIR$/app/node_modules/qs/lib/index.min.js" />
+        <item url="file://$PROJECT_DIR$/app/node_modules/qs/lib/parse.min.js" />
+        <item url="file://$PROJECT_DIR$/app/node_modules/qs/lib/stringify.min.js" />
+        <item url="file://$PROJECT_DIR$/app/node_modules/qs/lib/utils.min.js" />
+        <item url="file://$PROJECT_DIR$/app/node_modules/qs/test/index.min.js" />
+        <item url="file://$PROJECT_DIR$/app/node_modules/qs/test/parse.min.js" />
+        <item url="file://$PROJECT_DIR$/app/node_modules/qs/test/stringify.min.js" />
+        <item url="file://$PROJECT_DIR$/app/node_modules/qs/test/utils.min.js" />
         <item url="file://$PROJECT_DIR$/app/permute.min.js" />
-        <item url="file://$PROJECT_DIR$/app/permute.min.min.js" />
-        <item url="file://$PROJECT_DIR$/app/permute.min.min.min.js" />
         <item url="file://$PROJECT_DIR$/app/permy.link/debounce.min.js" />
         <item url="file://$PROJECT_DIR$/app/permy.link/debounce.min.min.js" />
         <item url="file://$PROJECT_DIR$/app/permy.link/script.min.js" />
@@ -14,24 +29,33 @@
         <item url="file://$PROJECT_DIR$/app/permy.link/viewport-fix.min.js" />
         <item url="file://$PROJECT_DIR$/app/permy.link/viewport-fix.min.min.js" />
         <item url="file://$PROJECT_DIR$/app/random.min.js" />
-        <item url="file://$PROJECT_DIR$/app/random.min.min.js" />
         <item url="file://$PROJECT_DIR$/app/scratch.min.js" />
-        <item url="file://$PROJECT_DIR$/app/scratch.min.min.js" />
-        <item url="file://$PROJECT_DIR$/app/scratch.min.min.min.js" />
         <item url="file://$PROJECT_DIR$/app/simper.min.js" />
-        <item url="file://$PROJECT_DIR$/app/simper.min.min.js" />
         <item url="file://$PROJECT_DIR$/app/test.min.js" />
-        <item url="file://$PROJECT_DIR$/app/test.min.min.js" />
-        <item url="file://$PROJECT_DIR$/app/test.min.min.min.js" />
         <item url="file://$PROJECT_DIR$/app/twitter_search.min.js" />
       </sourceFilesUrls>
     </properties>
     <CLASSES>
+      <root url="file://$PROJECT_DIR$/app/app.min.js" />
       <root url="file://$PROJECT_DIR$/app/index.min.js" />
-      <root url="file://$PROJECT_DIR$/app/index.min.min.js" />
+      <root url="file://$PROJECT_DIR$/app/mozart.min.js" />
+      <root url="file://$PROJECT_DIR$/app/node_modules/.bin/mime.min.js" />
+      <root url="file://$PROJECT_DIR$/app/node_modules/.bin/uglifyjs.min.js" />
+      <root url="file://$PROJECT_DIR$/app/node_modules/depd/lib/compat/callsite-tostring.min.js" />
+      <root url="file://$PROJECT_DIR$/app/node_modules/depd/lib/compat/event-listener-count.min.js" />
+      <root url="file://$PROJECT_DIR$/app/node_modules/depd/lib/compat/index.min.js" />
+      <root url="file://$PROJECT_DIR$/app/node_modules/ms/index.min.js" />
+      <root url="file://$PROJECT_DIR$/app/node_modules/qs/dist/qs.min.js" />
+      <root url="file://$PROJECT_DIR$/app/node_modules/qs/lib/formats.min.js" />
+      <root url="file://$PROJECT_DIR$/app/node_modules/qs/lib/index.min.js" />
+      <root url="file://$PROJECT_DIR$/app/node_modules/qs/lib/parse.min.js" />
+      <root url="file://$PROJECT_DIR$/app/node_modules/qs/lib/stringify.min.js" />
+      <root url="file://$PROJECT_DIR$/app/node_modules/qs/lib/utils.min.js" />
+      <root url="file://$PROJECT_DIR$/app/node_modules/qs/test/index.min.js" />
+      <root url="file://$PROJECT_DIR$/app/node_modules/qs/test/parse.min.js" />
+      <root url="file://$PROJECT_DIR$/app/node_modules/qs/test/stringify.min.js" />
+      <root url="file://$PROJECT_DIR$/app/node_modules/qs/test/utils.min.js" />
       <root url="file://$PROJECT_DIR$/app/permute.min.js" />
-      <root url="file://$PROJECT_DIR$/app/permute.min.min.js" />
-      <root url="file://$PROJECT_DIR$/app/permute.min.min.min.js" />
       <root url="file://$PROJECT_DIR$/app/permy.link/debounce.min.js" />
       <root url="file://$PROJECT_DIR$/app/permy.link/debounce.min.min.js" />
       <root url="file://$PROJECT_DIR$/app/permy.link/script.min.js" />
@@ -39,15 +63,9 @@
       <root url="file://$PROJECT_DIR$/app/permy.link/viewport-fix.min.js" />
       <root url="file://$PROJECT_DIR$/app/permy.link/viewport-fix.min.min.js" />
       <root url="file://$PROJECT_DIR$/app/random.min.js" />
-      <root url="file://$PROJECT_DIR$/app/random.min.min.js" />
       <root url="file://$PROJECT_DIR$/app/scratch.min.js" />
-      <root url="file://$PROJECT_DIR$/app/scratch.min.min.js" />
-      <root url="file://$PROJECT_DIR$/app/scratch.min.min.min.js" />
       <root url="file://$PROJECT_DIR$/app/simper.min.js" />
-      <root url="file://$PROJECT_DIR$/app/simper.min.min.js" />
       <root url="file://$PROJECT_DIR$/app/test.min.js" />
-      <root url="file://$PROJECT_DIR$/app/test.min.min.js" />
-      <root url="file://$PROJECT_DIR$/app/test.min.min.min.js" />
       <root url="file://$PROJECT_DIR$/app/twitter_search.min.js" />
     </CLASSES>
     <JAVADOC />
