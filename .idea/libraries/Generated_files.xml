@@ -2,27 +2,53 @@
   <library name="Generated files" type="javaScript">
     <properties>
       <sourceFilesUrls>
-        <item url="file://$PROJECT_DIR$/index.min.js" />
-        <item url="file://$PROJECT_DIR$/permute.min.js" />
-        <item url="file://$PROJECT_DIR$/permy.link/script.min.js" />
-        <item url="file://$PROJECT_DIR$/permyscript.min.js" />
-        <item url="file://$PROJECT_DIR$/random.min.js" />
-        <item url="file://$PROJECT_DIR$/random.min.min.js" />
-        <item url="file://$PROJECT_DIR$/scratch.min.js" />
-        <item url="file://$PROJECT_DIR$/simper.min.js" />
-        <item url="file://$PROJECT_DIR$/test.min.js" />
+        <item url="file://$PROJECT_DIR$/app/index.min.js" />
+        <item url="file://$PROJECT_DIR$/app/index.min.min.js" />
+        <item url="file://$PROJECT_DIR$/app/permute.min.js" />
+        <item url="file://$PROJECT_DIR$/app/permute.min.min.js" />
+        <item url="file://$PROJECT_DIR$/app/permute.min.min.min.js" />
+        <item url="file://$PROJECT_DIR$/app/permy.link/debounce.min.js" />
+        <item url="file://$PROJECT_DIR$/app/permy.link/debounce.min.min.js" />
+        <item url="file://$PROJECT_DIR$/app/permy.link/script.min.js" />
+        <item url="file://$PROJECT_DIR$/app/permy.link/script.min.min.js" />
+        <item url="file://$PROJECT_DIR$/app/permy.link/viewport-fix.min.js" />
+        <item url="file://$PROJECT_DIR$/app/permy.link/viewport-fix.min.min.js" />
+        <item url="file://$PROJECT_DIR$/app/random.min.js" />
+        <item url="file://$PROJECT_DIR$/app/random.min.min.js" />
+        <item url="file://$PROJECT_DIR$/app/scratch.min.js" />
+        <item url="file://$PROJECT_DIR$/app/scratch.min.min.js" />
+        <item url="file://$PROJECT_DIR$/app/scratch.min.min.min.js" />
+        <item url="file://$PROJECT_DIR$/app/simper.min.js" />
+        <item url="file://$PROJECT_DIR$/app/simper.min.min.js" />
+        <item url="file://$PROJECT_DIR$/app/test.min.js" />
+        <item url="file://$PROJECT_DIR$/app/test.min.min.js" />
+        <item url="file://$PROJECT_DIR$/app/test.min.min.min.js" />
+        <item url="file://$PROJECT_DIR$/app/twitter_search.min.js" />
       </sourceFilesUrls>
     </properties>
     <CLASSES>
-      <root url="file://$PROJECT_DIR$/index.min.js" />
-      <root url="file://$PROJECT_DIR$/permute.min.js" />
-      <root url="file://$PROJECT_DIR$/permy.link/script.min.js" />
-      <root url="file://$PROJECT_DIR$/permyscript.min.js" />
-      <root url="file://$PROJECT_DIR$/random.min.js" />
-      <root url="file://$PROJECT_DIR$/random.min.min.js" />
-      <root url="file://$PROJECT_DIR$/scratch.min.js" />
-      <root url="file://$PROJECT_DIR$/simper.min.js" />
-      <root url="file://$PROJECT_DIR$/test.min.js" />
+      <root url="file://$PROJECT_DIR$/app/index.min.js" />
+      <root url="file://$PROJECT_DIR$/app/index.min.min.js" />
+      <root url="file://$PROJECT_DIR$/app/permute.min.js" />
+      <root url="file://$PROJECT_DIR$/app/permute.min.min.js" />
+      <root url="file://$PROJECT_DIR$/app/permute.min.min.min.js" />
+      <root url="file://$PROJECT_DIR$/app/permy.link/debounce.min.js" />
+      <root url="file://$PROJECT_DIR$/app/permy.link/debounce.min.min.js" />
+      <root url="file://$PROJECT_DIR$/app/permy.link/script.min.js" />
+      <root url="file://$PROJECT_DIR$/app/permy.link/script.min.min.js" />
+      <root url="file://$PROJECT_DIR$/app/permy.link/viewport-fix.min.js" />
+      <root url="file://$PROJECT_DIR$/app/permy.link/viewport-fix.min.min.js" />
+      <root url="file://$PROJECT_DIR$/app/random.min.js" />
+      <root url="file://$PROJECT_DIR$/app/random.min.min.js" />
+      <root url="file://$PROJECT_DIR$/app/scratch.min.js" />
+      <root url="file://$PROJECT_DIR$/app/scratch.min.min.js" />
+      <root url="file://$PROJECT_DIR$/app/scratch.min.min.min.js" />
+      <root url="file://$PROJECT_DIR$/app/simper.min.js" />
+      <root url="file://$PROJECT_DIR$/app/simper.min.min.js" />
+      <root url="file://$PROJECT_DIR$/app/test.min.js" />
+      <root url="file://$PROJECT_DIR$/app/test.min.min.js" />
+      <root url="file://$PROJECT_DIR$/app/test.min.min.min.js" />
+      <root url="file://$PROJECT_DIR$/app/twitter_search.min.js" />
     </CLASSES>
     <JAVADOC />
     <SOURCES />
