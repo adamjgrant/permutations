@@ -1,16 +1,24 @@
 {
-  "name": "permutations",
+  "name": "app",
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "start": "node ./bin/www"
+    "start": "node ./bin/www",
+    "dev": "nodemon ./bin/www"
   },
   "dependencies": {
+    "codemirror": "^5.58.2",
     "cookie-parser": "~1.4.4",
     "debug": "~2.6.9",
     "express": "~4.16.1",
     "http-errors": "~1.6.3",
     "morgan": "~1.9.1",
-    "pug": "2.0.0-beta11"
+    "normalize.css": "^8.0.1",
+    "pug": "2.0.0-beta11",
+    "typescript": "^4.0.5",
+    "uglify-js-es6": "^2.8.9"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.7"
   }
 }

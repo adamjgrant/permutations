@@ -138,7 +138,7 @@
         // Variable
         if (stream.match(/^(\.|\[)[\w-\'\"\]]+/i, false)) {
           if (!wordIsTag(stream.current())) {
-            stream.match(/\./);
+            stream.match('.');
             return ["variable-2", "variable-name"];
           }
         }
@@ -722,6 +722,9 @@
         return indent;
       },
       electricChars: "}",
+      blockCommentStart: "/*",
+      blockCommentEnd: "*/",
+      blockCommentContinue: " * ",
       lineComment: "//",
       fold: "indent"
     };

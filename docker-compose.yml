@@ -15,16 +15,13 @@ services:
       - db-data:/var/lib/mysql
       - ./db/backup/files/:/data_backup/data
   app:
-    build:
-      context: .
-      dockerfile: ./app/Dockerfile
+    build: .
     image: node-mysql-app
     env_file: ./.env
     ports:
       - $NODE_LOCAL_PORT:$NODE_DOCKER_PORT
     volumes:
-      - ./app:/app
-      - app/node_modules
+      - ./node_modules:/node_modules
     depends_on:
       - mysqldb
     stdin_open: true
