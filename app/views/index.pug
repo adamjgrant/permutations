@@ -1,5 +1,60 @@
 extends layout
 
 block content
-  h1= title
-  p Welcome to #{title}
+  #viewport
+    aside#actions.navbar.navbar-dark.navbar-collapse.navbar-fixed(data-ks-navbar='')
+      nav
+        ul
+          li.navbar-title
+            h1 Permy.link
+            button(role='button') =
+          li
+            a(target='_blank' href='https://github.com/adamjgrant/permutations/wiki/Quick-Start') Docs
+          li
+            a#clear Clear
+          li
+            a#default Default
+        ul
+          li
+            a#random.button.button-primary(role='button') Random
+    .panes
+      textarea#code(name='code')
+      .output_pane
+        ul#ages.tabs(data-ks-tabs='')
+          li.open(data-persist-key='random-tab')
+            a(href='#random') Random
+          li(data-persist-key='all-tab')
+            a(href='#all') All
+        .tab_pane_container
+          article#random(data-persist-key='random-article')
+            .navbar
+              nav
+                ul
+                  li Example permutations
+                ul
+                  li
+                    a#regenerate Make a new 5
+            main
+              ol#output-random
+          article#all(data-persist-key='all-article')
+            .navbar
+              nav
+                ul
+                  li All permutations
+                ul
+                  li
+                    a#generate-all.button.button-primary(role='button') Generate
+            #regenerate-notice.alert.alert-blue.notshown.hide
+              h1 Regenerate
+              p The editor has changed since these results have run. Please press to regenerate
+            ul#output-all
+              .alert.alert-yellow
+                h1 Warning
+                p
+                  | Depending on the complexity of the permutation, the full permutation set could overwhelm the browser&apos;s resources.
+            br
+    .tip
+      | Tip: try
+      code permy.link?gist=
+      |  followed by the link to a raw GitHub.com gist file to load remotely.
+      a(href='/?gist=https://gist.githubusercontent.com/adamjgrant/dd803c8a8d83f3e759a64d07d8991391/raw/fe40a37d97aa15aa8e4f5860b46a4b32669387ec/output.json') Try it

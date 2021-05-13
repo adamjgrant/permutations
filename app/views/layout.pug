@@ -1,7 +1,35 @@
 doctype html
 html
   head
-    title= title
-    link(rel='stylesheet', href='/stylesheets/style.css')
+    base(href='./')
+    meta(charset='“UTF-8”')
+    meta(name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no')
+    meta(http-equiv='“X-UA-Compatible”' content='“ie=edge”')
+    meta(name='apple-mobile-web-app-status-bar-style' content='black')
+    meta(name='apple-mobile-web-app-capable' content='yes')
+    title Permutation Generator
+    link(rel='stylesheet' href='node_modules/normalize.css/normalize.css')
+    script(src='node_modules/codemirror/lib/codemirror.js')
+    link(rel='stylesheet' href='node_modules/codemirror/lib/codemirror.css')
+    link(rel='stylesheet' href='node_modules/codemirror/theme/solarized.css')
+    script(src='node_modules/codemirror/addon/edit/matchbrackets.js')
+    script(src='node_modules/codemirror/addon/comment/continuecomment.js')
+    script(src='node_modules/codemirror/addon/comment/comment.js')
+    script(src='node_modules/codemirror/mode/javascript/javascript.js')
+    link(rel='stylesheet' href='//cdn.everything.io/kickstart/3.x/css/kickstart.min.css')
+    link(rel='stylesheet' href='permy.link/viewport-fix.css')
+    link(rel='stylesheet' href='permy.link/style.css')
   body
     block content
+
+    script(src='//cdn.everything.io/kickstart/3.x/js/kickstart.min.js')
+    script(src='permy.link/debounce.js')
+    script.
+      let module = {exports: undefined}
+    script(src='permute.min.js')
+    script(src='simper.js')
+    script(src='permy.link/script.js')
+    script(src='permy.link/viewport-fix.js')
+    script.
+      new VVP()
+
