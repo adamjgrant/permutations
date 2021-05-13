@@ -10,6 +10,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "express": "^4.17.1",
     "install": "^0.13.0",
     "uglify-js-es6": "^2.8.9"
   },
