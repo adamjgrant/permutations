@@ -1,65 +1,10 @@
-
 // Everything below is getting refactored into Mozart
 
-const default_text = `{
-    "main": [
-      "Hey there", "Well hello", "Greetings", [
-        ". ", [
-          "Permy.link", "This permutation generator", [
-            " ", [
-              "lets you make many \\"permutations\\" of a line of text using specified variations.", {
-                "branch": "keep reading"
-              }
-            ]
-          ]
-        ]
-      ]
-    ],
-    "keep reading": [
-      " ", [
-        "Permy has some neat advanced features for keeping your configuration", { "branch": "tidy", "then":  ["too. ", { "branch": "about branches" }] }
-      ]
-    ],
-    "tidy": [" ", ["tidy", "organized", "neat and streamlined", [" "]]],
-    "about branches": [
-      "You can create branches", "Branches can be created", { "branch": "why do you create branches?" }
-    ],
-    "why do you create branches?": [
-      " which let you converge separate paths or just create named shortcuts. ", [
-        "Learn more", "Read on", [
-          " about", [
-            " permy.link by clicking on the docs link below.", {
-              "branch": "smiley"
-            }
-          ]
-        ]
-      ]
-    ],
-    "smiley": ["🤓", "😁", "😀"]
-}`;
-
-const editor = CodeMirror.fromTextArea(document.getElementById("code"), {
-  matchBrackets: true,
-  autoCloseBrackets: true,
-  mode: "application/ld+json",
-  lineWrapping: true,
-  lineNumbers: true,
-  theme: "solarized dark"
-});
 const output_random_element = document.getElementById("output-random"),
       output_all_element    = document.getElementById("output-all");
 
 const Permute = module.exports;
 let last_permutation;
-
-editor.on("change", (instance, changeObj) => {
-  k$.status({
-    text: "Permuting...", type: "status-blue"
-  })
-  debounce(permute, "editor", 500);
-  debounce(setAllNotice, "set_all_notice", 1000);
-  debounce(persist, "persistence", 500);
-});
 
 const permute = () => {
   let output = "Error parsing JSON";
@@ -76,12 +21,8 @@ const permute = () => {
 }
 
 const random_permutation = () => {
-  const tree  = new Permute(JSON.parse(editor.getValue()));
+  const tree  = new Permute(JSON.parse(m.editor.act.get_value()));
   return tree.one;
-}
-
-const persist = () => {
-  localStorage.setObject("code", editor.getValue());
 }
 
 const random_action_element = document.getElementById("random");
@@ -123,7 +64,7 @@ const permute_all = () => {
   let output = "Error parsing JSON";
 
   try {
-    const tree  = new Permute(JSON.parse(editor.getValue()));
+    const tree  = new Permute(JSON.parse(m.editor.act.get_value()));
     const results = tree.permutations;
     output = results.map(result => `<li>${result}</li>`).join("");
     setAllOutput(output);
@@ -137,18 +78,14 @@ generate_all_element.addEventListener("click", permute_all)
 const clear_button = document.getElementById("clear");
 clear_button.addEventListener("click", () => {
   if (confirm("You will lose anything you've entered, are you sure?")) {
-    editor.setValue(`{ 
-  "main": [] 
-}
-    `);
+    m.editor.act.set_cleared_text();
   }
 });
 
 const default_button = document.getElementById("default");
-const set_default_text = () => { editor.setValue(default_text); }
 default_button.addEventListener("click", () => {
   if (confirm("You will lose anything you've entered, are you sure?")) {
-    set_default_text();
+    m.editor.act.set_default_text();
   }
 });
 
@@ -218,30 +155,20 @@ const get_gist_data = (url, callback) => {
 }
 
 // Set initial load
-const previous_code = localStorage.getObject("code");
 const gist_url      = get_gist_url();
 const sanitized_gist_url = sanitize_gist_url(gist_url);
-
-const set_previous_code = () => {
-  if (previous_code) {
-    editor.setValue(previous_code);
-  }
-  else {
-    set_default_text();
-  }
-}
 
 if (sanitized_gist_url) {
   get_gist_data(sanitized_gist_url, (data) => {
     const skip_confirm = true;
     if (skip_confirm || confirm("Confirmation needed\n\nThis URL is trying to load JSON data from a GitHub gist. Before this is loaded, please confirm if you trust this source to prevent an XSS attack.")) {
-      editor.setValue(data);
+      m.editor.act.set_value({ value: data });
     }
     else {
-      set_previous_code();
+      m.persistence.act.set_initial_state();
     }
   });
 }
 else {
-  set_previous_code();
+  m.persistence.act.set_initial_state();
 }

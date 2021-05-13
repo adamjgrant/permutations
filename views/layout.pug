@@ -29,11 +29,10 @@ html
       let module = {exports: undefined}
     script(src='permute.min.js')
     script(src='simper.js')
-    script(src='script.js')
     script(src='viewport-fix.js')
     script.
       new VVP()
-    - var components = ['persistence']
+    - var components = ['persistence', 'editor']
     - var component_list = components.map(component => `"${component}"`);
     script.
       class Component extends Mozart {};
@@ -47,4 +46,5 @@ html
 
     script.
         Mozart.init();
+    script(src='script.js')
 

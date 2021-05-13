@@ -4,6 +4,9 @@
       <sourceFilesUrls>
         <item url="file://$PROJECT_DIR$/app.min.js" />
         <item url="file://$PROJECT_DIR$/index.min.js" />
+        <item url="file://$PROJECT_DIR$/public/components/editor/editor_acts.min.js" />
+        <item url="file://$PROJECT_DIR$/public/components/editor/editor_events.min.js" />
+        <item url="file://$PROJECT_DIR$/public/components/editor/editor_routes.min.js" />
         <item url="file://$PROJECT_DIR$/public/components/persistence/persistence_acts.min.js" />
         <item url="file://$PROJECT_DIR$/public/components/persistence/persistence_events.min.js" />
         <item url="file://$PROJECT_DIR$/public/components/persistence/persistence_routes.min.js" />
@@ -14,6 +17,9 @@
     <CLASSES>
       <root url="file://$PROJECT_DIR$/app.min.js" />
       <root url="file://$PROJECT_DIR$/index.min.js" />
+      <root url="file://$PROJECT_DIR$/public/components/editor/editor_acts.min.js" />
+      <root url="file://$PROJECT_DIR$/public/components/editor/editor_events.min.js" />
+      <root url="file://$PROJECT_DIR$/public/components/editor/editor_routes.min.js" />
       <root url="file://$PROJECT_DIR$/public/components/persistence/persistence_acts.min.js" />
       <root url="file://$PROJECT_DIR$/public/components/persistence/persistence_events.min.js" />
       <root url="file://$PROJECT_DIR$/public/components/persistence/persistence_routes.min.js" />
