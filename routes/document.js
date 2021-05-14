@@ -53,28 +53,35 @@ router.post('/:document_id', function(req, res, next) {
 /* GET raw document */
 router.get('/:document_id/raw', function(req, res, next) {
   const document_id = req.params.document_id;
+  const file_path   = `documents/${document_id}.json`
 
-  fs.readFile(`documents/${document_id}.json`, 'utf8' , (err, data) => {
-    if (err) {
-      console.error(err)
-      return
-    }
-    res.setHeader('Content-Type', 'application/json');
-    const response = JSON.stringify(JSON.parse(data), null, 2);
+  if (process.env.environment === "prod") {
+    res.redirect(`http://static.everything.io.s3-website-us-east-1.amazonaws.com/permy.link/${file_path}`)
+  }
+  else {
+    fs.readFile(file_path, 'utf8', (err, data) => {
+      if (err) {
+        console.error(err)
+        return
+      }
+      res.setHeader('Content-Type', 'application/json');
+      const response = JSON.stringify(JSON.parse(data), null, 2);
 
-    res.send(response);
-  })
+      res.send(response);
+    })
+  }
 });
 
 /* GET document */
 router.get('/:document_id', function(req, res, next) {
   const document_id = req.params.document_id;
+  const file_path = `documents/${document_id}.json`;
 
   if (process.env.environment === "prod") {
-
+    res.redirect(`http://static.everything.io.s3-website-us-east-1.amazonaws.com/permy.link/${file_path}`);
   }
   else {
-    fs.readFile(`documents/${document_id}.json`, 'utf8', (err, data) => {
+    fs.readFile(file_path, 'utf8', (err, data) => {
       if (err) {
         console.error(err)
         res.status(500).send(err)
