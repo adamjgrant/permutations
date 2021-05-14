@@ -3,7 +3,7 @@ m.persistence.acts({
     _$.act.save_id_to_localstorage({ document_id: _$.act.get_document_id() });
     _$.act.set_url_to_id({ id: _$.act.get_document_id() });
     _$.act.save_to_file({ data: m.editor.act.get_value() });
-    return localStorage.setObject("code", m.editor.act.get_value());
+    // return localStorage.setObject("code", m.editor.act.get_value()); // TODO: Removing this for now.
   },
 
   load_code_from_localhost(_$, args) {
