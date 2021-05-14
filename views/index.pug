@@ -2,7 +2,7 @@ extends layout
 
 block content
   #viewport
-    aside#actions.navbar.navbar-dark.navbar-collapse.navbar-fixed(data-ks-navbar='')
+    aside#actions.navbar.navbar-dark.navbar-collapse.navbar-fixed(data-ks-navbar='' data-component="navbar")
       nav
         ul
           li.navbar-title
@@ -11,7 +11,7 @@ block content
           li
             a(target='_blank' href='https://github.com/adamjgrant/permutations/wiki/Quick-Start') Docs
           li
-            a#clear Clear
+            a#new New
           li
             a#default Default
         ul
