@@ -14,12 +14,16 @@ m.persistence.acts({
     const local_data = _$.act.load_code_from_localhost();
     if (local_data) {
       m.editor.act.set_value({ value: local_data });
-      _$.act.load_from_file().then(data => {
-        if (local_data !== data) {
-          m.editor.act.set_value(data);
-        };
-        return
-      })
+
+      if (_$.act.get_document_id()) {
+        _$.act.load_from_file().then(data => {
+          if (local_data !== data) {
+            m.editor.act.set_value(data);
+          }
+          ;
+          return
+        })
+      }
     }
     else {
       m.editor.act.set_default_text();
@@ -71,6 +75,7 @@ m.persistence.acts({
   load_from_file(_$, args) {
     return new Promise((resolve, reject) => {
       var request = new XMLHttpRequest();
+      if (!_$.act.get_document_id()) reject("No document ID provided");
       request.open('GET', `/document/${_$.act.get_document_id()}`, true);
 
       request.onload = function() {
@@ -101,10 +106,16 @@ m.persistence.acts({
   priv: {
     save_to_file(_$, args) {
       if (!_$.act.get_document_id()) return
+      const json_as_string = JSON.stringify(args.data);
+
       var request = new XMLHttpRequest();
       request.open('POST', `/document/${_$.act.get_document_id()}`, true);
-      request.setRequestHeader('Content-Type', 'application/json');
-      request.send(args.data);
+      request.setRequestHeader('Content-Type', 'text/plain');
+      request.send(json_as_string);
+      request.onerror = (err) => {
+        return err;
+      };
+
     },
 
     find_document_id_from_url(_$, args) {

@@ -5,11 +5,11 @@ const fs = require('fs');
 /* SAVE document. */
 router.post('/:document_id', function(req, res, next) {
   const document_id = req.params.document_id;
-  const json        = req.body;
+  const json_as_string        = req.body;
 
-  fs.writeFile(`documents/${document_id}.json`, JSON.stringify(req.body), function(err) {
+  fs.writeFile(`documents/${document_id}.json`, json_as_string, function(err) {
     if (err) return console.log(err);
-    res.send(`Saved ${JSON.stringify(json)} as ${document_id}.json`);
+    res.send(`Saved ${json_as_string} as ${document_id}.json`);
   });
 });
 
@@ -40,9 +40,12 @@ router.get('/:document_id', function(req, res, next) {
       return
     }
     res.setHeader('Content-Type', 'application/json');
-    const response = beautify(JSON.parse(data), null, 2, 1);
-
-    res.send(response);
+    try {
+      const response = beautify(JSON.parse(data), null, 2, 1);
+      res.send(response);
+    } catch(err) {
+      res.send(data);
+    }
   })
 });
 
