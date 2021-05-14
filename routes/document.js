@@ -23,6 +23,7 @@ router.get('/:document_id/raw', function(req, res, next) {
       console.error(err)
       return
     }
+    res.setHeader('Content-Type', 'application/json');
     const response = beautify(JSON.parse(data), null, 2, 1);
 
     res.send(response);
@@ -39,9 +40,14 @@ router.get('/:document_id', function(req, res, next) {
       console.error(err)
       return
     }
-    res.setHeader('Content-Type', 'application/json');
     try {
-      const response = beautify(JSON.parse(data), null, 2, 1);
+      if (JSON.parse(data)) {
+        const response = beautify(JSON.parse(data), null, 2, 1);
+      }
+      else {
+        const response = data;
+      }
+
       res.send(response);
     } catch(err) {
       res.send(data);

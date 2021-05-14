@@ -81,7 +81,7 @@ m.persistence.acts({
       request.onload = function() {
         if (this.status >= 200 && this.status < 400) {
           // Success!
-          resolve(this.response);
+          resolve(JSON.parse(this.response));
         } else {
           // We reached our target server, but it returned an error
           reject("Could not load URL");
