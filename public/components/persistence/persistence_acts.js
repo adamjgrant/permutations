@@ -13,10 +13,13 @@ m.persistence.acts({
 
   set_initial_state(_$, args) {
     const local_data = _$.act.load_code_from_localhost();
+/*
     if (local_data) {
       m.editor.act.set_value({value: local_data});
     }
-    else if (_$.act.get_document_id()) {
+*/
+
+    if (_$.act.get_document_id()) {
       _$.act.load_from_file().then(data => {
         if (local_data !== data) {
           m.editor.act.set_value(data);
@@ -26,6 +29,7 @@ m.persistence.acts({
       })
     }
     else {
+      console.log("No document ID found");
       m.editor.act.set_default_text();
     }
   },
@@ -69,6 +73,7 @@ m.persistence.acts({
         m.editor.act.set_value({value: file_contents});
         _$.act.save_code();
       });
+      return address_id;
     }
   },
 
