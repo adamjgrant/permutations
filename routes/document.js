@@ -40,20 +40,13 @@ router.get('/:document_id', function(req, res, next) {
   fs.readFile(`documents/${document_id}.json`, 'utf8' , (err, data) => {
     if (err) {
       console.error(err)
-      res.send(err);
+      res.status(500).send(err)
       return
     }
     try {
-      if (JSON.parse(data)) {
-        const response = beautify(JSON.parse(data), null, 2, 1);
-      }
-      else {
-        const response = data;
-      }
-
-      res.send(response);
-    } catch(err) {
-      res.send(err);
+      res.send(data);
+    } catch (err) {
+      res.status(500).send(err);
     }
   })
 });
