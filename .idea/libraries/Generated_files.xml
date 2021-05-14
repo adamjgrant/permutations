@@ -4,25 +4,27 @@
       <sourceFilesUrls>
         <item url="file://$PROJECT_DIR$/index.min.js" />
         <item url="file://$PROJECT_DIR$/permute.min.js" />
+        <item url="file://$PROJECT_DIR$/permute.min.min.js" />
         <item url="file://$PROJECT_DIR$/permy.link/script.min.js" />
-        <item url="file://$PROJECT_DIR$/permyscript.min.js" />
         <item url="file://$PROJECT_DIR$/random.min.js" />
-        <item url="file://$PROJECT_DIR$/random.min.min.js" />
         <item url="file://$PROJECT_DIR$/scratch.min.js" />
+        <item url="file://$PROJECT_DIR$/scratch.min.min.js" />
         <item url="file://$PROJECT_DIR$/simper.min.js" />
         <item url="file://$PROJECT_DIR$/test.min.js" />
+        <item url="file://$PROJECT_DIR$/test.min.min.js" />
       </sourceFilesUrls>
     </properties>
     <CLASSES>
       <root url="file://$PROJECT_DIR$/index.min.js" />
       <root url="file://$PROJECT_DIR$/permute.min.js" />
+      <root url="file://$PROJECT_DIR$/permute.min.min.js" />
       <root url="file://$PROJECT_DIR$/permy.link/script.min.js" />
-      <root url="file://$PROJECT_DIR$/permyscript.min.js" />
       <root url="file://$PROJECT_DIR$/random.min.js" />
-      <root url="file://$PROJECT_DIR$/random.min.min.js" />
       <root url="file://$PROJECT_DIR$/scratch.min.js" />
+      <root url="file://$PROJECT_DIR$/scratch.min.min.js" />
       <root url="file://$PROJECT_DIR$/simper.min.js" />
       <root url="file://$PROJECT_DIR$/test.min.js" />
+      <root url="file://$PROJECT_DIR$/test.min.min.js" />
     </CLASSES>
     <JAVADOC />
     <SOURCES />
