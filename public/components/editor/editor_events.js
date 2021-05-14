@@ -15,7 +15,7 @@ m.editor.events(_$ => {
       })
       debounce(permute, "editor", 500);
       debounce(setAllNotice, "set_all_notice", 1000);
-      debounce(m.persistence.act.save, "persistence", 800);
+      debounce(m.persistence.act.save_code, "persistence", 800);
     });
   };
 })

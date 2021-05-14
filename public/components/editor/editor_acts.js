@@ -7,6 +7,10 @@ m.editor.acts({
     return m.editor.self.getValue();
   },
 
+  beautify(_$, args) {
+
+  },
+
   set_default_text(_$, args) {
     _$.act.set_value({ value: m.editor.default_text });
   },
