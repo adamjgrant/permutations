@@ -1,21 +1,24 @@
 m.persistence.acts({
   save_code(_$, args) {
     _$.act.save_id_to_localstorage({ document_id: _$.act.get_document_id() });
+    _$.act.save_to_file({ data: m.editor.act.get_value() });
     return localStorage.setObject("code", m.editor.act.get_value());
   },
 
-  load_code(_$, args) {
-    if (_$.act.get_document_id()) {
-      localStorage.getObject("code");
-    }
-    // TODO trying to figure out what to do here.
-    // If we have a doc and local storage...
-    // const UglifyJS = require("uglify-js");
+  load_code_from_localhost(_$, args) {
+    return localStorage.getObject("code");
   },
 
   set_initial_state(_$, args) {
-    if (_$.act.load_code().length) {
-      m.editor.act.set_value({ value: _$.act.load_code() });
+    const local_data = JSON.stringify(_$.act.load_code_from_localhost());
+    if (local_data.length) {
+      m.editor.act.set_value({ value: local_data });
+      _$.act.load_from_file().then(data => {
+        if (local_data !== data) {
+          m.editor.act.set_value(data);
+        };
+        return
+      })
     }
     else {
       m.editor.act.set_default_text();
@@ -32,6 +35,7 @@ m.persistence.acts({
     if (!address_id && !localstorage_id) {
       const new_id = _$.act.generate_a_new_document_id();
       _$.act.save_id_to_localstorage({ document_id: new_id });
+      // TODO Get this to work
       _$.act.save_to_file({ data: _$.act.load_code() });
       return new_id;
     }
@@ -56,31 +60,31 @@ m.persistence.acts({
     }
   },
 
-  priv: {
-    load_from_file(_$, args) {
-      return new Promise((resolve, reject) => {
-        var request = new XMLHttpRequest();
-        request.open('GET', `/document/${_$.act.get_document_id()}`, true);
+  load_from_file(_$, args) {
+    return new Promise((resolve, reject) => {
+      var request = new XMLHttpRequest();
+      request.open('GET', `/document/${_$.act.get_document_id()}`, true);
 
-        request.onload = function() {
-          if (this.status >= 200 && this.status < 400) {
-            // Success!
-            resolve(this.response);
-          } else {
-            // We reached our target server, but it returned an error
-            reject("Could not load URL");
-          }
-        };
-
-        request.onerror = function() {
-          // There was a connection error of some sort
+      request.onload = function() {
+        if (this.status >= 200 && this.status < 400) {
+          // Success!
+          resolve(this.response);
+        } else {
+          // We reached our target server, but it returned an error
           reject("Could not load URL");
-        };
+        }
+      };
 
-        request.send();
-      })
-    },
+      request.onerror = function() {
+        // There was a connection error of some sort
+        reject("Could not load URL");
+      };
 
+      request.send();
+    })
+  },
+
+  priv: {
     save_to_file(_$, args) {
       var request = new XMLHttpRequest();
       request.open('POST', `/document/${_$.act.get_document_id()}`, true);
