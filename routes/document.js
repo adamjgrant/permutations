@@ -15,6 +15,7 @@ router.post('/:document_id', function(req, res, next) {
 
 /* GET document */
 router.get('/:document_id', function(req, res, next) {
+  const beautify = require("json-beautify");
   const document_id = req.params.document_id;
 
   fs.readFile(`documents/${document_id}.json`, 'utf8' , (err, data) => {
@@ -22,7 +23,9 @@ router.get('/:document_id', function(req, res, next) {
       console.error(err)
       return
     }
-    res.send(data)
+    const response = beautify(JSON.parse(data), null, 2, 1);
+
+    res.send(response);
   })
 });
 
