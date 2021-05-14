@@ -13,6 +13,22 @@ router.post('/:document_id', function(req, res, next) {
   });
 });
 
+/* GET raw document */
+router.get('/:document_id/raw', function(req, res, next) {
+  const beautify = require("json-beautify");
+  const document_id = req.params.document_id;
+
+  fs.readFile(`documents/${document_id}.json`, 'utf8' , (err, data) => {
+    if (err) {
+      console.error(err)
+      return
+    }
+    const response = beautify(JSON.parse(data), null, 2, 1);
+
+    res.send(response);
+  })
+});
+
 /* GET document */
 router.get('/:document_id', function(req, res, next) {
   const beautify = require("json-beautify");
@@ -23,6 +39,7 @@ router.get('/:document_id', function(req, res, next) {
       console.error(err)
       return
     }
+    res.setHeader('Content-Type', 'application/json');
     const response = beautify(JSON.parse(data), null, 2, 1);
 
     res.send(response);
