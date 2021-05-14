@@ -1,6 +1,6 @@
 m.persistence.acts({
   save_code(_$, args) {
-    localStorage.setObject("document_id", _$.act.get_document_id());
+    _$.act.save_id_to_localstorage();
     return localStorage.setObject("code", m.editor.act.get_value());
   },
 
@@ -42,7 +42,7 @@ m.persistence.acts({
     // SCENARIO 4: ADDRESS HAS ID - LOCALSTORAGE HAS ID
     //   Same as SCENARIO 3.
     if (address_id) {
-      _$.act.save_id_to_localstorage({ document_id: address_id });
+      // _$.act.save_id_to_localstorage({ document_id: address_id });
       _$.act.load_from_file().then(file_contents => {
         m.editor.set_value({value: file_contents});
         _$.act.save_code();
