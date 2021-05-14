@@ -17,7 +17,13 @@ router.post('/:document_id', function(req, res, next) {
 router.get('/:document_id', function(req, res, next) {
   const document_id = req.params.document_id;
 
-  res.send(document_id);
+  fs.readFile(`documents/${document_id}.json`, 'utf8' , (err, data) => {
+    if (err) {
+      console.error(err)
+      return
+    }
+    res.send(data)
+  })
 });
 
 module.exports = router;
