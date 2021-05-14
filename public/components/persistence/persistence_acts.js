@@ -7,23 +7,23 @@ m.persistence.acts({
   },
 
   load_code_from_localhost(_$, args) {
+    return null; // TODO: This is just messing up too much stuff right now.
     return localStorage.getObject("code");
   },
 
   set_initial_state(_$, args) {
     const local_data = _$.act.load_code_from_localhost();
     if (local_data) {
-      m.editor.act.set_value({ value: local_data });
-
-      if (_$.act.get_document_id()) {
-        _$.act.load_from_file().then(data => {
-          if (local_data !== data) {
-            m.editor.act.set_value(data);
-          }
-          ;
-          return
-        })
-      }
+      m.editor.act.set_value({value: local_data});
+    }
+    else if (_$.act.get_document_id()) {
+      _$.act.load_from_file().then(data => {
+        if (local_data !== data) {
+          m.editor.act.set_value(data);
+        }
+        ;
+        return
+      })
     }
     else {
       m.editor.act.set_default_text();

@@ -8,7 +8,6 @@ router.post('/:document_id', function(req, res, next) {
   let json_as_string        = JSON.parse(req.body);
 
   if (JSON.parse(json_as_string)) {
-    console.log(typeof(JSON.parse(json_as_string)));
     json_as_string = JSON.stringify(JSON.parse(json_as_string), null, 2);
   }
 
