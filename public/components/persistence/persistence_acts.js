@@ -21,8 +21,6 @@ m.persistence.acts({
     const address_id      = _$.act.find_document_id_from_url();
     const localstorage_id = _$.act.get_id_from_localstorage();
 
-    console.log(address_id, localstorage_id);
-
     // SCENARIO 1: ADDRESS NO ID - LOCALSTORAGE NO ID
     //   Create a new one, save it to localstorage, create a new file for writing.
     if (!address_id && !localstorage_id) {
@@ -35,7 +33,7 @@ m.persistence.acts({
     // SCENARIO 2: ADDRESS NO ID - LOCALSTORAGE HAS ID
     //   Set the address to be the ID from localstorage
     if (!address_id && localstorage_id) {
-      // TODO Set URL
+      history.replaceState(null, localstorage_id, `/${localstorage_id}`);
       return localstorage_id;
     }
 
