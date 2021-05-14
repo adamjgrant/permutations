@@ -22,6 +22,7 @@ services:
       - $NODE_LOCAL_PORT:$NODE_DOCKER_PORT
     volumes:
       - ./node_modules:/node_modules
+      - ./documents:/documents
       - ./:/app
     depends_on:
       - mysqldb
