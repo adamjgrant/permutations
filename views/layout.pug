@@ -1,0 +1,50 @@
+doctype html
+html
+  head
+    base(href='./')
+    meta(charset='“UTF-8”')
+    meta(name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no')
+    meta(http-equiv='“X-UA-Compatible”' content='“ie=edge”')
+    meta(name='apple-mobile-web-app-status-bar-style' content='black')
+    meta(name='apple-mobile-web-app-capable' content='yes')
+    title Permutation Generator
+    link(rel='stylesheet' href='node_modules/normalize.css/normalize.css')
+    script(src='node_modules/codemirror/lib/codemirror.js')
+    link(rel='stylesheet' href='node_modules/codemirror/lib/codemirror.css')
+    link(rel='stylesheet' href='node_modules/codemirror/theme/solarized.css')
+    script(src='node_modules/codemirror/addon/edit/matchbrackets.js')
+    script(src='node_modules/codemirror/addon/comment/continuecomment.js')
+    script(src='node_modules/codemirror/addon/comment/comment.js')
+    script(src='node_modules/codemirror/mode/javascript/javascript.js')
+    link(rel='stylesheet' href='//cdn.everything.io/kickstart/3.x/css/kickstart.min.css')
+    link(rel='stylesheet' href='viewport-fix.css')
+    link(rel='stylesheet' href='style.css')
+  body
+    block content
+
+    script(src='//cdn.everything.io/kickstart/3.x/js/kickstart.min.js')
+    script(src='mozart.js')
+    script(src='debounce.js')
+    script.
+      let module = {exports: undefined}
+    script(src='permute.min.js')
+    script(src='simper.js')
+    script(src='viewport-fix.js')
+    script.
+      new VVP()
+    - var components = ['persistence', 'editor', 'navbar']
+    - var component_list = components.map(component => `"${component}"`);
+    script.
+      class Component extends Mozart {};
+      const components = [!{ component_list.join(", ") }];
+      components.forEach(component => new Component(component));
+      let m = Component.index;
+    each component in components
+      script(src=`components/${component}/${component}_acts.js`)
+      script(src=`components/${component}/${component}_events.js`)
+      script(src=`components/${component}/${component}_routes.js`)
+
+    script.
+        Mozart.init();
+    script(src='script.js')
+

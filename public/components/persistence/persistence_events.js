@@ -1,0 +1,2 @@
+m.persistence.events(_$ => {
+});
