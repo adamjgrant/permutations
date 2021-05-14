@@ -16,6 +16,7 @@
     "morgan": "~1.9.1",
     "normalize.css": "^8.0.1",
     "pug": "2.0.0-beta11",
+    "s3-client": "^4.4.2",
     "typescript": "^4.0.5",
     "uglify-js-es6": "^2.8.9"
   },
