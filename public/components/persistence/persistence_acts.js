@@ -21,16 +21,25 @@ m.persistence.acts({
     const address_id      = _$.act.find_document_id_from_url();
     const localstorage_id = _$.act.get_id_from_localstorage();
 
+    console.log(address_id, localstorage_id);
+
     // SCENARIO 1: ADDRESS NO ID - LOCALSTORAGE NO ID
     //   Create a new one, save it to localstorage, create a new file for writing.
     if (address_id === undefined && localstorage_id === undefined) {
       const new_id = _$.act.generate_a_new_document_id();
+      console.log("New id", new_id);
       _$.act.save_id_to_localstorage({ document_id: new_id });
-      // TODO Continue
+      _$.act.save_to_file({ data: m.editor.act.get_value() });
+      return new_id;
     }
 
     // SCENARIO 2: ADDRESS NO ID - LOCALSTORAGE HAS ID
-    //   Set the address to be the ID from localstorage and load from localstorage.
+    //   Set the address to be the ID from localstorage
+    if (address_id === undefined && localstorage_id !== undefined) {
+      // TODO Set URL
+      return localstorage_id;
+    }
+
     // SCENARIO 3: ADDRESS HAS ID - LOCALSTORAGE NO ID
     //   Use address's ID. Load from file, save ID and file contents to localstorage.
     // SCENARIO 4: ADDRESS HAS ID - LOCALSTORAGE HAS ID
@@ -78,11 +87,11 @@ m.persistence.acts({
     },
 
     get_id_from_localstorage(_$, args) {
-      return localStorage.getObject("document_id");
+      return localStorage.getItem("document_id");
     },
 
     save_id_to_localstorage($, args) {
-      return localStorage.setObject("document_id", args.document_id);
+      return localStorage.setItem("document_id", args.document_id);
     }
   }
 });

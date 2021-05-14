@@ -1,10 +1,24 @@
 m.editor.acts({
+  self(_$, args) {
+    if (m.editor.self === undefined) {
+      m.editor.self = CodeMirror.fromTextArea(document.getElementById("code"), {
+        matchBrackets: true,
+        autoCloseBrackets: true,
+        mode: "application/ld+json",
+        lineWrapping: true,
+        lineNumbers: true,
+        theme: "solarized dark"
+      });
+    }
+    return m.editor.self;
+  },
+
   set_value(_$, args) {
-    return m.editor.self.setValue(args.value);
+    return m.editor.act.self().setValue(args.value);
   },
 
   get_value(_$, args) {
-    return m.editor.self.getValue();
+    return m.editor.act.self().getValue();
   },
 
   beautify(_$, args) {
