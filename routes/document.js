@@ -40,6 +40,7 @@ router.get('/:document_id', function(req, res, next) {
   fs.readFile(`documents/${document_id}.json`, 'utf8' , (err, data) => {
     if (err) {
       console.error(err)
+      res.send(err);
       return
     }
     try {
@@ -52,7 +53,7 @@ router.get('/:document_id', function(req, res, next) {
 
       res.send(response);
     } catch(err) {
-      res.send(data);
+      res.send(err);
     }
   })
 });
