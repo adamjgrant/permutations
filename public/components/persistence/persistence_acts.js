@@ -78,6 +78,7 @@ m.persistence.acts({
   },
 
   load_from_file(_$, args) {
+    k$.status({ text: "Loading JSON..." });
     return new Promise((resolve, reject) => {
       var request = new XMLHttpRequest();
       if (!_$.act.get_document_id()) reject("No document ID provided");

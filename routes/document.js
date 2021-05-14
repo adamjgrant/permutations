@@ -55,10 +55,7 @@ router.get('/:document_id/raw', function(req, res, next) {
   const document_id = req.params.document_id;
   const file_path   = `documents/${document_id}.json`
 
-  if (process.env.environment === "prod") {
-    res.redirect(`http://static.everything.io.s3-website-us-east-1.amazonaws.com/permy.link/${file_path}`)
-  }
-  else {
+  const read_local_file = () => {
     fs.readFile(file_path, 'utf8', (err, data) => {
       if (err) {
         console.error(err)
@@ -70,6 +67,19 @@ router.get('/:document_id/raw', function(req, res, next) {
       res.send(response);
     })
   }
+
+  if (process.env.environment === "prod") {
+    const downloader = downloader_for_s3(file_path);
+    downloader.on('error', (err) => {
+      console.log(err);
+      res.status(500).send(err);
+    });
+
+    downloader.on('end', read_local_file);
+  }
+  else {
+    read_local_file();
+  }
 });
 
 /* GET document */
@@ -77,10 +87,7 @@ router.get('/:document_id', function(req, res, next) {
   const document_id = req.params.document_id;
   const file_path = `documents/${document_id}.json`;
 
-  if (process.env.environment === "prod") {
-    res.redirect(`http://static.everything.io.s3-website-us-east-1.amazonaws.com/permy.link/${file_path}`);
-  }
-  else {
+  const read_local_file = () => {
     fs.readFile(file_path, 'utf8', (err, data) => {
       if (err) {
         console.error(err)
@@ -94,6 +101,29 @@ router.get('/:document_id', function(req, res, next) {
       }
     })
   }
+
+  if (process.env.environment === "prod") {
+    const downloader = downloader_for_s3(file_path);
+    downloader.on('error', (err) => {
+      console.log(err);
+      res.status(500).send(err);
+    });
+
+    downloader.on('end', read_local_file);
+  }
+  else { read_local_file(); }
 });
+
+const downloader_for_s3 = (file_path) => {
+  const params = {
+    localFile: file_path,
+    s3Params: {
+      Bucket: "static.everything.io",
+      Key: `permy.link/${file_path}`
+    }
+  };
+
+  return s3_client.downloadFile(params);
+}
 
 module.exports = router;
