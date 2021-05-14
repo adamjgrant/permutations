@@ -5,9 +5,12 @@ const fs = require('fs');
 /* SAVE document. */
 router.post('/:document_id', function(req, res, next) {
   const document_id = req.params.document_id;
-  const json        = req.body.json;
+  const json        = req.body;
 
-  res.send(`Saved ${JSON.stringify(json)} as ${document_id}.json`);
+  fs.writeFile(`documents/${document_id}.json`, JSON.stringify(req.body), function(err) {
+    if (err) return console.log(err);
+    res.send(`Saved ${JSON.stringify(json)} as ${document_id}.json`);
+  });
 });
 
 /* GET document */
