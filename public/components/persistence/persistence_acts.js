@@ -10,8 +10,8 @@ m.persistence.acts({
   },
 
   set_initial_state(_$, args) {
-    const local_data = JSON.stringify(_$.act.load_code_from_localhost());
-    if (local_data.length) {
+    const local_data = _$.act.load_code_from_localhost();
+    if (local_data) {
       m.editor.act.set_value({ value: local_data });
       _$.act.load_from_file().then(data => {
         if (local_data !== data) {
@@ -25,6 +25,11 @@ m.persistence.acts({
     }
   },
 
+  set_url_to_localstorage_id(_$, args) {
+    const localstorage_id = _$.act.get_id_from_localstorage();
+    history.replaceState(null, localstorage_id, `/${localstorage_id}`);
+  },
+
   get_document_id(_$, args) {
     if (m.persistence.document_id) return m.persistence.document_id;
     const address_id      = _$.act.find_document_id_from_url();
@@ -35,15 +40,15 @@ m.persistence.acts({
     if (!address_id && !localstorage_id) {
       const new_id = _$.act.generate_a_new_document_id();
       _$.act.save_id_to_localstorage({ document_id: new_id });
-      // TODO Get this to work
-      _$.act.save_to_file({ data: _$.act.load_code() });
+      _$.act.save_to_file({ data: m.editor.act.get_value() });
+      _$.act.set_url_to_localstorage_id();
       return new_id;
     }
 
     // SCENARIO 2: ADDRESS NO ID - LOCALSTORAGE HAS ID
     //   Set the address to be the ID from localstorage
     if (!address_id && localstorage_id) {
-      history.replaceState(null, localstorage_id, `/${localstorage_id}`);
+      _$.act.set_url_to_localstorage_id();
       return localstorage_id;
     }
 
@@ -89,7 +94,7 @@ m.persistence.acts({
       var request = new XMLHttpRequest();
       request.open('POST', `/document/${_$.act.get_document_id()}`, true);
       request.setRequestHeader('Content-Type', 'application/json');
-      request.send(JSON.stringify(args.data));
+      request.send(args.data);
     },
 
     find_document_id_from_url(_$, args) {
