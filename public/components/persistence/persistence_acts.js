@@ -120,6 +120,9 @@ m.persistence.acts({
       request.onerror = (err) => {
         return err;
       };
+      request.onload = function () {
+        k$.status({ text: "💾 Saved", type: "status-green" })
+      }
 
     },
 
