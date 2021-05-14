@@ -25,9 +25,8 @@ m.persistence.acts({
 
     // SCENARIO 1: ADDRESS NO ID - LOCALSTORAGE NO ID
     //   Create a new one, save it to localstorage, create a new file for writing.
-    if (address_id === undefined && localstorage_id === undefined) {
+    if (!address_id && !localstorage_id) {
       const new_id = _$.act.generate_a_new_document_id();
-      console.log("New id", new_id);
       _$.act.save_id_to_localstorage({ document_id: new_id });
       _$.act.save_to_file({ data: m.editor.act.get_value() });
       return new_id;
@@ -35,7 +34,7 @@ m.persistence.acts({
 
     // SCENARIO 2: ADDRESS NO ID - LOCALSTORAGE HAS ID
     //   Set the address to be the ID from localstorage
-    if (address_id === undefined && localstorage_id !== undefined) {
+    if (!address_id && localstorage_id) {
       // TODO Set URL
       return localstorage_id;
     }
