@@ -52,38 +52,15 @@ router.post('/:document_id', function(req, res, next) {
 
 /* GET raw document */
 router.get('/:document_id/raw', function(req, res, next) {
-  const document_id = req.params.document_id;
-  const file_path   = `documents/${document_id}.json`
-
-  const read_local_file = () => {
-    fs.readFile(file_path, 'utf8', (err, data) => {
-      if (err) {
-        console.error(err)
-        return
-      }
-      res.setHeader('Content-Type', 'application/json');
-      const response = JSON.stringify(JSON.parse(data), null, 2);
-
-      res.send(response);
-    })
-  }
-
-  if (process.env.environment === "prod") {
-    const downloader = downloader_for_s3(file_path);
-    downloader.on('error', (err) => {
-      console.log(err);
-      res.status(500).send(err);
-    });
-
-    downloader.on('end', read_local_file);
-  }
-  else {
-    read_local_file();
-  }
+  get_document(req, res, next, true);
 });
 
 /* GET document */
 router.get('/:document_id', function(req, res, next) {
+  get_document(req, res, next, false);
+});
+
+const get_document = (req, res, next, as_json=false) => {
   const document_id = req.params.document_id;
   const file_path = `documents/${document_id}.json`;
 
@@ -95,14 +72,22 @@ router.get('/:document_id', function(req, res, next) {
         return
       }
       try {
-        res.send(data);
+        if (as_json) {
+          res.setHeader('Content-Type', 'application/json');
+          const response = JSON.stringify(JSON.parse(data), null, 2);
+
+          res.send(response);
+        }
+        else {
+          res.send(data);
+        }
       } catch (err) {
         res.status(500).send(err);
       }
     })
   }
 
-  if (process.env.environment === "prod") {
+  if (process.env.environment === "prod" && !fs.existsSync(file_path)) {
     const downloader = downloader_for_s3(file_path);
     downloader.on('error', (err) => {
       console.log(err);
@@ -112,7 +97,7 @@ router.get('/:document_id', function(req, res, next) {
     downloader.on('end', read_local_file);
   }
   else { read_local_file(); }
-});
+}
 
 const downloader_for_s3 = (file_path) => {
   const params = {
