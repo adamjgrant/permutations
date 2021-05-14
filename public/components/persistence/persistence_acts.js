@@ -1,11 +1,16 @@
 m.persistence.acts({
   save_code(_$, args) {
-    _$.act.save_id_to_localstorage();
+    _$.act.save_id_to_localstorage({ document_id: _$.act.get_document_id() });
     return localStorage.setObject("code", m.editor.act.get_value());
   },
 
   load_code(_$, args) {
-    return localStorage.getObject("code");
+    if (_$.act.get_document_id()) {
+      localStorage.getObject("code");
+    }
+    // TODO trying to figure out what to do here.
+    // If we have a doc and local storage...
+    // const UglifyJS = require("uglify-js");
   },
 
   set_initial_state(_$, args) {
@@ -18,6 +23,7 @@ m.persistence.acts({
   },
 
   get_document_id(_$, args) {
+    if (m.persistence.document_id) return m.persistence.document_id;
     const address_id      = _$.act.find_document_id_from_url();
     const localstorage_id = _$.act.get_id_from_localstorage();
 
@@ -42,9 +48,9 @@ m.persistence.acts({
     // SCENARIO 4: ADDRESS HAS ID - LOCALSTORAGE HAS ID
     //   Same as SCENARIO 3.
     if (address_id) {
-      // _$.act.save_id_to_localstorage({ document_id: address_id });
+      _$.act.save_id_to_localstorage({ document_id: address_id });
       _$.act.load_from_file().then(file_contents => {
-        m.editor.set_value({value: file_contents});
+        m.editor.act.set_value({value: file_contents});
         _$.act.save_code();
       });
     }
@@ -79,11 +85,15 @@ m.persistence.acts({
       var request = new XMLHttpRequest();
       request.open('POST', `/document/${_$.act.get_document_id()}`, true);
       request.setRequestHeader('Content-Type', 'application/json');
-      request.send(args.data);
+      request.send(JSON.stringify(args.data));
     },
 
     find_document_id_from_url(_$, args) {
-      return undefined; // TODO
+      const matches = location.pathname.match(/\/([\d\w]+)/);
+      if (matches && matches.length >= 2 && matches[1]) {
+        return matches[1];
+      }
+      else { return null; }
     },
 
     generate_a_new_document_id(_$, args) {
@@ -95,7 +105,10 @@ m.persistence.acts({
     },
 
     save_id_to_localstorage($, args) {
+      m.persistence.document_id = args.document_id;
       return localStorage.setItem("document_id", args.document_id);
     }
   }
 });
+
+m.persistence.document_id = null;
