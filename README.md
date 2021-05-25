@@ -145,8 +145,12 @@ Save yourself the trouble of writing `", "` over and over again.
 }
 ~~~
 
+# Installing
+
+1. Make sure the variables `$NODE_LOCAL_PORT` and `$NODE_DOCKER_PORT` are set in .env and run:
+2. `npm install`
+
 # Starting Docker
 
-Make sure the variables `$NODE_LOCAL_PORT` and `$NODE_DOCKER_PORT` are set in .env and run:
-
 `docker compose up`
+

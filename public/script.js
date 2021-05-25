@@ -75,13 +75,6 @@ const permute_all = () => {
 
 generate_all_element.addEventListener("click", permute_all)
 
-const clear_button = document.getElementById("clear");
-clear_button.addEventListener("click", () => {
-  if (confirm("You will lose anything you've entered, are you sure?")) {
-    m.editor.act.set_cleared_text();
-  }
-});
-
 const default_button = document.getElementById("default");
 default_button.addEventListener("click", () => {
   if (confirm("You will lose anything you've entered, are you sure?")) {

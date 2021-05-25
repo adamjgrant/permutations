@@ -2,9 +2,61 @@
   <library name="Generated files" type="javaScript">
     <properties>
       <sourceFilesUrls>
+        <item url="file://$PROJECT_DIR$/app.min.js" />
+        <item url="file://$PROJECT_DIR$/bin/www.min.js" />
+        <item url="file://$PROJECT_DIR$/index.min.js" />
+        <item url="file://$PROJECT_DIR$/public/components/editor/editor_acts.min.js" />
+        <item url="file://$PROJECT_DIR$/public/components/editor/editor_events.min.js" />
+        <item url="file://$PROJECT_DIR$/public/components/editor/editor_routes.min.js" />
+        <item url="file://$PROJECT_DIR$/public/components/navbar/navbar_acts.min.js" />
+        <item url="file://$PROJECT_DIR$/public/components/navbar/navbar_acts.min.min.js" />
+        <item url="file://$PROJECT_DIR$/public/components/navbar/navbar_events.min.js" />
+        <item url="file://$PROJECT_DIR$/public/components/navbar/navbar_events.min.min.js" />
+        <item url="file://$PROJECT_DIR$/public/components/navbar/navbar_routes.min.js" />
+        <item url="file://$PROJECT_DIR$/public/components/navbar/navbar_routes.min.min.js" />
+        <item url="file://$PROJECT_DIR$/public/components/persistence/persistence_acts.min.js" />
+        <item url="file://$PROJECT_DIR$/public/components/persistence/persistence_events.min.js" />
+        <item url="file://$PROJECT_DIR$/public/components/persistence/persistence_routes.min.js" />
+        <item url="file://$PROJECT_DIR$/public/debounce.min.js" />
+        <item url="file://$PROJECT_DIR$/public/mozart.min.js" />
+        <item url="file://$PROJECT_DIR$/public/permute.min.js" />
+        <item url="file://$PROJECT_DIR$/public/script.min.js" />
+        <item url="file://$PROJECT_DIR$/public/simper.min.js" />
+        <item url="file://$PROJECT_DIR$/public/twitter_search.min.js" />
+        <item url="file://$PROJECT_DIR$/public/viewport-fix.min.js" />
+        <item url="file://$PROJECT_DIR$/random.min.js" />
+        <item url="file://$PROJECT_DIR$/routes/document.min.js" />
+        <item url="file://$PROJECT_DIR$/routes/index.min.js" />
+        <item url="file://$PROJECT_DIR$/routes/users.min.js" />
       </sourceFilesUrls>
     </properties>
     <CLASSES>
+      <root url="file://$PROJECT_DIR$/app.min.js" />
+      <root url="file://$PROJECT_DIR$/bin/www.min.js" />
+      <root url="file://$PROJECT_DIR$/index.min.js" />
+      <root url="file://$PROJECT_DIR$/public/components/editor/editor_acts.min.js" />
+      <root url="file://$PROJECT_DIR$/public/components/editor/editor_events.min.js" />
+      <root url="file://$PROJECT_DIR$/public/components/editor/editor_routes.min.js" />
+      <root url="file://$PROJECT_DIR$/public/components/navbar/navbar_acts.min.js" />
+      <root url="file://$PROJECT_DIR$/public/components/navbar/navbar_acts.min.min.js" />
+      <root url="file://$PROJECT_DIR$/public/components/navbar/navbar_events.min.js" />
+      <root url="file://$PROJECT_DIR$/public/components/navbar/navbar_events.min.min.js" />
+      <root url="file://$PROJECT_DIR$/public/components/navbar/navbar_routes.min.js" />
+      <root url="file://$PROJECT_DIR$/public/components/navbar/navbar_routes.min.min.js" />
+      <root url="file://$PROJECT_DIR$/public/components/persistence/persistence_acts.min.js" />
+      <root url="file://$PROJECT_DIR$/public/components/persistence/persistence_events.min.js" />
+      <root url="file://$PROJECT_DIR$/public/components/persistence/persistence_routes.min.js" />
+      <root url="file://$PROJECT_DIR$/public/debounce.min.js" />
+      <root url="file://$PROJECT_DIR$/public/mozart.min.js" />
+      <root url="file://$PROJECT_DIR$/public/permute.min.js" />
+      <root url="file://$PROJECT_DIR$/public/script.min.js" />
+      <root url="file://$PROJECT_DIR$/public/simper.min.js" />
+      <root url="file://$PROJECT_DIR$/public/twitter_search.min.js" />
+      <root url="file://$PROJECT_DIR$/public/viewport-fix.min.js" />
+      <root url="file://$PROJECT_DIR$/random.min.js" />
+      <root url="file://$PROJECT_DIR$/routes/document.min.js" />
+      <root url="file://$PROJECT_DIR$/routes/index.min.js" />
+      <root url="file://$PROJECT_DIR$/routes/users.min.js" />
     </CLASSES>
     <JAVADOC />
     <SOURCES />
