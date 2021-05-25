@@ -13,6 +13,17 @@ router.post('/:document_id', function(req, res, next) {
   });
 });
 
+/* RENAME document. */
+router.put('/:document_id', function(req, res, next) {
+  const document_id = req.params.document_id;
+  const new_name        = req.body.new_name;
+
+  fs.rename(`documents/${document_id}.json`, `documents/${new_name}.json`, function(err) {
+    if (err) return console.log(err);
+    res.send(`Saved ${JSON.stringify(json)} as ${document_id}.json`);
+  });
+});
+
 /* GET raw document */
 router.get('/:document_id/raw', function(req, res, next) {
   const beautify = require("json-beautify");

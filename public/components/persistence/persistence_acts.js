@@ -89,6 +89,32 @@ m.persistence.acts({
     })
   },
 
+  rename_file(_$, args) {
+    return new Promise((resolve, reject) => {
+      var request = new XMLHttpRequest();
+      request.open('PUT', `/document/${_$.act.get_document_id()}`, true);
+      request.setRequestHeader('Content-Type', 'application/json');
+      request.send(args.new_name);
+
+      request.onload = function() {
+        if (this.status >= 200 && this.status < 400) {
+          // Success!
+          resolve(this.response);
+        } else {
+          // We reached our target server, but it returned an error
+          reject("Could not load URL");
+        }
+      };
+
+      request.onerror = function() {
+        // There was a connection error of some sort
+        reject("Could not load URL");
+      };
+
+      request.send();
+    });
+  },
+
   priv: {
     save_to_file(_$, args) {
       var request = new XMLHttpRequest();
