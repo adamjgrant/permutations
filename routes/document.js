@@ -53,7 +53,7 @@ router.post('/:document_id', function(req, res, next) {
 /* RENAME document. */
 router.put('/:document_id', function(req, res, next) {
   const document_id = req.params.document_id;
-  // const new_name        = JSON.parse(req.body).new_name;
+  // const new_name        =JSON.parse(req.body).new_name;
 
   res.send(req.body);
 
