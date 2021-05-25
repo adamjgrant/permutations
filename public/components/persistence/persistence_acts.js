@@ -137,6 +137,10 @@ m.persistence.acts({
         });
     },
 
+    duplicate_file(_$, args) {
+
+    },
+
     clear_local_storage(_$, args) {
         m.persistence.document_id = null;
         localStorage.removeItem("document_id");

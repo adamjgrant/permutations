@@ -9,7 +9,9 @@ m.navbar.acts({
     },
 
     fork(_$, opts) {
-        alert("Sorry, not yet implemented.");
+        m.persistence.act.clear_local_storage();
+        m.persistence.act.set_url_to_id({ id: null });
+        m.persistence.act.save_code();
     },
 
     new_document(_$, args) {
