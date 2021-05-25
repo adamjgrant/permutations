@@ -1,8 +1,10 @@
 m.navbar.acts({
     rename(_$, args) {
         const new_name = prompt("Select a new name");
-        return m.persistence.act.rename_file({ new_name: new_name }).then(data => {
-            location.href = `/${new_name}`;
+        return m.persistence.act.rename_file({ new_name: new_name }).then(slug => {
+            location.href = `/${slug}`;
+        }).catch(err => {
+            alert(err);
         });
     },
 

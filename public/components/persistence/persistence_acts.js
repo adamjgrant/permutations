@@ -79,8 +79,9 @@ m.persistence.acts({
         k$.status({ text: "Loading JSON..." });
         return new Promise((resolve, reject) => {
             var request = new XMLHttpRequest();
-            if (!_$.act.get_document_id()) reject("No document ID provided");
-            request.open('GET', `/document/${_$.act.get_document_id()}`, true);
+            const document_id = (args || {})['document_id'] || _$.act.get_document_id();
+            if (!document_id) reject("No document ID provided");
+            request.open('GET', `/document/${document_id}`, true);
 
             request.onload = function() {
                 if (this.status >= 200 && this.status < 400) {
@@ -102,27 +103,37 @@ m.persistence.acts({
     },
 
     rename_file(_$, args) {
+        // Sanitize this for a URL
+        args.new_name = slugify(args.new_name);
+        console.log(args.new_name);
+
         return new Promise((resolve, reject) => {
-            var request = new XMLHttpRequest();
-            request.open('PUT', `/document/${_$.act.get_document_id()}`, true);
-            request.setRequestHeader('Content-Type', 'application/json');
+            _$.act.load_from_file({ document_id: args.new_name }).then(data => {
+                reject(`Name ${args.new_name} is already in use.`)
+            }).catch(err => {
+                console.log("Name available.");
 
-            request.onload = function() {
-                if (this.status >= 200 && this.status < 400) {
-                    // Success!
-                    resolve(this.response);
-                } else {
-                    // We reached our target server, but it returned an error
+                var request = new XMLHttpRequest();
+                request.open('PUT', `/document/${_$.act.get_document_id()}`, true);
+                request.setRequestHeader('Content-Type', 'application/json');
+
+                request.onload = function() {
+                    if (this.status >= 200 && this.status < 400) {
+                        // Success!
+                        resolve(args.new_name);
+                    } else {
+                        // We reached our target server, but it returned an error
+                        reject("Could not load URL");
+                    }
+                };
+
+                request.onerror = function() {
+                    // There was a connection error of some sort
                     reject("Could not load URL");
-                }
-            };
+                };
 
-            request.onerror = function() {
-                // There was a connection error of some sort
-                reject("Could not load URL");
-            };
-
-            request.send(JSON.stringify(args));
+                request.send(JSON.stringify(args));
+            })
         });
     },
 
@@ -151,7 +162,7 @@ m.persistence.acts({
         },
 
         find_document_id_from_url(_$, args) {
-            const matches = location.pathname.match(/\/([\d\w]+)/);
+            const matches = location.pathname.match(/\/([\d\w\-]+)/);
             if (matches && matches.length >= 2 && matches[1]) {
                 return matches[1];
             } else { return null; }
@@ -171,5 +182,60 @@ m.persistence.acts({
         }
     }
 });
+
+const slugify = (text) => {
+    text = text.toString().toLowerCase().trim()
+
+    const sets = [
+        { to: "a", from: "[ÀÁÂÃÅÆĀĂĄẠẢẤẦẨẪẬẮẰẲẴẶ]" },
+        { to: "ae", from: "[Ä]" },
+        { to: "c", from: "[ÇĆĈČ]" },
+        { to: "d", from: "[ÐĎĐÞ]" },
+        { to: "e", from: "[ÈÉÊËĒĔĖĘĚẸẺẼẾỀỂỄỆ]" },
+        { to: "g", from: "[ĜĞĢǴ]" },
+        { to: "h", from: "[ĤḦ]" },
+        { to: "i", from: "[ÌÍÎÏĨĪĮİỈỊ]" },
+        { to: "j", from: "[Ĵ]" },
+        { to: "ij", from: "[Ĳ]" },
+        { to: "k", from: "[Ķ]" },
+        { to: "l", from: "[ĹĻĽŁ]" },
+        { to: "m", from: "[Ḿ]" },
+        { to: "n", from: "[ÑŃŅŇ]" },
+        { to: "o", from: "[ÒÓÔÕØŌŎŐỌỎỐỒỔỖỘỚỜỞỠỢǪǬƠ]" },
+        { to: "oe", from: "[ŒÖ]" },
+        { to: "p", from: "[ṕ]" },
+        { to: "r", from: "[ŔŖŘ]" },
+        { to: "s", from: "[ŚŜŞŠ]" },
+        { to: "ss", from: "[ß]" },
+        { to: "t", from: "[ŢŤ]" },
+        { to: "u", from: "[ÙÚÛŨŪŬŮŰŲỤỦỨỪỬỮỰƯ]" },
+        { to: "ue", from: "[Ü]" },
+        { to: "w", from: "[ẂŴẀẄ]" },
+        { to: "x", from: "[ẍ]" },
+        { to: "y", from: "[ÝŶŸỲỴỶỸ]" },
+        { to: "z", from: "[ŹŻŽ]" },
+        { to: "-", from: "[·/_,:;']" },
+    ]
+
+    sets.forEach((set) => {
+        text = text.replace(new RegExp(set.from, "gi"), set.to)
+    })
+
+    text = text
+        .toString()
+        .toLowerCase()
+        .replace(/\s+/g, "-") // Replace spaces with -
+        .replace(/&/g, "-and-") // Replace & with 'and'
+        .replace(/[^\w\-]+/g, "") // Remove all non-word chars
+        .replace(/\--+/g, "-") // Replace multiple - with single -
+        .replace(/^-+/, "") // Trim - from start of text
+        .replace(/-+$/, "") // Trim - from end of text
+
+    if (typeof separator !== "undefined" && separator !== "-") {
+        text = text.replace(/-/g, separator)
+    }
+
+    return text
+}
 
 m.persistence.document_id = null;
