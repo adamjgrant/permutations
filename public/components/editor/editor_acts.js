@@ -30,7 +30,7 @@ m.editor.acts({
 
   permute(_$, args) {
     k$.status({
-        text: "Permuting...",
+        text: "Waiting for edits...",
         type: "status-blue"
     })
     debounce(_$.act.get_permutations, "editor", EDITOR_PERMUTE_DEBOUNCE_IN_MS);

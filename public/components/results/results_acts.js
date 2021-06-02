@@ -3,7 +3,7 @@ m.results.acts({
     _$("#output-random").innerHTML = args.text;
 
     k$.status({
-        text: "Done", type: "status-green"
+        text: "Permutations generated", type: "status-green"
     });
   }
 });
