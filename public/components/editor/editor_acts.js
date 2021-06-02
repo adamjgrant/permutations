@@ -1,3 +1,5 @@
+const Permute = module.exports;
+
 m.editor.acts({
   self(_$, args) {
     if (m.editor.self === undefined) {
@@ -21,8 +23,24 @@ m.editor.acts({
     return m.editor.act.self().getValue();
   },
 
-  beautify(_$, args) {
+  permute(_$, args) {
+      let output = "Error parsing JSON";
+      let last_permutation;
+    
+      try {
+        let results = [];
+        while(results.length < 5) { results.push(_$.act.random_permutation()); }
+        let output = results.map(result => `<li>${result}</li>`).join("");
+        last_permutation = results;
+        m.results.act.set_five_sample_results({ text: output });
+      } catch(e) {
+        m.results.act.set_five_sample_results({ text: `${output}: ${e}` });
+      }
+  },
 
+  random_permutation(_$, args) {
+    const tree  = new Permute(JSON.parse(_$.act.get_value()));
+    return tree.one;
   },
 
   set_default_text(_$, args) {

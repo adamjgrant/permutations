@@ -1,30 +1,6 @@
 // Everything below is getting refactored into Mozart
 
-const output_random_element = document.getElementById("output-random"),
-      output_all_element    = document.getElementById("output-all");
-
-const Permute = module.exports;
-let last_permutation;
-
-const permute = () => {
-  let output = "Error parsing JSON";
-
-  try {
-    let results = [];
-    while(results.length < 5) { results.push(random_permutation()); }
-    output = results.map(result => `<li>${result}</li>`).join("");
-    last_permutation = results;
-    setRandomOutput(output);
-  } catch(e) {
-    setRandomOutput(`${output}: ${e}`)
-  }
-}
-
-const random_permutation = () => {
-  const tree  = new Permute(JSON.parse(m.editor.act.get_value()));
-  return tree.one;
-}
-
+const output_all_element    = document.getElementById("output-all");
 const random_action_element = document.getElementById("random");
 const regenerate_action_element = document.getElementById("regenerate");
 
@@ -36,13 +12,6 @@ random_action_element.addEventListener("click", () => {
 });
 
 regenerate_action_element.addEventListener("click", () => { permute(); });
-
-const setRandomOutput = (text) => {
-  output_random_element.innerHTML = text;
-  k$.status({
-    text: "Done", type: "status-green"
-  })
-}
 
 const setAllOutput = (text) => {
   output_all_element.innerHTML = text;
@@ -81,8 +50,6 @@ default_button.addEventListener("click", () => {
     m.editor.act.set_default_text();
   }
 });
-
-permute();
 
 const return_github_gist_error = () => {
   k$.status({
