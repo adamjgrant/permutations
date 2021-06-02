@@ -1,4 +1,8 @@
 const Permute = module.exports;
+const EDITOR_SAVE_DEBOUNCE_IN_MS = 1000;
+const EDITOR_PERMUTE_DEBOUNCE_IN_MS = 1300;
+const EDITOR_SET_ALL_NOTICE_DEBOUNCE_IN_MS = 1000;
+
 m.editor.last_permutation = "";
 
 m.editor.acts({
@@ -25,6 +29,16 @@ m.editor.acts({
   },
 
   permute(_$, args) {
+    k$.status({
+        text: "Permuting...",
+        type: "status-blue"
+    })
+    debounce(_$.act.get_permutations, "editor", EDITOR_PERMUTE_DEBOUNCE_IN_MS);
+    debounce(setAllNotice, "set_all_notice", EDITOR_SET_ALL_NOTICE_DEBOUNCE_IN_MS);
+    debounce(m.persistence.act.save_code, "persistence", EDITOR_SAVE_DEBOUNCE_IN_MS);
+  },
+
+  get_permutations(_$, args) {
       let output = "Error parsing JSON";
     
       try {
