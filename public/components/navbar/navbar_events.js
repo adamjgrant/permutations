@@ -3,4 +3,5 @@ m.navbar.events(_$ => {
   _$("#fork").addEventListener("click", _$.act.fork);
   _$("#new").addEventListener("click", _$.act.new_document);
   _$("#random").addEventListener("click", _$.act.get_random);
+  _$("#regenerate").addEventListener("click", m.editor.act.get_permutations);
 });

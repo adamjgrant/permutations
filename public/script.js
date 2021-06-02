@@ -1,9 +1,6 @@
 // Everything below is getting refactored into Mozart
 
 const output_all_element    = document.getElementById("output-all");
-const regenerate_action_element = document.getElementById("regenerate");
-
-regenerate_action_element.addEventListener("click", () => { permute(); });
 
 const setAllOutput = (text) => {
   output_all_element.innerHTML = text;
