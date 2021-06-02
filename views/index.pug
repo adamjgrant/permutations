@@ -28,11 +28,11 @@ block content
       .output_pane(data-component="output")
         ul#ages.tabs(data-ks-tabs='')
           li.open(data-persist-key='random-tab')
-            a(href='#random') Random
+            a(href='#randoms') Random
           li(data-persist-key='all-tab')
             a(href='#all') All
         .tab_pane_container
-          article(data-persist-key='random-article')
+          article#randoms(data-persist-key='random-article')
             .navbar
               nav
                 ul
