@@ -1,4 +1,5 @@
 const Permute = module.exports;
+m.editor.last_permutation = "";
 
 m.editor.acts({
   self(_$, args) {
@@ -25,13 +26,12 @@ m.editor.acts({
 
   permute(_$, args) {
       let output = "Error parsing JSON";
-      let last_permutation;
     
       try {
         let results = [];
         while(results.length < 5) { results.push(_$.act.random_permutation()); }
         let output = results.map(result => `<li>${result}</li>`).join("");
-        last_permutation = results;
+        m.editor.last_permutation = results;
         m.results.act.set_five_sample_results({ text: output });
       } catch(e) {
         m.results.act.set_five_sample_results({ text: `${output}: ${e}` });

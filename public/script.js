@@ -1,15 +1,7 @@
 // Everything below is getting refactored into Mozart
 
 const output_all_element    = document.getElementById("output-all");
-const random_action_element = document.getElementById("random");
 const regenerate_action_element = document.getElementById("regenerate");
-
-random_action_element.addEventListener("click", () => {
-  if (!last_permutation) { k$.status({ text: "Please generate a permutation first" }); }
-  const random_selection = random_permutation();
-  k$.status({ text: `Copied to clipboard: "${random_selection}"`});
-  return navigator.clipboard.writeText(random_selection);
-});
 
 regenerate_action_element.addEventListener("click", () => { permute(); });
 
