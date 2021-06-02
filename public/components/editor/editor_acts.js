@@ -32,13 +32,18 @@ m.editor.acts({
     k$.status({
         text: "Waiting for edits...",
         type: "status-blue"
-    })
+    });
     debounce(_$.act.get_permutations, "editor", EDITOR_PERMUTE_DEBOUNCE_IN_MS);
     debounce(setAllNotice, "set_all_notice", EDITOR_SET_ALL_NOTICE_DEBOUNCE_IN_MS);
     debounce(m.persistence.act.save_code, "persistence", EDITOR_SAVE_DEBOUNCE_IN_MS);
   },
 
   get_permutations(_$, args) {
+    k$.status({
+        text: "Permuting...",
+        type: "status-blue"
+    });
+
       let output = "Error parsing JSON";
     
       try {
