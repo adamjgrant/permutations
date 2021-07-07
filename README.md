@@ -1,5 +1,7 @@
 # Permutation Generator
 
+## [Try it!](https://permy.link)
+
 The permutation generator is useful for generating all possible variations
 of a string according to a prescribed scheme.
 
