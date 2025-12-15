@@ -1,3 +1,0 @@
-m.results.events(_$ => {
-
-});
