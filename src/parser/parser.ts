@@ -99,8 +99,28 @@ function parseNodes(
             expression: []
           };
 
+
           // Handle text after "=" in the same token
-          const postText = token.value.substring(eqIndex + 1);
+          let postText = token.value.substring(eqIndex + 1);
+
+          // Check if postText contains ANOTHER assignment (e.g. \nvarName =)
+          // We need to find the FIRST occurrence of \n[varName]=
+          const splitMatch = /\n\s*[a-zA-Z0-9_]+\s*=/.exec(postText);
+
+          if (splitMatch) {
+            // We found a start of a new assignment in this text block.
+            // Everything after the newline belongs to the NEXT token.
+            const splitIndex = splitMatch.index;
+
+            const remainingText = postText.substring(splitIndex);
+            postText = postText.substring(0, splitIndex); // Truncate current postText
+
+            // Inject the remainder as a new token immediately after this one
+            tokens.splice(i + 1, 0, { type: TokenType.TEXT, value: remainingText });
+            // Note: 'i' is still pointing to current token. We will increment it below.
+            // The recursed parseNodes will see the NEW token at i+1.
+          }
+
           if (postText.length > 0) {
             assignment.expression.push({ type: NodeType.TEXT, value: postText });
           }
