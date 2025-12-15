@@ -1,0 +1,3 @@
+greeting = [ Hello | Hi | Welcome ]
+name = [ user | stranger | friend ]
+main = $greeting, $name!

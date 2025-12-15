@@ -6,6 +6,9 @@
   "scripts": {
     "test": "jest"
   },
+  "bin": {
+    "perm": "./dist/cli.js"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/adamjgrant/permutations.git"
@@ -13,7 +16,6 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
   "bugs": {
     "url": "https://github.com/adamjgrant/permutations/issues"
   },

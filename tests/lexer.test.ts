@@ -49,6 +49,7 @@ describe('Lexer', () => {
     ]);
   });
 
+
   test('handles mixed content', () => {
     const input = 'Hello [ World | Friend ]';
     const tokens = tokenize(input);
@@ -59,6 +60,14 @@ describe('Lexer', () => {
       { type: TokenType.PIPE, value: '|' },
       { type: TokenType.TEXT, value: ' Friend ' },
       { type: TokenType.R_BRACKET, value: ']' },
+    ]);
+  });
+
+  test('identifies empty choice start', () => {
+    const tokens = tokenize('[|');
+    expect(tokens).toEqual([
+      { type: TokenType.L_BRACKET, value: '[' },
+      { type: TokenType.PIPE, value: '|' }
     ]);
   });
 });

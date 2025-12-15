@@ -1,0 +1,147 @@
+
+> permutations@1.0.0 test
+> jest tests/features.test.ts
+
+  console.log
+    TOKEN DETAILS: [0] '
+            colors = ' (len=18)
+    [1] '[' (len=1)
+    [0] ' Red ' (len=5)
+    [3] '|' (len=1)
+    [0] ' Blue ' (len=6)
+    [2] ']' (len=1)
+    [0] '
+            mix = ' (len=15)
+    [1] '[' (len=1)
+    [0] ' Green ' (len=7)
+    [3] '|' (len=1)
+    [0] ' ' (len=1)
+    [7] '*' (len=1)
+    [6] 'colors' (len=6)
+    [0] ' ' (len=1)
+    [3] '|' (len=1)
+    [0] ' Yellow ' (len=8)
+    [2] ']' (len=1)
+    [0] '
+            main = ' (len=16)
+    [6] 'mix' (len=3)
+    [0] '
+        ' (len=5)
+
+      at Engine.compile (src/engine/engine.ts:22:13)
+
+  console.log
+    TOKEN DETAILS: [0] '
+            main = ' (len=16)
+    [1] '[' (len=1)
+    [0] ' A ' (len=3)
+    [3] '|' (len=1)
+    [0] ' ' (len=1)
+    [1] '[' (len=1)
+    [0] ' B ' (len=3)
+    [3] '|' (len=1)
+    [0] ' ' (len=1)
+    [1] '[' (len=1)
+    [0] ' C ' (len=3)
+    [3] '|' (len=1)
+    [0] ' D ' (len=3)
+    [2] ']' (len=1)
+    [0] ' ' (len=1)
+    [2] ']' (len=1)
+    [0] ' ' (len=1)
+    [2] ']' (len=1)
+    [0] '
+        ' (len=5)
+
+      at Engine.compile (src/engine/engine.ts:22:13)
+
+  console.log
+    TOKEN DETAILS: [0] '
+    
+            // First option is empty text (using ' (len=47)
+    [1] '[' (len=1)
+    [3] '|' (len=1)
+    [0] '...' (len=3)
+    [2] ']' (len=1)
+    [0] ')
+            // Second option is text "Space"
+            choice = ' (len=60)
+    [1] '[' (len=1)
+    [3] '|' (len=1)
+    [0] ' Space ' (len=7)
+    [2] ']' (len=1)
+    [0] '
+            main = Start:' (len=22)
+    [6] 'choice' (len=6)
+    [0] ':End
+        ' (len=9)
+
+      at Engine.compile (src/engine/engine.ts:22:13)
+
+  console.log
+    Test Output: [ 'Start:  Space :End', 'Start: :End' ]
+
+      at Object.<anonymous> (tests/features.test.ts:80:13)
+
+  console.log
+    TOKEN DETAILS: [0] '
+            main = ' (len=16)
+    [1] '[' (len=1)
+    [0] ' ' (len=1)
+    [1] '[' (len=1)
+    [0] ' RouteA ' (len=8)
+    [8] 'flagA' (len=5)
+    [0] ' ' (len=1)
+    [2] ']' (len=1)
+    [0] ' ' (len=1)
+    [3] '|' (len=1)
+    [0] ' RouteB ' (len=8)
+    [2] ']' (len=1)
+    [0] ' : ' (len=3)
+    [9] ' flagA ? "GotA" : "NoA" ' (len=24)
+    [0] '
+        ' (len=5)
+
+      at Engine.compile (src/engine/engine.ts:22:13)
+
+  console.log
+    TOKEN DETAILS: [0] '
+            main = Hello ' (len=22)
+    [6] 'stranger' (len=8)
+    [0] '
+          ' (len=7)
+
+      at Engine.compile (src/engine/engine.ts:22:13)
+
+(node:10659) Warning: `--localstorage-file` was provided without a valid path
+(Use `node --trace-warnings ...` to show where the warning was created)
+FAIL tests/features.test.ts
+  Feature Edge Cases
+    ✓ Mixed Splats (Options + Splat) (18 ms)
+    ✓ Deep Nesting Execution (1 ms)
+    ✕ Empty Options / Whitespace Literals (2 ms)
+    ✓ Nested Flag Scoping (1 ms)
+    ✓ Non-existent Variable Handling (1 ms)
+
+  ● Feature Edge Cases › Empty Options / Whitespace Literals
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      80 |     console.log('Test Output:', Array.from(results));
+      81 |
+    > 82 |     expect(results.has('Start::End')).toBe(true);
+         |                                       ^
+      83 |     expect(results.has('Start: Space :End')).toBe(true);
+      84 |   });
+      85 |
+
+      at Object.<anonymous> (tests/features.test.ts:82:39)
+
+Test Suites: 1 failed, 1 total
+Tests:       1 failed, 4 passed, 5 total
+Snapshots:   0 total
+Time:        0.288 s, estimated 1 s
+Ran all test suites matching tests/features.test.ts.

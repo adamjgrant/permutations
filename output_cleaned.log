@@ -1,0 +1,41 @@
+
+> permutations@1.0.0 test
+> jest tests/features.test.ts
+
+  console.log
+    Test Output: [ 'Start:  Space :End', 'Start: :End' ]
+
+      at Object.<anonymous> (tests/features.test.ts:80:13)
+
+(node:10371) Warning: `--localstorage-file` was provided without a valid path
+(Use `node --trace-warnings ...` to show where the warning was created)
+FAIL tests/features.test.ts
+  Feature Edge Cases
+    ✓ Mixed Splats (Options + Splat) (2 ms)
+    ✓ Deep Nesting Execution (1 ms)
+    ✕ Empty Options / Whitespace Literals (14 ms)
+    ✓ Nested Flag Scoping (1 ms)
+    ✓ Non-existent Variable Handling
+
+  ● Feature Edge Cases › Empty Options / Whitespace Literals
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      80 |     console.log('Test Output:', Array.from(results));
+      81 |
+    > 82 |     expect(results.has('Start::End')).toBe(true);
+         |                                       ^
+      83 |     expect(results.has('Start: Space :End')).toBe(true);
+      84 |   });
+      85 |
+
+      at Object.<anonymous> (tests/features.test.ts:82:39)
+
+Test Suites: 1 failed, 1 total
+Tests:       1 failed, 4 passed, 5 total
+Snapshots:   0 total
+Time:        0.289 s, estimated 1 s
+Ran all test suites matching tests/features.test.ts.

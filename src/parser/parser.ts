@@ -1,4 +1,5 @@
-import { Token, TokenType } from '../lexer/lexer';
+import { TokenType } from '../lexer/lexer';
+import type { Token } from '../lexer/lexer';
 import { NodeType } from './ast';
 import type {
   Node,
@@ -8,7 +9,7 @@ import type {
   SplatRefNode,
   FlagNode,
   InterpolationNode
-} from './ast';
+} from './ast.js';
 
 export function parse(tokens: Token[]): Node {
   const root: Node = { type: NodeType.ROOT, children: [] };

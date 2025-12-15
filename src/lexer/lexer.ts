@@ -86,8 +86,9 @@ export function tokenize(input: string): Token[] {
     } else {
       // Text
       let text = '';
+
       // Accumulate text until special char
-      while (i < input.length && !['[', ']', '|', '$', '#'].includes(input[i])) {
+      while (i < input.length && !['[', ']', '|', '$', '#', '*'].includes(input[i])) {
         text += input[i];
         i++;
       }

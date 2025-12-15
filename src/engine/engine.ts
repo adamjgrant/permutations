@@ -14,6 +14,9 @@ export class Engine {
   private jsContext: any = {};
 
   compile(script: string) {
+
+
+
     const tokens = tokenize(script);
     const root = parse(tokens);
 

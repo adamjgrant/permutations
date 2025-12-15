@@ -1,0 +1,351 @@
+
+> permutations@1.0.0 test
+> jest tests/features.test.ts
+
+  console.log
+    TOKENS: [
+      {
+        "type": 0,
+        "value": "\n        colors = "
+      },
+      {
+        "type": 1,
+        "value": "["
+      },
+      {
+        "type": 0,
+        "value": " Red "
+      },
+      {
+        "type": 3,
+        "value": "|"
+      },
+      {
+        "type": 0,
+        "value": " Blue "
+      },
+      {
+        "type": 2,
+        "value": "]"
+      },
+      {
+        "type": 0,
+        "value": "\n        mix = "
+      },
+      {
+        "type": 1,
+        "value": "["
+      },
+      {
+        "type": 0,
+        "value": " Green "
+      },
+      {
+        "type": 3,
+        "value": "|"
+      },
+      {
+        "type": 0,
+        "value": " "
+      },
+      {
+        "type": 7,
+        "value": "*"
+      },
+      {
+        "type": 6,
+        "value": "colors"
+      },
+      {
+        "type": 0,
+        "value": " "
+      },
+      {
+        "type": 3,
+        "value": "|"
+      },
+      {
+        "type": 0,
+        "value": " Yellow "
+      },
+      {
+        "type": 2,
+        "value": "]"
+      },
+      {
+        "type": 0,
+        "value": "\n        main = "
+      },
+      {
+        "type": 6,
+        "value": "mix"
+      },
+      {
+        "type": 0,
+        "value": "\n    "
+      }
+    ]
+
+      at Engine.compile (src/engine/engine.ts:21:13)
+
+  console.log
+    TOKENS: [
+      {
+        "type": 0,
+        "value": "\n        main = "
+      },
+      {
+        "type": 1,
+        "value": "["
+      },
+      {
+        "type": 0,
+        "value": " A "
+      },
+      {
+        "type": 3,
+        "value": "|"
+      },
+      {
+        "type": 0,
+        "value": " "
+      },
+      {
+        "type": 1,
+        "value": "["
+      },
+      {
+        "type": 0,
+        "value": " B "
+      },
+      {
+        "type": 3,
+        "value": "|"
+      },
+      {
+        "type": 0,
+        "value": " "
+      },
+      {
+        "type": 1,
+        "value": "["
+      },
+      {
+        "type": 0,
+        "value": " C "
+      },
+      {
+        "type": 3,
+        "value": "|"
+      },
+      {
+        "type": 0,
+        "value": " D "
+      },
+      {
+        "type": 2,
+        "value": "]"
+      },
+      {
+        "type": 0,
+        "value": " "
+      },
+      {
+        "type": 2,
+        "value": "]"
+      },
+      {
+        "type": 0,
+        "value": " "
+      },
+      {
+        "type": 2,
+        "value": "]"
+      },
+      {
+        "type": 0,
+        "value": "\n    "
+      }
+    ]
+
+      at Engine.compile (src/engine/engine.ts:21:13)
+
+  console.log
+    TOKENS: [
+      {
+        "type": 0,
+        "value": "\n        // First option is empty text (using "
+      },
+      {
+        "type": 1,
+        "value": "["
+      },
+      {
+        "type": 3,
+        "value": "|"
+      },
+      {
+        "type": 0,
+        "value": "..."
+      },
+      {
+        "type": 2,
+        "value": "]"
+      },
+      {
+        "type": 0,
+        "value": ")\n        // Second option is text \"Space\"\n        choice = "
+      },
+      {
+        "type": 1,
+        "value": "["
+      },
+      {
+        "type": 3,
+        "value": "|"
+      },
+      {
+        "type": 0,
+        "value": " Space "
+      },
+      {
+        "type": 2,
+        "value": "]"
+      },
+      {
+        "type": 0,
+        "value": "\n        main = Start: "
+      },
+      {
+        "type": 6,
+        "value": "choice"
+      },
+      {
+        "type": 0,
+        "value": " :End\n    "
+      }
+    ]
+
+      at Engine.compile (src/engine/engine.ts:21:13)
+
+  console.log
+    Empty Option Results: [ 'Start:   Space  :End', 'Start:   :End' ]
+
+      at Object.<anonymous> (tests/features.test.ts:77:13)
+
+  console.log
+    TOKENS: [
+      {
+        "type": 0,
+        "value": "\n        main = "
+      },
+      {
+        "type": 1,
+        "value": "["
+      },
+      {
+        "type": 0,
+        "value": " "
+      },
+      {
+        "type": 1,
+        "value": "["
+      },
+      {
+        "type": 0,
+        "value": " RouteA "
+      },
+      {
+        "type": 8,
+        "value": "flagA"
+      },
+      {
+        "type": 0,
+        "value": " "
+      },
+      {
+        "type": 2,
+        "value": "]"
+      },
+      {
+        "type": 0,
+        "value": " "
+      },
+      {
+        "type": 3,
+        "value": "|"
+      },
+      {
+        "type": 0,
+        "value": " RouteB "
+      },
+      {
+        "type": 2,
+        "value": "]"
+      },
+      {
+        "type": 0,
+        "value": " : "
+      },
+      {
+        "type": 9,
+        "value": " flagA ? \"GotA\" : \"NoA\" "
+      },
+      {
+        "type": 0,
+        "value": "\n    "
+      }
+    ]
+
+      at Engine.compile (src/engine/engine.ts:21:13)
+
+  console.log
+    TOKENS: [
+      {
+        "type": 0,
+        "value": "\n        main = Hello "
+      },
+      {
+        "type": 6,
+        "value": "stranger"
+      },
+      {
+        "type": 0,
+        "value": "\n      "
+      }
+    ]
+
+      at Engine.compile (src/engine/engine.ts:21:13)
+
+(node:9887) Warning: `--localstorage-file` was provided without a valid path
+(Use `node --trace-warnings ...` to show where the warning was created)
+FAIL tests/features.test.ts
+  Feature Edge Cases
+    ✓ Mixed Splats (Options + Splat) (16 ms)
+    ✓ Deep Nesting Execution (1 ms)
+    ✕ Empty Options / Whitespace Literals (1 ms)
+    ✓ Nested Flag Scoping (1 ms)
+    ✓ Non-existent Variable Handling
+
+  ● Feature Edge Cases › Empty Options / Whitespace Literals
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      77 |     console.log('Empty Option Results:', Array.from(results));
+      78 |
+    > 79 |     expect(results.has('Start:  :End')).toBe(true);
+         |                                         ^
+      80 |     expect(results.has('Start:  Space  :End')).toBe(true);
+      81 |   });
+      82 |
+
+      at Object.<anonymous> (tests/features.test.ts:79:41)
+
+Test Suites: 1 failed, 1 total
+Tests:       1 failed, 4 passed, 5 total
+Snapshots:   0 total
+Time:        0.266 s, estimated 1 s
+Ran all test suites matching tests/features.test.ts.
