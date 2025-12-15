@@ -57,10 +57,22 @@ function parseNodes(
       const eqIndex = token.value.indexOf('=');
       let isAssignment = false;
       let varName = '';
+      let prefixText = '';
 
-      if (eqIndex !== -1) {
-        const preText = token.value.substring(0, eqIndex);
-        const trimmedName = preText.trim();
+      if (eqIndex !== -1 && stopAt.length === 0) {
+        const rawPreText = token.value.substring(0, eqIndex);
+
+        // assignments usually follow a newline or start of file
+        const lastNewline = rawPreText.lastIndexOf('\n');
+        let candidateName = rawPreText;
+
+        if (lastNewline !== -1) {
+          // Potential assignment is after the newline
+          prefixText = rawPreText.substring(0, lastNewline + 1);
+          candidateName = rawPreText.substring(lastNewline + 1);
+        }
+
+        const trimmedName = candidateName.trim();
         // Check validity
         if (trimmedName.length > 0 && /^[a-zA-Z0-9_]+$/.test(trimmedName)) {
           isAssignment = true;
@@ -75,18 +87,29 @@ function parseNodes(
           break;
         } else {
           // Parse the assignment
+          // If we split the token (due to newlines), push the prefix first
+          if (prefixText.length > 0) {
+            nodes.push({ type: NodeType.TEXT, value: prefixText });
+          }
+
           const assignment: AssignmentNode = {
             type: NodeType.ASSIGNMENT,
             variableName: varName,
             expression: []
           };
 
+          // Handle text after "=" in the same token
+          const postText = token.value.substring(eqIndex + 1);
+          if (postText.length > 0) {
+            assignment.expression.push({ type: NodeType.TEXT, value: postText });
+          }
+
           i++; // Consume the TEXT containing "="
 
-          // Parse the expression.
+          // Parse the rest as the expression
           // Expression should STOP on next assignment.
           const result = parseNodes(tokens, i, stopAt, true);
-          assignment.expression = result.nodes;
+          assignment.expression = assignment.expression.concat(result.nodes);
           nodes.push(assignment);
           i = result.nextIndex;
           continue;

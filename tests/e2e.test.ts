@@ -10,7 +10,10 @@ describe('End-to-End', () => {
 
   test('Master Script Execution', () => {
     const script = `
-        year = #{ new Date().getFullYear() }
+        // 1. SETUP
+        // ---------------------------------------------------------
+        // JS Interpolation used for static variable definition
+        year=#{ new Date().getFullYear() }
         greetings = [ Hello | Hi ]
         names = [ World | Friend ]
         line_1 = $greetings $names
