@@ -55,10 +55,19 @@ npm link
 ## 📖 Syntax Guide
 
 
+
 ### Choices `[...]`
 Define branching options using brackets and pipes.
 ```text
 color=[Red|Green|Blue]
+```
+
+### Nesting
+Choices can be nested infinitely.
+```text
+# Deeply nested structures
+mood=[Happy|Sad [moderately|very]]
+sentence=I am $mood.
 ```
 
 ### Variables `$`
@@ -109,6 +118,23 @@ Recommendation: Use **tight syntax** (no spaces around `=`) for variables if you
 ### Entry Point
 By default, the engine looks for a variable named `main` to start generation. You can override this by passing a second argument to the CLI:
 
-```bash
-perm script.perm specific_node
+
+```
+
+## 🧠 Advanced Concepts
+
+### Left-to-Right Context Flow
+The engine evaluates text from left to right. This means you can set a flag at the start of a sentence and check it at the end.
+
+```text
+sentence=[High#h|Low] quality #{ h ? "guaranteed!" : "..." }
+```
+> Output: "High quality guaranteed!"
+
+### Standard Library Access
+Interpolation blocks `#{ ... }` have access to standard JavaScript objects like `Math`, `Date`, and can process logic.
+
+```text
+year=Copyright #{ new Date().getFullYear() }
+dice=Rolled a #{ Math.ceil(Math.random() * 6) }
 ```
