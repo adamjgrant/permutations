@@ -1,7 +1,8 @@
 #!/usr/bin/env node
-import * as fs from 'fs';
-import * as path from 'path';
-import { Engine } from './engine/engine.js';
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const fs = require("fs");
+const engine_1 = require("./engine/engine");
 function main() {
     const args = process.argv.slice(2);
     if (args.length < 1) {
@@ -16,7 +17,7 @@ function main() {
     }
     try {
         const script = fs.readFileSync(filePath, 'utf-8');
-        const engine = new Engine();
+        const engine = new engine_1.Engine();
         engine.compile(script);
         const result = engine.generate(entryPoint);
         console.log(result);

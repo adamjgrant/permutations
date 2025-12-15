@@ -1,15 +1,20 @@
-import { tokenize } from '../lexer/lexer.js';
-import { parse } from '../parser/parser.js';
-import { NodeType } from '../parser/ast.js';
-export class Engine {
-    variables = new Map();
-    jsContext = {};
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.Engine = void 0;
+const lexer_1 = require("../lexer/lexer");
+const parser_1 = require("../parser/parser");
+const ast_1 = require("../parser/ast");
+class Engine {
+    constructor() {
+        this.variables = new Map();
+        this.jsContext = {};
+    }
     compile(script) {
-        const tokens = tokenize(script);
-        const root = parse(tokens);
+        const tokens = (0, lexer_1.tokenize)(script);
+        const root = (0, parser_1.parse)(tokens);
         if (root.children) {
             for (const node of root.children) {
-                if (node.type === NodeType.ASSIGNMENT) {
+                if (node.type === ast_1.NodeType.ASSIGNMENT) {
                     const assignment = node;
                     this.variables.set(assignment.variableName, assignment.expression);
                 }
@@ -38,32 +43,32 @@ export class Engine {
     }
     evaluateNode(node, context) {
         switch (node.type) {
-            case NodeType.TEXT:
+            case ast_1.NodeType.TEXT:
                 return node.value || '';
-            case NodeType.CHOICE:
+            case ast_1.NodeType.CHOICE:
                 return this.evaluateChoice(node, context);
-            case NodeType.VARIABLE_REF:
+            case ast_1.NodeType.VARIABLE_REF:
                 const refName = node.value || '';
                 const refNodes = this.variables.get(refName);
                 if (refNodes) {
                     return this.evaluateNodes(refNodes, context);
                 }
                 return `[Missing: $${refName}]`;
-            case NodeType.SPLAT_REF:
+            case ast_1.NodeType.SPLAT_REF:
                 const splatName = node.value || '';
                 const splatNodes = this.variables.get(splatName);
                 if (splatNodes) {
                     return this.evaluateNodes(splatNodes, context);
                 }
                 return '';
-            case NodeType.FLAG:
+            case ast_1.NodeType.FLAG:
                 // #flagName
                 const flagName = node.value || '';
                 context.flags.add(flagName);
                 return ''; // No output
-            case NodeType.INTERPOLATION:
+            case ast_1.NodeType.INTERPOLATION:
                 return this.evaluateInterpolation(node, context);
-            case NodeType.ASSIGNMENT:
+            case ast_1.NodeType.ASSIGNMENT:
                 return '';
             default:
                 return '';
@@ -78,11 +83,11 @@ export class Engine {
             let isSplat = false;
             // Check if option contains ONLY a splat ref?
             // "option" is a list of nodes.
-            if (option.length === 1 && option[0].type === NodeType.SPLAT_REF) {
+            if (option.length === 1 && option[0].type === ast_1.NodeType.SPLAT_REF) {
                 isSplat = true;
                 const refName = option[0].value || '';
                 const refNodes = this.variables.get(refName);
-                if (refNodes && refNodes.length === 1 && refNodes[0].type === NodeType.CHOICE) {
+                if (refNodes && refNodes.length === 1 && refNodes[0].type === ast_1.NodeType.CHOICE) {
                     const targetChoice = refNodes[0];
                     effectiveOptions.push(...targetChoice.options);
                 }
@@ -131,4 +136,5 @@ export class Engine {
         }
     }
 }
+exports.Engine = Engine;
 //# sourceMappingURL=engine.js.map

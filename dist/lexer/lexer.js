@@ -1,4 +1,8 @@
-export var TokenType;
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.TokenType = void 0;
+exports.tokenize = tokenize;
+var TokenType;
 (function (TokenType) {
     TokenType[TokenType["TEXT"] = 0] = "TEXT";
     TokenType[TokenType["L_BRACKET"] = 1] = "L_BRACKET";
@@ -10,8 +14,8 @@ export var TokenType;
     TokenType[TokenType["SPLAT"] = 7] = "SPLAT";
     TokenType[TokenType["FLAG"] = 8] = "FLAG";
     TokenType[TokenType["INTERPOLATION"] = 9] = "INTERPOLATION";
-})(TokenType || (TokenType = {}));
-export function tokenize(input) {
+})(TokenType || (exports.TokenType = TokenType = {}));
+function tokenize(input) {
     const tokens = [];
     let i = 0;
     while (i < input.length) {

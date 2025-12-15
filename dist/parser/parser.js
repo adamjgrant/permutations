@@ -1,7 +1,10 @@
-import { TokenType } from '../lexer/lexer.js';
-import { NodeType } from './ast.js';
-export function parse(tokens) {
-    const root = { type: NodeType.ROOT, children: [] };
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.parse = parse;
+const lexer_1 = require("../lexer/lexer");
+const ast_1 = require("./ast");
+function parse(tokens) {
+    const root = { type: ast_1.NodeType.ROOT, children: [] };
     let current = 0;
     while (current < tokens.length) {
         // Top level parsing: stopOnAssignment = false (consume them)
@@ -28,7 +31,7 @@ function parseNodes(tokens, startIndex, stopAt = [], stopOnAssignment = false) {
         if (stopAt.includes(token.type)) {
             break;
         }
-        if (token.type === TokenType.TEXT) {
+        if (token.type === lexer_1.TokenType.TEXT) {
             const eqIndex = token.value.indexOf('=');
             let isAssignment = false;
             let varName = '';
@@ -60,17 +63,17 @@ function parseNodes(tokens, startIndex, stopAt = [], stopOnAssignment = false) {
                     // Parse the assignment
                     // If we split the token (due to newlines), push the prefix first
                     if (prefixText.length > 0) {
-                        nodes.push({ type: NodeType.TEXT, value: prefixText });
+                        nodes.push({ type: ast_1.NodeType.TEXT, value: prefixText });
                     }
                     const assignment = {
-                        type: NodeType.ASSIGNMENT,
+                        type: ast_1.NodeType.ASSIGNMENT,
                         variableName: varName,
                         expression: []
                     };
                     // Handle text after "=" in the same token
                     const postText = token.value.substring(eqIndex + 1);
                     if (postText.length > 0) {
-                        assignment.expression.push({ type: NodeType.TEXT, value: postText });
+                        assignment.expression.push({ type: ast_1.NodeType.TEXT, value: postText });
                     }
                     i++; // Consume the TEXT containing "="
                     // Parse the rest as the expression
@@ -82,52 +85,52 @@ function parseNodes(tokens, startIndex, stopAt = [], stopOnAssignment = false) {
                     continue;
                 }
             }
-            nodes.push({ type: NodeType.TEXT, value: token.value });
+            nodes.push({ type: ast_1.NodeType.TEXT, value: token.value });
             i++;
         }
-        else if (token.type === TokenType.L_BRACKET) {
+        else if (token.type === lexer_1.TokenType.L_BRACKET) {
             i++; // Skip [
             const choiceNode = {
-                type: NodeType.CHOICE,
+                type: ast_1.NodeType.CHOICE,
                 options: []
             };
-            while (i < tokens.length && tokens[i].type !== TokenType.R_BRACKET) {
-                const optionResult = parseNodes(tokens, i, [TokenType.PIPE, TokenType.R_BRACKET], true);
+            while (i < tokens.length && tokens[i].type !== lexer_1.TokenType.R_BRACKET) {
+                const optionResult = parseNodes(tokens, i, [lexer_1.TokenType.PIPE, lexer_1.TokenType.R_BRACKET], true);
                 choiceNode.options.push(optionResult.nodes);
                 i = optionResult.nextIndex;
-                if (i < tokens.length && tokens[i].type === TokenType.PIPE) {
+                if (i < tokens.length && tokens[i].type === lexer_1.TokenType.PIPE) {
                     i++; // Skip |
                 }
             }
-            if (i < tokens.length && tokens[i].type === TokenType.R_BRACKET) {
+            if (i < tokens.length && tokens[i].type === lexer_1.TokenType.R_BRACKET) {
                 i++; // Skip ]
             }
             nodes.push(choiceNode);
         }
-        else if (token.type === TokenType.VARIABLE) {
-            nodes.push({ type: NodeType.VARIABLE_REF, value: token.value });
+        else if (token.type === lexer_1.TokenType.VARIABLE) {
+            nodes.push({ type: ast_1.NodeType.VARIABLE_REF, value: token.value });
             i++;
         }
-        else if (token.type === TokenType.SPLAT) {
-            if (i + 1 < tokens.length && tokens[i + 1].type === TokenType.VARIABLE) {
-                nodes.push({ type: NodeType.SPLAT_REF, value: tokens[i + 1].value });
+        else if (token.type === lexer_1.TokenType.SPLAT) {
+            if (i + 1 < tokens.length && tokens[i + 1].type === lexer_1.TokenType.VARIABLE) {
+                nodes.push({ type: ast_1.NodeType.SPLAT_REF, value: tokens[i + 1].value });
                 i += 2;
             }
             else {
-                nodes.push({ type: NodeType.TEXT, value: '*' });
+                nodes.push({ type: ast_1.NodeType.TEXT, value: '*' });
                 i++;
             }
         }
-        else if (token.type === TokenType.FLAG) {
-            nodes.push({ type: NodeType.FLAG, value: token.value });
+        else if (token.type === lexer_1.TokenType.FLAG) {
+            nodes.push({ type: ast_1.NodeType.FLAG, value: token.value });
             i++;
         }
-        else if (token.type === TokenType.INTERPOLATION) {
-            nodes.push({ type: NodeType.INTERPOLATION, value: token.value });
+        else if (token.type === lexer_1.TokenType.INTERPOLATION) {
+            nodes.push({ type: ast_1.NodeType.INTERPOLATION, value: token.value });
             i++;
         }
         else {
-            nodes.push({ type: NodeType.TEXT, value: token.value });
+            nodes.push({ type: ast_1.NodeType.TEXT, value: token.value });
             i++;
         }
     }

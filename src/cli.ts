@@ -2,7 +2,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { Engine } from './engine/engine.js';
+import { Engine } from './engine/engine';
 
 function main() {
   const args = process.argv.slice(2);
