@@ -12,11 +12,12 @@ greeting=[Hello|Hi] [world|friend]!
 ```
 > Output: "Hi friend!"
 
+
 **Advanced Example:**
 ```text
 # Logic, flags, and nesting
-status=[online|offline#is_offline]
-alert=User is $status. #{ is_offline ? "Check connection." : "All good." }
+status=[online|offline$$is_offline]
+alert=User is $status. ${ is_offline ? "Check connection." : "All good." }
 ```
 > Output: "User is offline. Check connection."
 
@@ -87,21 +88,29 @@ mix=[*$colors|*$shapes]
 # Result: [Red|Blue|Circle|Square]
 ```
 
-### Logic `#`
+
+### Logic `$`
 Set state flags and use them later.
 
 **Setting Flags:**
-Use `#flagName` inside a choice. If that option is picked, the flag becomes true.
+Use `$$flagName` inside a choice. If that option is picked, the flag becomes true.
 ```text
 # If "Formal" is picked, 'is_formal' becomes true
-greeting=[Hello#is_formal|Hi]
+greeting=[Hello$$is_formal|Hi]
 ```
 
 **Interpolation:**
-Use `#{ ... }` to execute JavaScript logic based on flags.
+Use `${ ... }` to execute JavaScript logic based on flags.
 ```text
 # Check the flag set earlier
-message=$greeting friend. #{ is_formal ? "How do you do?" : "Sup?" }
+message=$greeting friend. ${ is_formal ? "How do you do?" : "Sup?" }
+```
+
+### Comments `#`
+Lines starting with `#` are comments and are ignored.
+```text
+# This is a comment
+main=[A|B]
 ```
 
 ---
@@ -123,18 +132,19 @@ By default, the engine looks for a variable named `main` to start generation. Yo
 
 ## 🧠 Advanced Concepts
 
+
 ### Left-to-Right Context Flow
 The engine evaluates text from left to right. This means you can set a flag at the start of a sentence and check it at the end.
 
 ```text
-sentence=[High#h|Low] quality #{ h ? "guaranteed!" : "..." }
+sentence=[High$$h|Low] quality ${ h ? "guaranteed!" : "..." }
 ```
 > Output: "High quality guaranteed!"
 
 ### Standard Library Access
-Interpolation blocks `#{ ... }` have access to standard JavaScript objects like `Math`, `Date`, and can process logic.
+Interpolation blocks `${ ... }` have access to standard JavaScript objects like `Math`, `Date`, and can process logic.
 
 ```text
-year=Copyright #{ new Date().getFullYear() }
-dice=Rolled a #{ Math.ceil(Math.random() * 6) }
+year=Copyright ${ new Date().getFullYear() }
+dice=Rolled a ${ Math.ceil(Math.random() * 6) }
 ```

@@ -11,5 +11,6 @@ var NodeType;
     NodeType[NodeType["SPLAT_REF"] = 5] = "SPLAT_REF";
     NodeType[NodeType["FLAG"] = 6] = "FLAG";
     NodeType[NodeType["INTERPOLATION"] = 7] = "INTERPOLATION";
+    NodeType[NodeType["IMPORT"] = 8] = "IMPORT";
 })(NodeType || (exports.NodeType = NodeType = {}));
 //# sourceMappingURL=ast.js.map

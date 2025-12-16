@@ -21,10 +21,11 @@ function main() {
   }
 
   try {
-    const script = fs.readFileSync(filePath, 'utf-8');
+    const absoluteFilePath = path.resolve(filePath);
+    const script = fs.readFileSync(absoluteFilePath, 'utf-8');
     const engine = new Engine();
 
-    engine.compile(script);
+    engine.compile(script, path.dirname(absoluteFilePath));
     const result = engine.generate(entryPoint);
 
     console.log(result);

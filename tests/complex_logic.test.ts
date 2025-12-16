@@ -30,14 +30,15 @@ main = $part_c`;
     expect(results.has('C')).toBe(true);
   });
 
+
   test('Interpolation as Constants', () => {
     // Tests defining a constant via interpolation and using it
     // Use trimming to handle indentation
     // Note: Assignment preserves whitespace, so 'year = ...' includes the space.
     // We use 'year=...' to ensure no leading space in the variable value.
     const script = `
-year=#{ 2025 }
-version=#{ "v2.0" }
+year=\${ 2025 }
+version=\${ "v2.0" }
 main = Copyright $year Version $version`;
 
     engine.compile(script);
@@ -49,13 +50,14 @@ main = Copyright $year Version $version`;
 
   test('Flag Logic & Short-circuiting', () => {
     const script = `
-line = [ START #active | SKIP ] : #{ active ? "IS_ACTIVE" : "NOT_ACTIVE" }
+line = [ START $$active | SKIP ] : \${ active ? "IS_ACTIVE" : "NOT_ACTIVE" }
 main = $line`;
 
     engine.compile(script);
 
     const results = new Set<string>();
     for (let i = 0; i < 50; i++) {
+      // Trim results to ignore layout whitespace
       const res = engine.generate('main').replace(/\s+/g, ' ').trim();
       results.add(res);
     }
@@ -66,7 +68,7 @@ main = $line`;
 
   test('Complex Object Return (Metadata)', () => {
     const script = `
-meta = #{ { key: "value" } }
+meta = \${ { key: "value" } }
 main = Text $meta`;
 
     engine.compile(script);

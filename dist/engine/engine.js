@@ -1,6 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Engine = void 0;
+const fs = require("fs");
+const path = require("path");
 const lexer_1 = require("../lexer/lexer");
 const parser_1 = require("../parser/parser");
 const ast_1 = require("../parser/ast");
@@ -8,8 +10,9 @@ class Engine {
     constructor() {
         this.variables = new Map();
         this.jsContext = {};
+        this.loadedModules = new Set(); // To prevent cycles
     }
-    compile(script) {
+    compile(script, baseDir) {
         const tokens = (0, lexer_1.tokenize)(script);
         const root = (0, parser_1.parse)(tokens);
         if (root.children) {
@@ -17,6 +20,61 @@ class Engine {
                 if (node.type === ast_1.NodeType.ASSIGNMENT) {
                     const assignment = node;
                     this.variables.set(assignment.variableName, assignment.expression);
+                }
+                else if (node.type === ast_1.NodeType.IMPORT) {
+                    this.handleImport(node, baseDir);
+                }
+            }
+        }
+    }
+    handleImport(node, baseDir) {
+        if (!baseDir) {
+            console.warn('Warning: No base directory provided. skipping import:', node.module);
+            return;
+        }
+        let targetPath = path.join(baseDir, node.module);
+        // implicit extension
+        if (!fs.existsSync(targetPath) && fs.existsSync(targetPath + '.perm')) {
+            targetPath += '.perm';
+        }
+        const absolutePath = path.resolve(targetPath);
+        if (this.loadedModules.has(absolutePath)) {
+            return; // Already loaded (cycle or repeated import)
+        }
+        this.loadedModules.add(absolutePath);
+        if (!fs.existsSync(absolutePath)) {
+            console.error(`Error: Module not found: ${node.module} (at ${absolutePath})`);
+            return;
+        }
+        const content = fs.readFileSync(absolutePath, 'utf-8');
+        // Recursive compile
+        // We create a temporary engine or just use this one?
+        // If we use 'this', variables are merged into the SAME map.
+        // This matches "from ... import *" behavior where everything goes into global scope.
+        // But we need to handle "named imports".
+        // Strategy:
+        // Compile the module into a SEPARATE variable map.
+        // Then copy only requested variables.
+        const moduleEngine = new Engine();
+        // Share loadedModules to prevent global cycles across engines
+        moduleEngine.loadedModules = this.loadedModules;
+        moduleEngine.compile(content, path.dirname(absolutePath));
+        // Now merge
+        if (node.names.includes('*')) {
+            // Import ALL
+            for (const [key, value] of moduleEngine.variables) {
+                this.variables.set(key, value);
+            }
+        }
+        else {
+            // Import specified
+            for (const name of node.names) {
+                const value = moduleEngine.variables.get(name);
+                if (value) {
+                    this.variables.set(name, value);
+                }
+                else {
+                    console.warn(`Warning: Imported variable '${name}' not found in module '${node.module}'`);
                 }
             }
         }

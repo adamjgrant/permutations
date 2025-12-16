@@ -8,7 +8,8 @@ import type {
   VariableRefNode,
   SplatRefNode,
   FlagNode,
-  InterpolationNode
+  InterpolationNode,
+  ImportNode
 } from './ast.js';
 
 export function parse(tokens: Token[]): Node {
@@ -17,6 +18,7 @@ export function parse(tokens: Token[]): Node {
 
   while (current < tokens.length) {
     // Top level parsing: stopOnAssignment = false (consume them)
+    // We pass true for 'isTopLevel' to enable import parsing
     const result = parseNodes(tokens, current, [], false);
 
     if (result.nodes.length > 0) {
@@ -53,6 +55,168 @@ function parseNodes(
     if (stopAt.includes(token.type)) {
       break;
     }
+
+    // START IMPORT DETECTION
+    // Check if current sequence (TEXT/STAR) forms an import statement
+    if (token.type === TokenType.TEXT || token.type === TokenType.STAR) {
+      // Lookahead to build a candidate line
+      let tempI = i;
+      let candidate = '';
+      const involvedTokens = [];
+
+      while (tempI < tokens.length) {
+        const t = tokens[tempI];
+        if (t.type === TokenType.TEXT || t.type === TokenType.STAR) {
+          candidate += t.value;
+          involvedTokens.push(t);
+          tempI++;
+          // If text contains newline, we should probably stop the candidate check there?
+          // Imports are single line.
+          if (t.type === TokenType.TEXT && t.value.includes('\n')) break;
+        } else {
+          break;
+        }
+      }
+
+      // Regex check on candidate
+      const fromImportRegex = /^\s*from\s+(\S+)\s+import\s+(.+)$/m; // Removed 'g' for single match
+      const importRegex = /^\s*import\s+(\S+)\s*$/m;
+
+      let match = fromImportRegex.exec(candidate);
+      let isSimpleImport = false;
+
+      if (!match) {
+        match = importRegex.exec(candidate);
+        if (match) isSimpleImport = true;
+      }
+
+      if (match) {
+        // We have an import!
+        // But we need to make sure we don't consume too much if the candidate had a newline
+        // For now, simplify: assume import is the whole line/block we merged.
+
+        // Wait, we need to correctly advance 'i' and potentially split tokens if the import is only PART of the candidate?
+        // "candidate" might conform to the regex.
+
+        // Let's rely on the previous logic BUT with merged token values?
+        // Merging is tricky with preserving tokens.
+
+        // Alternative: If we detect import, we CONSUME the involved tokens and synthesize the ImportNode.
+
+        const fullMatch = match[0];
+        let moduleName = match[1];
+        // Strip quotes if present
+        if ((moduleName.startsWith('"') && moduleName.endsWith('"')) ||
+          (moduleName.startsWith("'") && moduleName.endsWith("'"))) {
+          moduleName = moduleName.slice(1, -1);
+        }
+        // If isSimpleImport is true, we don't have match[2]
+
+        // We need to verify if the match is at the START of the candidate.
+        if (match.index === 0) {
+          // It matches at the start!
+          // Determine how many tokens cover this match.
+          let lengthCovered = 0;
+          let tokensConsumedCount = 0;
+
+          for (const t of involvedTokens) {
+            lengthCovered += t.value.length;
+            tokensConsumedCount++;
+            if (lengthCovered >= fullMatch.length) break;
+          }
+
+          // If we have extra text in the last consumed token, we need to SPLIT it.
+          const lastToken = involvedTokens[tokensConsumedCount - 1];
+          const extraLength = lengthCovered - fullMatch.length;
+
+          if (extraLength > 0) {
+            // Split the last token
+            const keepLen = lastToken.value.length - extraLength;
+            const remainingText = lastToken.value.substring(keepLen);
+
+            // Modify the last token in place? No, modifying 'tokens' array.
+            // We should replace the last token with the remaining part
+            // AND remove the fully consumed tokens.
+
+            // Actually, we are just parsing here.
+            // The logic below (lines 58+) handles TEXT token specifically.
+            // Handling STAR complicates this.
+
+            // Let's use the explicit logic:
+            // 1. Construct the ImportNode.
+            // 2. Advance 'i' past the used tokens.
+            // 3. Insert specific remaining TEXT token if needed.
+
+            const names = isSimpleImport ? ['*'] : match[2].split(',').map(n => n.trim()).filter(n => n.length > 0);
+
+            const importNode: ImportNode = {
+              type: NodeType.IMPORT,
+              module: moduleName,
+              names: names
+            };
+
+            nodes.push(importNode);
+
+            // Handle leftover
+            if (extraLength > 0) {
+              // Insert remaining text as a new token at i + tokensConsumedCount
+              // But we want to process it next iteration?
+              // tokens.splice(i + tokensConsumedCount, 0, ...)
+              // Wait, we need to REPLACE the last used token with the remainder text?
+              // No, the last used token was "partially" used.
+
+              // Let's just update the tokens array for the next iteration.
+              tokens[i + tokensConsumedCount - 1] = {
+                type: TokenType.TEXT,
+                value: remainingText
+              };
+              // And we set i to point to that token? 
+              // No, we finished the import. The remainder is separate.
+
+              // We consumed N-1 tokens fully. The Nth was partial.
+              // We set i = i + N - 1. So next loop processes the Nth (now modified) token.
+
+              i += (tokensConsumedCount - 1);
+              continue;
+            } else {
+              // All tokens fully consumed
+              i += tokensConsumedCount;
+              continue;
+            }
+          } else {
+            // Exact match consumption
+            const names = isSimpleImport ? ['*'] : match[2].split(',').map(n => n.trim()).filter(n => n.length > 0);
+            const importNode: ImportNode = {
+              type: NodeType.IMPORT,
+              module: moduleName,
+              names: names
+            };
+            nodes.push(importNode);
+            i += tokensConsumedCount;
+            continue;
+          }
+        } else {
+          // Match is NOT at the start. It's somewhere in the middle.
+          // e.g. "Some text\nimport foo"
+          // Split the FIRST token at the match index.
+          // Same logic as before in TEXT block, but now we know it involves multiple tokens potentially?
+          // Actually simplicity: if match.index > 0, we found it in `candidate`.
+          // The first token `tokens[i]` contributes to `candidate`.
+          // If `match.index` is within `tokens[i]`, we simply split `tokens[i]` and continue.
+
+          if (match.index < tokens[i].value.length) {
+            // Split is inside the first token
+            const textBefore = tokens[i].value.substring(0, match.index);
+            const remaining = tokens[i].value.substring(match.index);
+
+            nodes.push({ type: NodeType.TEXT, value: textBefore });
+            tokens.splice(i, 1, { type: tokens[i].type, value: remaining }); // Keep type (TEXT/STAR)
+            continue;
+          }
+        }
+      }
+    }
+    // END IMPORT DETECTION
 
     if (token.type === TokenType.TEXT) {
       const eqIndex = token.value.indexOf('=');
@@ -138,6 +302,9 @@ function parseNodes(
       }
 
       nodes.push({ type: NodeType.TEXT, value: token.value });
+      i++;
+    } else if (token.type === TokenType.STAR) {
+      nodes.push({ type: NodeType.TEXT, value: '*' });
       i++;
     } else if (token.type === TokenType.L_BRACKET) {
       i++; // Skip [

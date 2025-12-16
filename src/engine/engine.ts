@@ -1,7 +1,9 @@
+import * as fs from 'fs';
+import * as path from 'path';
 import { tokenize } from '../lexer/lexer';
 import { parse } from '../parser/parser';
 import { NodeType } from '../parser/ast';
-import type { Node, AssignmentNode, ChoiceNode, FlagNode, InterpolationNode } from '../parser/ast';
+import type { Node, AssignmentNode, ChoiceNode, FlagNode, InterpolationNode, ImportNode } from '../parser/ast';
 
 interface Context {
   flags: Set<string>;
@@ -12,11 +14,9 @@ interface Context {
 export class Engine {
   private variables: Map<string, Node[]> = new Map();
   private jsContext: any = {};
+  private loadedModules: Set<string> = new Set(); // To prevent cycles
 
-  compile(script: string) {
-
-
-
+  compile(script: string, baseDir?: string) {
     const tokens = tokenize(script);
     const root = parse(tokens);
 
@@ -25,6 +25,68 @@ export class Engine {
         if (node.type === NodeType.ASSIGNMENT) {
           const assignment = node as AssignmentNode;
           this.variables.set(assignment.variableName, assignment.expression);
+        } else if (node.type === NodeType.IMPORT) {
+          this.handleImport(node as ImportNode, baseDir);
+        }
+      }
+    }
+  }
+
+  private handleImport(node: ImportNode, baseDir?: string) {
+    if (!baseDir) {
+      console.warn('Warning: No base directory provided. skipping import:', node.module);
+      return;
+    }
+
+    let targetPath = path.join(baseDir, node.module);
+    // implicit extension
+    if (!fs.existsSync(targetPath) && fs.existsSync(targetPath + '.perm')) {
+      targetPath += '.perm';
+    }
+
+    const absolutePath = path.resolve(targetPath);
+
+    if (this.loadedModules.has(absolutePath)) {
+      return; // Already loaded (cycle or repeated import)
+    }
+    this.loadedModules.add(absolutePath);
+
+    if (!fs.existsSync(absolutePath)) {
+      console.error(`Error: Module not found: ${node.module} (at ${absolutePath})`);
+      return;
+    }
+
+    const content = fs.readFileSync(absolutePath, 'utf-8');
+
+    // Recursive compile
+    // We create a temporary engine or just use this one?
+    // If we use 'this', variables are merged into the SAME map.
+    // This matches "from ... import *" behavior where everything goes into global scope.
+    // But we need to handle "named imports".
+
+    // Strategy:
+    // Compile the module into a SEPARATE variable map.
+    // Then copy only requested variables.
+
+    const moduleEngine = new Engine();
+    // Share loadedModules to prevent global cycles across engines
+    moduleEngine.loadedModules = this.loadedModules;
+    moduleEngine.compile(content, path.dirname(absolutePath));
+
+    // Now merge
+    if (node.names.includes('*')) {
+      // Import ALL
+      for (const [key, value] of moduleEngine.variables) {
+        this.variables.set(key, value);
+      }
+    } else {
+      // Import specified
+      for (const name of node.names) {
+        const value = moduleEngine.variables.get(name);
+        if (value) {
+          this.variables.set(name, value);
+        } else {
+          console.warn(`Warning: Imported variable '${name}' not found in module '${node.module}'`);
         }
       }
     }

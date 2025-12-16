@@ -85,11 +85,12 @@ describe('Feature Edge Cases', () => {
     expect(results.has('Start: Space :End')).toBe(true);
   });
 
+
   test('Nested Flag Scoping', () => {
     // Flags inside a nested choice should be visible to subsequent interpolation
     // "Left-to-Right" flow means if we traverse the branch with the flag, it sets.
     const script = `
-        main = [ [ RouteA #flagA ] | RouteB ] : #{ flagA ? "GotA" : "NoA" }
+        main = [ [ RouteA $$flagA ] | RouteB ] : \${ flagA ? "GotA" : "NoA" }
     `;
 
     engine.compile(script);

@@ -10,15 +10,16 @@ describe('End-to-End', () => {
 
   test('Master Script Execution', () => {
     const script = `
-        // 1. SETUP
-        // ---------------------------------------------------------
-        // JS Interpolation used for static variable definition
-        year=#{ new Date().getFullYear() }
+
+        # 1. SETUP
+        # ---------------------------------------------------------
+        # JS Interpolation used for static variable definition
+        year=\${ new Date().getFullYear() }
         greetings = [ Hello | Hi ]
         names = [ World | Friend ]
         line_1 = $greetings $names
-        line_2 = Excuse me, [ what #qu | that ] is really neat #{ qu ? "?" : "." }
-        line_3 = I will have the [ steak #meat | salad ] #{ meat && "(Medium Rare)" }
+        line_2 = Excuse me, [ what $$qu | that ] is really neat \${ qu ? "?" : "." }
+        line_3 = I will have the [ steak $$meat | salad ] \${ meat && "(Medium Rare)" }
         
         list_a = [ A | B ]
         list_b = [ Y | Z ]

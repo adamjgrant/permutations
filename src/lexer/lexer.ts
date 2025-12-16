@@ -1,21 +1,23 @@
 
+
 export enum TokenType {
   TEXT,
   L_BRACKET,
   R_BRACKET,
   PIPE,
-  HASH,
   DOLLAR,
   VARIABLE,
   SPLAT,
   FLAG,
-  INTERPOLATION
+  INTERPOLATION,
+  STAR
 }
 
 export interface Token {
   type: TokenType;
   value: string;
 }
+
 
 
 export function tokenize(input: string): Token[] {
@@ -37,57 +39,69 @@ export function tokenize(input: string): Token[] {
     } else if (char === '*' && (i + 1 < input.length) && input[i + 1] === '$') { // Check for splat before var
       tokens.push({ type: TokenType.SPLAT, value: '*' });
       i++;
+    } else if (char === '*') {
+      tokens.push({ type: TokenType.STAR, value: '*' });
+      i++;
     } else if (char === '$') {
-      // Check if it's a variable or just a dollar sign
-      if (i + 1 < input.length && /[a-zA-Z0-9_]/.test(input[i + 1])) {
-        i++; // Skip $
-        let varName = '';
-        while (i < input.length && /[a-zA-Z0-9_]/.test(input[i])) {
-          varName += input[i];
-          i++;
-        }
-        tokens.push({ type: TokenType.VARIABLE, value: varName });
-      } else {
-        tokens.push({ type: TokenType.DOLLAR, value: '$' });
-        i++;
-      }
-    } else if (char === '#') {
-      if ((i + 1 < input.length) && input[i + 1] === '{') {
-        // Interpolation
-        i += 2; // Skip #{
-        let code = '';
-        let depth = 1;
-        while (i < input.length && depth > 0) {
-          if (input[i] === '{') depth++;
-          if (input[i] === '}') depth--;
-          if (depth > 0) {
-            code += input[i];
-            i++;
-          }
-        }
-        tokens.push({ type: TokenType.INTERPOLATION, value: code });
-        i++; // Skip final }
-      } else {
-        // Flag
-        tokens.push({ type: TokenType.HASH, value: '#' });
-        i++;
+      // Check for Logic ($$) or Interpolation (${) or Variable ($var)
+      if (i + 1 < input.length) {
+        const nextChar = input[i + 1];
 
-        // Check if it immediately follows with a name
-        if (i < input.length && /[a-zA-Z0-9_]/.test(input[i])) {
+        if (nextChar === '$') {
+          // Flag: $$flagName
+          i += 2; // Skip $$
           let flagName = '';
           while (i < input.length && /[a-zA-Z0-9_]/.test(input[i])) {
             flagName += input[i];
             i++;
           }
-          tokens.pop(); // Remove the #
           tokens.push({ type: TokenType.FLAG, value: flagName });
+          continue;
+        } else if (nextChar === '{') {
+          // Interpolation: ${ ... }
+          i += 2; // Skip ${
+          let code = '';
+          let depth = 1;
+          while (i < input.length && depth > 0) {
+            if (input[i] === '{') depth++;
+            if (input[i] === '}') depth--;
+            if (depth > 0) {
+              code += input[i];
+              i++;
+            }
+          }
+          tokens.push({ type: TokenType.INTERPOLATION, value: code });
+          i++; // Skip final }
+          continue;
+        } else if (/[a-zA-Z0-9_]/.test(nextChar)) {
+          // Variable: $varName
+          i++; // Skip $
+          let varName = '';
+          while (i < input.length && /[a-zA-Z0-9_]/.test(input[i])) {
+            varName += input[i];
+            i++;
+          }
+          tokens.push({ type: TokenType.VARIABLE, value: varName });
+          continue;
         }
       }
+
+      // Fallback: Just a dollar sign
+      tokens.push({ type: TokenType.DOLLAR, value: '$' });
+      i++;
+
+    } else if (char === '#') {
+      // Comment: Consume until newline
+      while (i < input.length && input[i] !== '\n') {
+        i++;
+      }
+      // Do NOT emit token
     } else {
       // Text
       let text = '';
 
       // Accumulate text until special char
+      // Special chars: [, ], |, $, #, *
       while (i < input.length && !['[', ']', '|', '$', '#', '*'].includes(input[i])) {
         text += input[i];
         i++;

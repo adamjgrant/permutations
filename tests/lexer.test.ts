@@ -9,13 +9,13 @@ describe('Lexer', () => {
     ]);
   });
 
+
   test('identifies magic characters', () => {
-    const tokens = tokenize('[]|#$');
+    const tokens = tokenize('[]|$');
     expect(tokens).toEqual([
       { type: TokenType.L_BRACKET, value: '[' },
       { type: TokenType.R_BRACKET, value: ']' },
       { type: TokenType.PIPE, value: '|' },
-      { type: TokenType.HASH, value: '#' },
       { type: TokenType.DOLLAR, value: '$' },
     ]);
   });
@@ -36,16 +36,23 @@ describe('Lexer', () => {
   });
 
   test('identifies flags', () => {
-    const tokens = tokenize('#formal');
+    const tokens = tokenize('$$formal');
     expect(tokens).toEqual([
       { type: TokenType.FLAG, value: 'formal' }
     ]);
   });
 
   test('identifies interpolation', () => {
-    const tokens = tokenize('#{ 1 + 1 }');
+    const tokens = tokenize('${ 1 + 1 }');
     expect(tokens).toEqual([
       { type: TokenType.INTERPOLATION, value: ' 1 + 1 ' }
+    ]);
+  });
+
+  test('ignores comments', () => {
+    const tokens = tokenize('# This is a comment\nNext');
+    expect(tokens).toEqual([
+      { type: TokenType.TEXT, value: '\nNext' }
     ]);
   });
 

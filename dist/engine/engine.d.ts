@@ -1,7 +1,9 @@
 export declare class Engine {
     private variables;
     private jsContext;
-    compile(script: string): void;
+    private loadedModules;
+    compile(script: string, baseDir?: string): void;
+    private handleImport;
     generate(entryPoint: string): string;
     private evaluateNodes;
     private evaluateNode;

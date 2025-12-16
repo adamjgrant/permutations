@@ -2,6 +2,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const fs = require("fs");
+const path = require("path");
 const engine_1 = require("./engine/engine");
 function main() {
     const args = process.argv.slice(2);
@@ -16,9 +17,10 @@ function main() {
         process.exit(1);
     }
     try {
-        const script = fs.readFileSync(filePath, 'utf-8');
+        const absoluteFilePath = path.resolve(filePath);
+        const script = fs.readFileSync(absoluteFilePath, 'utf-8');
         const engine = new engine_1.Engine();
-        engine.compile(script);
+        engine.compile(script, path.dirname(absoluteFilePath));
         const result = engine.generate(entryPoint);
         console.log(result);
     }

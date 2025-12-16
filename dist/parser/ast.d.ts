@@ -6,7 +6,8 @@ export declare enum NodeType {
     VARIABLE_REF = 4,
     SPLAT_REF = 5,
     FLAG = 6,
-    INTERPOLATION = 7
+    INTERPOLATION = 7,
+    IMPORT = 8
 }
 export interface Node {
     type: NodeType;
@@ -37,5 +38,10 @@ export interface FlagNode extends Node {
 export interface InterpolationNode extends Node {
     type: NodeType.INTERPOLATION;
     value: string;
+}
+export interface ImportNode extends Node {
+    type: NodeType.IMPORT;
+    module: string;
+    names: string[];
 }
 //# sourceMappingURL=ast.d.ts.map

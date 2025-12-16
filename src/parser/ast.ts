@@ -7,7 +7,8 @@ export enum NodeType {
   VARIABLE_REF,
   SPLAT_REF,
   FLAG,
-  INTERPOLATION
+  INTERPOLATION,
+  IMPORT
 }
 
 export interface Node {
@@ -45,4 +46,10 @@ export interface FlagNode extends Node {
 export interface InterpolationNode extends Node {
   type: NodeType.INTERPOLATION;
   value: string; // The content inside #{}
+}
+
+export interface ImportNode extends Node {
+  type: NodeType.IMPORT;
+  module: string;
+  names: string[]; // ["*"] or list of names
 }
