@@ -28,6 +28,7 @@ function main() {
     engine.compile(script, path.dirname(absoluteFilePath));
     const result = engine.generate(entryPoint);
 
+    // console.log(JSON.stringify(result)); // DEBUG: Show exact chars
     console.log(result);
   } catch (error: any) {
     console.error('Error executing script:', error.message);

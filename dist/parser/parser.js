@@ -230,14 +230,55 @@ function parseNodes(tokens, startIndex, stopAt = [], stopOnAssignment = false) {
                         // Note: 'i' is still pointing to current token. We will increment it below.
                         // The recursed parseNodes will see the NEW token at i+1.
                     }
-                    if (postText.length > 0) {
-                        assignment.expression.push({ type: ast_1.NodeType.TEXT, value: postText });
+                    // Enforce Hardened Syntax: No naked text after =
+                    if (postText.trim().length > 0) {
+                        throw new Error(`Syntax Error: Variable assignments must be wrapped in brackets [ ... ]. Found text after '=': "${postText.trim()}"`);
                     }
+                    // Check next token (ignoring whitespace if necessary? parser loop handles whitespace TEXT tokens as nodes)
+                    // But strict syntax implies: `var = [ ... ]`
+                    // The lexer produced a TEXT token for `var = `. `postText` is empty/whitespace.
+                    // i points to current token. 
+                    // We need to check i+1.
+                    let nextTokenIndex = i + 1;
+                    // Skip pure whitespace TEXT tokens to find the start of expression?
+                    // Actually, let's just peek.
+                    let hasLeftBracket = false;
+                    // Lookahead for next non-whitespace token
+                    for (let k = nextTokenIndex; k < tokens.length; k++) {
+                        if (tokens[k].type === lexer_1.TokenType.L_BRACKET) {
+                            hasLeftBracket = true;
+                            break;
+                        }
+                        if (tokens[k].type === lexer_1.TokenType.TEXT && tokens[k].value.trim().length === 0) {
+                            continue; // Skip whitespace
+                        }
+                        // Found something else before bracket
+                        break;
+                    }
+                    if (!hasLeftBracket) {
+                        throw new Error(`Syntax Error: Variable assignments must be wrapped in brackets [ ... ]. Expected '[' after '='.`);
+                    }
+                    // if (postText.length > 0) {
+                    //   assignment.expression.push({ type: NodeType.TEXT, value: postText });
+                    // }
+                    // With Hardened Syntax, postText is verified to be whitespace. 
+                    // We ignore it to prevent leading spaces in variables.
                     i++; // Consume the TEXT containing "="
                     // Parse the rest as the expression
                     // Expression should STOP on next assignment.
                     const result = parseNodes(tokens, i, stopAt, true);
                     assignment.expression = assignment.expression.concat(result.nodes);
+                    // Hardened Syntax Fix: Trim trailing whitespace nodes from the assignment expression.
+                    // This prevents newlines after the definition (e.g. \n\n) from becoming part of the variable.
+                    while (assignment.expression.length > 0) {
+                        const lastNode = assignment.expression[assignment.expression.length - 1];
+                        if (lastNode.type === ast_1.NodeType.TEXT && (!lastNode.value || lastNode.value.trim().length === 0)) {
+                            assignment.expression.pop();
+                        }
+                        else {
+                            break;
+                        }
+                    }
                     nodes.push(assignment);
                     i = result.nextIndex;
                     continue;
@@ -258,7 +299,28 @@ function parseNodes(tokens, startIndex, stopAt = [], stopOnAssignment = false) {
             };
             while (i < tokens.length && tokens[i].type !== lexer_1.TokenType.R_BRACKET) {
                 const optionResult = parseNodes(tokens, i, [lexer_1.TokenType.PIPE, lexer_1.TokenType.R_BRACKET], true);
-                choiceNode.options.push(optionResult.nodes);
+                // Smart Whitespace Handling
+                let optionNodes = optionResult.nodes;
+                if (optionNodes.length > 0) {
+                    // Trim Start
+                    if (optionNodes[0].type === ast_1.NodeType.TEXT) {
+                        optionNodes[0].value = optionNodes[0].value.trimStart();
+                        if (optionNodes[0].value.length === 0) {
+                            optionNodes.shift(); // Remove empty node
+                        }
+                    }
+                }
+                if (optionNodes.length > 0) {
+                    // Trim End
+                    const lastIdx = optionNodes.length - 1;
+                    if (optionNodes[lastIdx].type === ast_1.NodeType.TEXT) {
+                        optionNodes[lastIdx].value = optionNodes[lastIdx].value.trimEnd();
+                        if (optionNodes[lastIdx].value.length === 0) {
+                            optionNodes.pop(); // Remove empty node
+                        }
+                    }
+                }
+                choiceNode.options.push(optionNodes);
                 i = optionResult.nextIndex;
                 if (i < tokens.length && tokens[i].type === lexer_1.TokenType.PIPE) {
                     i++; // Skip |

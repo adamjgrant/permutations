@@ -330,6 +330,18 @@ function parseNodes(
           // Expression should STOP on next assignment.
           const result = parseNodes(tokens, i, stopAt, true);
           assignment.expression = assignment.expression.concat(result.nodes);
+
+          // Hardened Syntax Fix: Trim trailing whitespace nodes from the assignment expression.
+          // This prevents newlines after the definition (e.g. \n\n) from becoming part of the variable.
+          while (assignment.expression.length > 0) {
+            const lastNode = assignment.expression[assignment.expression.length - 1];
+            if (lastNode.type === NodeType.TEXT && (!lastNode.value || lastNode.value.trim().length === 0)) {
+              assignment.expression.pop();
+            } else {
+              break;
+            }
+          }
+
           nodes.push(assignment);
           i = result.nextIndex;
           continue;

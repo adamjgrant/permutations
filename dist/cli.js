@@ -22,6 +22,7 @@ function main() {
         const engine = new engine_1.Engine();
         engine.compile(script, path.dirname(absoluteFilePath));
         const result = engine.generate(entryPoint);
+        // console.log(JSON.stringify(result)); // DEBUG: Show exact chars
         console.log(result);
     }
     catch (error) {

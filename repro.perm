@@ -1,16 +1,36 @@
-
 # 1. Realism Observer (Fidelity focused)
-realism_comment=[
-    The lighting in this is unmatched|
-    I can't tell if this is real footage or not
-]
+realism_comment=[The lighting in this is unmatched|I can't tell if this is real footage or not]
 
 # 2. Dream Watcher (Surrealism focused)
 dream_comment=[ ]
+
+# 3. Prompt Hunter (Technical curiosity)
+prompt_ask=[ ]
+
+# 4. Future Shock (Existential/Industry focus)
+future_shock=[ ]
+
+# 5. The Story Interpreter (Narrative focused)
+narrative_comment=[ ]
+
+# 6. The Glitch Spotter (Artifact focused)
+glitch_spotter=[ ]
+
+# 7. The Artist Comparison (Tool focused)
+artist_compare=[ ]
+
+# 8. Vibe Check (Short/Slang)
+vibe_check=[ ]
 
 # Entry Point:
 # We mix them all together.
 main=[
     $realism_comment|
-    $dream_comment
+    $dream_comment|
+    $prompt_ask|
+    $future_shock|
+    $narrative_comment|
+    $glitch_spotter|
+    $artist_compare|
+    $vibe_check
 ]
