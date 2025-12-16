@@ -15,7 +15,7 @@ describe('Complex Logic Scenarios', () => {
 part_a = [ A ]
 part_b = [ $part_a | B ]
 part_c = [ $part_b | C ]
-main = $part_c`;
+main = [ $part_c ]`;
 
     engine.compile(script);
 
@@ -37,9 +37,9 @@ main = $part_c`;
     // Note: Assignment preserves whitespace, so 'year = ...' includes the space.
     // We use 'year=...' to ensure no leading space in the variable value.
     const script = `
-year=\${ 2025 }
-version=\${ "v2.0" }
-main = Copyright $year Version $version`;
+year=[ \${ 2025 } ]
+version=[ \${ "v2.0" } ]
+main = [ Copyright $year Version $version ]`;
 
     engine.compile(script);
     const result = engine.generate('main');
@@ -50,8 +50,8 @@ main = Copyright $year Version $version`;
 
   test('Flag Logic & Short-circuiting', () => {
     const script = `
-line = [ START $$active | SKIP ] : \${ active ? "IS_ACTIVE" : "NOT_ACTIVE" }
-main = $line`;
+line = [ [ START $$active | SKIP ] : \${ active ? "IS_ACTIVE" : "NOT_ACTIVE" } ]
+main = [ $line ]`;
 
     engine.compile(script);
 
@@ -68,8 +68,8 @@ main = $line`;
 
   test('Complex Object Return (Metadata)', () => {
     const script = `
-meta = \${ { key: "value" } }
-main = Text $meta`;
+meta = [ \${ { key: "value" } } ]
+main = [ Text $meta ]`;
 
     engine.compile(script);
     const result = engine.generate('main');

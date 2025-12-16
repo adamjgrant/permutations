@@ -21,7 +21,7 @@ describe('Import Functionality', () => {
   test('Simple Import (Explicit)', () => {
     const mainScript = `
 import "lib"
-main = $greeting`;
+main = [ $greeting ]`;
     const libScript = `greeting = [Hello]`;
 
     // Mock FS
@@ -42,7 +42,7 @@ main = $greeting`;
   test('From Import (Named)', () => {
     const mainScript = `
 from lib import greeting
-main = $greeting`;
+main = [ $greeting ]`;
     const libScript = `
 greeting = [Hi]
 ignored = [Bad]`;
@@ -61,7 +61,7 @@ ignored = [Bad]`;
   });
 
   test('Import with Star (Splat)', () => {
-    const mainScript = `from lib import * \n main = $greeting`;
+    const mainScript = `from lib import * \n main = [ $greeting ]`;
     const libScript = `greeting = [Welcome]`;
 
     (fs.readFileSync as jest.Mock).mockImplementation((p: string) => {

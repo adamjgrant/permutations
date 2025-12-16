@@ -13,7 +13,7 @@ describe('Feature Edge Cases', () => {
     const script = `
         colors = [ Red | Blue ]
         mix = [ Green | *$colors | Yellow ]
-        main = $mix
+        main = [ $mix ]
     `;
 
     engine.compile(script);
@@ -60,7 +60,7 @@ describe('Feature Edge Cases', () => {
         // First option is empty text (using [|...])
         // Second option is text "Space"
         choice=[| Space ]
-        main = Start:$choice:End
+        main = [ Start:$choice:End ]
     `;
     engine.compile(script);
 
@@ -82,7 +82,7 @@ describe('Feature Edge Cases', () => {
     // If choice is empty, it returns "".
 
     expect(results.has('Start::End')).toBe(true);
-    expect(results.has('Start: Space :End')).toBe(true);
+    expect(results.has('Start:Space:End')).toBe(true);
   });
 
 
@@ -108,7 +108,7 @@ describe('Feature Edge Cases', () => {
   test('Non-existent Variable Handling', () => {
     // Reference to undefined variable
     const script = `
-        main = Hello $stranger
+        main = [ Hello $stranger ]
       `;
     engine.compile(script);
     const result = engine.generate('main');

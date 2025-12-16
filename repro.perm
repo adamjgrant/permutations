@@ -1,0 +1,16 @@
+
+# 1. Realism Observer (Fidelity focused)
+realism_comment=[
+    The lighting in this is unmatched|
+    I can't tell if this is real footage or not
+]
+
+# 2. Dream Watcher (Surrealism focused)
+dream_comment=[ ]
+
+# Entry Point:
+# We mix them all together.
+main=[
+    $realism_comment|
+    $dream_comment
+]

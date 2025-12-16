@@ -285,9 +285,44 @@ function parseNodes(
             // The recursed parseNodes will see the NEW token at i+1.
           }
 
-          if (postText.length > 0) {
-            assignment.expression.push({ type: NodeType.TEXT, value: postText });
+          // Enforce Hardened Syntax: No naked text after =
+          if (postText.trim().length > 0) {
+            throw new Error(`Syntax Error: Variable assignments must be wrapped in brackets [ ... ]. Found text after '=': "${postText.trim()}"`);
           }
+
+          // Check next token (ignoring whitespace if necessary? parser loop handles whitespace TEXT tokens as nodes)
+          // But strict syntax implies: `var = [ ... ]`
+          // The lexer produced a TEXT token for `var = `. `postText` is empty/whitespace.
+          // i points to current token. 
+          // We need to check i+1.
+
+          let nextTokenIndex = i + 1;
+          // Skip pure whitespace TEXT tokens to find the start of expression?
+          // Actually, let's just peek.
+          let hasLeftBracket = false;
+
+          // Lookahead for next non-whitespace token
+          for (let k = nextTokenIndex; k < tokens.length; k++) {
+            if (tokens[k].type === TokenType.L_BRACKET) {
+              hasLeftBracket = true;
+              break;
+            }
+            if (tokens[k].type === TokenType.TEXT && tokens[k].value.trim().length === 0) {
+              continue; // Skip whitespace
+            }
+            // Found something else before bracket
+            break;
+          }
+
+          if (!hasLeftBracket) {
+            throw new Error(`Syntax Error: Variable assignments must be wrapped in brackets [ ... ]. Expected '[' after '='.`);
+          }
+
+          // if (postText.length > 0) {
+          //   assignment.expression.push({ type: NodeType.TEXT, value: postText });
+          // }
+          // With Hardened Syntax, postText is verified to be whitespace. 
+          // We ignore it to prevent leading spaces in variables.
 
           i++; // Consume the TEXT containing "="
 
@@ -315,7 +350,30 @@ function parseNodes(
 
       while (i < tokens.length && tokens[i].type !== TokenType.R_BRACKET) {
         const optionResult = parseNodes(tokens, i, [TokenType.PIPE, TokenType.R_BRACKET], true);
-        choiceNode.options.push(optionResult.nodes);
+
+        // Smart Whitespace Handling
+        let optionNodes = optionResult.nodes;
+        if (optionNodes.length > 0) {
+          // Trim Start
+          if (optionNodes[0].type === NodeType.TEXT) {
+            optionNodes[0].value = optionNodes[0].value!.trimStart();
+            if (optionNodes[0].value!.length === 0) {
+              optionNodes.shift(); // Remove empty node
+            }
+          }
+        }
+        if (optionNodes.length > 0) {
+          // Trim End
+          const lastIdx = optionNodes.length - 1;
+          if (optionNodes[lastIdx].type === NodeType.TEXT) {
+            optionNodes[lastIdx].value = optionNodes[lastIdx].value!.trimEnd();
+            if (optionNodes[lastIdx].value!.length === 0) {
+              optionNodes.pop(); // Remove empty node
+            }
+          }
+        }
+
+        choiceNode.options.push(optionNodes);
         i = optionResult.nextIndex;
 
         if (i < tokens.length && tokens[i].type === TokenType.PIPE) {
