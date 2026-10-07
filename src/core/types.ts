@@ -110,6 +110,8 @@ export interface Def {
   body: Node;
   module: Module;
   range: Range;
+  /** Which syntax the definition was written in. */
+  form: 'short' | 'long';
 }
 
 export interface Module {

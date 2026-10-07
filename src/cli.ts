@@ -2,9 +2,10 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { compile, LoadedSource, PermError, TransformFn } from './index';
+import { compile, formatSource, FormatMode, LoadedSource, PermError, TransformFn } from './index';
 
 const USAGE = `Usage: perm <file | program> [options]
+       perm fmt --short|--long|--auto <file> [-w]
 
   (no option)          one random result
   -n N                 N distinct random results
@@ -18,6 +19,10 @@ const USAGE = `Usage: perm <file | program> [options]
   -h, --help           show this help
 
 If the first argument is not an existing file, it is treated as a program.
+
+fmt rewrites each definition in short form, long form, or whichever fits (--auto).
+It prints the result, or overwrites the file with -w. Comments, settings, imports and
+definitions that contain a comment are left alone.
 `;
 
 interface Args {
@@ -99,7 +104,44 @@ function loader(spec: string, fromPath: string): LoadedSource | undefined {
   return undefined;
 }
 
+function fmt(argv: string[]): void {
+  let mode: FormatMode | undefined;
+  let write = false;
+  let file: string | undefined;
+  for (const a of argv) {
+    if (a === '--short' || a === '--long' || a === '--auto') mode = a.slice(2) as FormatMode;
+    else if (a === '-w' || a === '--write') write = true;
+    else if (a.startsWith('-')) {
+      console.error(`Unknown option ${a}`);
+      process.exit(2);
+    } else file = a;
+  }
+  if (!mode || !file) {
+    console.error('Usage: perm fmt --short|--long|--auto <file> [-w]');
+    process.exit(2);
+  }
+  if (!fs.existsSync(file)) {
+    console.error(`Error: File not found: ${file}`);
+    process.exit(1);
+  }
+  try {
+    const { output, changed, skipped } = formatSource(fs.readFileSync(file, 'utf-8'), mode);
+    for (const s of skipped) console.error(`skipped ${s.name}: ${s.reason}`);
+    if (write) {
+      fs.writeFileSync(file, output);
+      console.error(changed.length ? `rewrote ${changed.join(', ')}` : 'nothing to change');
+    } else process.stdout.write(output);
+  } catch (e) {
+    if (e instanceof PermError) {
+      console.error(`Error: ${e.message}`);
+      process.exit(1);
+    }
+    throw e;
+  }
+}
+
 function main(): void {
+  if (process.argv[2] === 'fmt') return fmt(process.argv.slice(3));
   let args: Args;
   try {
     args = parseArgs(process.argv.slice(2));

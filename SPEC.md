@@ -100,15 +100,16 @@ inside a line need no escaping, except a literal `@` right after whitespace.
 
 ### 4.2 Long form
 
-Indented, keyword-led blocks. Text lines are written as they are, or quoted when they
-begin with a keyword or contain a delimiter-significant character.
+Indented, keyword-led blocks. A line that is exactly a keyword construct is reserved, so
+literal text with that exact content is quoted. Any other line is a short-form expression.
+The precise rules are in `DSL.md` section 3.1.
 
 ```
 branch main
   one of
     Hello
     Oh, Hi
-  then greeting
+  ref greeting
 
 branch greeting
   one of
@@ -128,16 +129,16 @@ branch greeting
 |---|---|
 | Definition | `branch name` followed by an indented body |
 | Choice | `one of` with one item per line |
-| Sequence | `sequence`, or `then x` after a sibling |
+| Sequence | `sequence` (joined with the delimiter) or `tight` (glued) |
 | Empty alternative | `nothing` |
-| Reference | `ref name`, or the bare name when unambiguous |
+| Reference | `ref name` |
 | Unwrapped reference | `members of name` |
 | Any order | `any order` |
 | Repeat | `repeat 6` |
-| Transform | `upper`, `lower`, `capitalize`, `title`, `trim` as a block header |
+| Transform | `transform lower \| upper` with the piece indented under it |
 | Tag | `tag q`, `tag severity = 5` |
-| Guard | `when q` / `otherwise` |
-| Delimiter | `delimiter " "` on any block, or in the header |
+| Guard | `when q`, `when not q`, `otherwise`, directly under `one of` |
+| Delimiter | `delimiter " "` as a line inside any block |
 
 Any item line in a long-form block may itself be a short-form expression, so
 `one of` / `[a|b] $c` is valid.

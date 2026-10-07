@@ -17,7 +17,7 @@ Hello friend!
 | Piece | State |
 |---|---|
 | Parser (short form), engine, counting, uniform sampling, CLI | working, tested |
-| Long form, `perm fmt` | not started |
+| Long form, `perm fmt` | working, tested (round trips checked) |
 | Web app and editable flow chart | not started |
 
 ## Use

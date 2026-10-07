@@ -67,14 +67,74 @@ branch greeting
   "!"
 ```
 
-Note: in long form each line is one piece, and pieces on separate lines are joined with
-the delimiter. The `!` is quoted and attaches to the previous piece because of the
-punctuation rule, giving `Hello world!`.
+Each line in a long-form block is one piece, and pieces on separate lines are joined with
+the delimiter. The quoted `"!"` attaches to the previous piece because of the punctuation
+rule (section 7), giving `Hello world!`.
 
-You can convert between the forms with `perm fmt --short file.perm` or
-`perm fmt --long file.perm`. The chart editor expands and collapses the same way. Use
+Convert between the forms with `perm fmt --short file.perm`, `perm fmt --long file.perm`
+or `perm fmt --auto file.perm`. The chart editor expands and collapses the same way. Use
 short form for quick sketches and small definitions. Use long form when a definition has
 more than two levels of nesting or needs comments on individual options.
+
+### 3.1 Long form reference
+
+A long-form definition starts with `branch NAME` and its body is indented underneath. Short
+and long definitions can sit in the same file, and long-form lines can contain short-form
+expressions.
+
+| Line | Meaning |
+|---|---|
+| `branch name` | A definition. The indented lines are its body, joined as a sequence. |
+| `one of` | A choice. Each indented line or block is one option. |
+| `sequence` | Pieces joined with the delimiter. Use it for an option made of several pieces. |
+| `tight` | Pieces glued together with no delimiter. |
+| `any order` | Every ordering of the indented items. |
+| `repeat 6` or `repeat 2..4` | Repeat the indented piece. |
+| `transform lower \| upper` | Apply one of the transforms to the indented piece. |
+| `ref name` | A reference. `members of name` is the unwrapped form. |
+| `nothing` | An empty piece, or an empty option inside `one of`. |
+| `tag q`, `tag severity = 5` | Set a tag. Goes inside the option it belongs to (a `sequence`, `when` or `otherwise` block). |
+| `when q`, `when not q`, `when k = 5`, `otherwise` | A guarded option, directly under `one of`. The indented lines are its content. |
+| `delimiter ", "` | Sets the delimiter for the enclosing block. Also allowed directly under `branch`. |
+| `"text"` | Literal text, with `\"` and `\\` escapes. |
+| any other line | A short-form expression: `Oh, Hi`, `How [are\|is] it`, `what @q`. |
+
+Rules:
+
+- **Indent consistently.** Children are indented deeper than their parent, all by the same
+  amount. A tab counts as two spaces.
+- **Keywords are reserved only when they are the entire line.** `nothing` is a construct;
+  `nothing to see` is text. To write a line that is exactly a keyword as text, quote it:
+  `"nothing"`, `"one of"`.
+- **Blocks need children.** `one of` with nothing under it is an error.
+- **Tags belong to an option.** A `tag` line directly under `one of` is an error. Put it in
+  a `sequence` (or `when`) that is one of the options.
+- **Comments** are `#` lines, as in short form.
+
+Example with tags, a guard and a tight join:
+
+```
+branch main
+  Excuse me,
+  one of
+    sequence
+      what
+      tag q
+    that
+  is really neat
+  one of
+    when q
+      ?
+    otherwise
+      .
+```
+
+Gives `Excuse me, what is really neat?` and `Excuse me, that is really neat.`
+
+`perm fmt` guarantees the converted program means exactly the same thing: same results,
+same counts, same tags. Definitions that contain a comment are skipped rather than losing
+it, and so is text that cannot be written in the other form (for example a line break
+inside text can only be written in long form).
 
 ## 4. Core constructs
 
@@ -260,7 +320,7 @@ $greeting:capitalize
 
 Built-in: `lower`, `upper`, `capitalize`, `title`, `trim`. Custom transforms are supplied
 by the host (`perm --fn ./fns.js` or the app), never written inside the DSL. Transforms do
-not change how many permutations there are. Long form: a block header such as `upper`.
+not change how many permutations there are. Long form: `transform lower | upper` with the piece indented under it.
 
 ### 4.10 Tags and guards
 
@@ -420,7 +480,8 @@ perm FILE_OR_PROGRAM [options]
   --set key=value     host value, available as $key
   --fn FILE           register custom transforms
 
-perm fmt --short|--long|--auto FILE   rewrite a file in a chosen form
+perm fmt --short|--long|--auto FILE [-w]   convert definitions between forms
+                                           (prints the result, or overwrites FILE with -w)
 ```
 
 If the first argument is not an existing file, it is treated as a program.
@@ -522,6 +583,19 @@ ref         = "$" path  |  "*$" path
 postfix     = ":" ( name | group )  |  "{" n [ ".." m ] [ ";" settings ] "}"
 range       = ch ".." ch                  (inside a group, as an option)
 path        = name { "." name }
+```
+
+Long form (informal), indentation based:
+
+```
+branch   = "branch" path NEWLINE INDENT item+ DEDENT
+item     = block | leaf | shortline
+block    = ("one of" | "sequence" | "tight" | "any order"
+           | "repeat" n [".." m] | "transform" name {"|" name}
+           | "when" ["not"] name ["=" value] | "otherwise") NEWLINE INDENT item+ DEDENT
+leaf     = "nothing" | "ref" path | "members of" path | "tag" name ["=" value]
+           | "delimiter" string | string
+shortline = any other line, parsed as a short-form expression
 ```
 
 ## 13. Cheat sheet

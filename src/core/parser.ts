@@ -1,4 +1,5 @@
 import { newId } from './ids';
+import { parseBranch } from './longform';
 import {
   AnyOrderNode,
   Def,
@@ -77,42 +78,69 @@ interface Statement {
   end: number;
 }
 
+export const BRANCH_RE = /^([ \t]*)branch[ \t]+([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)[ \t]*$/;
+
+export function indentWidth(ws: string): number {
+  let w = 0;
+  for (const c of ws) w += c === '\t' ? 2 : 1;
+  return w;
+}
+
 function splitStatements(src: string): Statement[] {
-  const out: Statement[] = [];
-  let depth = 0;
-  let stmtStart = 0;
+  const lines: Statement[] = [];
   let pos = 0;
-  while (pos <= src.length) {
+  for (;;) {
     let eol = src.indexOf('\n', pos);
     if (eol === -1) eol = src.length;
-    const line = src.slice(pos, eol);
-    if (depth === 0) {
-      if (line.trim() !== '') {
-        stmtStart = pos;
-        if (SETTING_RE.test(line) || USE_RE.test(line) || FROM_RE.test(line)) {
-          out.push({ start: pos, end: eol });
-        } else {
-          depth = bracketDelta(line);
-          if (depth <= 0) {
-            depth = 0;
-            out.push({ start: pos, end: eol });
-          }
-        }
-      }
-    } else {
-      depth += bracketDelta(line);
-      if (depth <= 0) {
-        depth = 0;
-        out.push({ start: stmtStart, end: eol });
-      }
-    }
+    lines.push({ start: pos, end: eol });
+    if (eol >= src.length) break;
     pos = eol + 1;
   }
-  if (depth > 0) fail(src, 'Unclosed [', stmtStart);
+  const text = (i: number): string => src.slice((lines[i] as Statement).start, (lines[i] as Statement).end);
+
+  const out: Statement[] = [];
+  let i = 0;
+  while (i < lines.length) {
+    const L = lines[i] as Statement;
+    const t = text(i);
+    if (t.trim() === '') {
+      i++;
+      continue;
+    }
+    const bm = BRANCH_RE.exec(t);
+    if (bm) {
+      const headerIndent = indentWidth(bm[1] as string);
+      let last = i;
+      for (let j = i + 1; j < lines.length; j++) {
+        const lt = text(j);
+        if (lt.trim() === '') continue;
+        const lead = /^[ \t]*/.exec(lt) as RegExpExecArray;
+        if (indentWidth(lead[0]) > headerIndent) last = j;
+        else break;
+      }
+      out.push({ start: L.start, end: (lines[last] as Statement).end });
+      i = last + 1;
+      continue;
+    }
+    if (SETTING_RE.test(t) || USE_RE.test(t) || FROM_RE.test(t)) {
+      out.push({ start: L.start, end: L.end });
+      i++;
+      continue;
+    }
+    let depth = bracketDelta(t);
+    let j = i;
+    while (depth > 0 && j + 1 < lines.length) {
+      j++;
+      depth += bracketDelta(text(j));
+    }
+    if (depth > 0) fail(src, 'Unclosed [', L.start);
+    out.push({ start: L.start, end: (lines[j] as Statement).end });
+    i = j + 1;
+  }
   return out;
 }
 
-class Parser {
+export class Parser {
   pos: number;
   constructor(
     private src: string,
@@ -136,6 +164,11 @@ class Parser {
     const m = re.exec(this.src);
     if (m && m.index + m[0].length <= this.end) return m;
     return null;
+  }
+
+  /** Parse one line of a long-form block as a short-form option (text, tags and guard). */
+  parseLineOption(): Option {
+    return this.parseOption(false, false).opt;
   }
 
   /** Parse a whole statement body. Definition bodies allow top-level `|`. */
@@ -396,7 +429,7 @@ class Parser {
   }
 }
 
-function buildRepeat(inner: Node, min: number, max: number, delimiter: string | undefined, range: [number, number]): RepeatNode {
+export function buildRepeat(inner: Node, min: number, max: number, delimiter: string | undefined, range: [number, number]): RepeatNode {
   const expanded: SeqNode[] = [];
   for (let n = min; n <= max; n++) {
     const pieces: Piece[] = [];
@@ -460,7 +493,11 @@ export function parseModule(source: string, path: string): { module: Module; imp
   for (const st of splitStatements(src)) {
     const text = src.slice(st.start, st.end);
     let m: RegExpExecArray | null;
-    if ((m = SETTING_RE.exec(text))) {
+    if ((m = BRANCH_RE.exec(text.split('\n')[0] as string))) {
+      const name = m[2] as string;
+      if (module.defs.has(name)) fail(src, `Duplicate definition '${name}'`, st.start);
+      module.defs.set(name, parseBranch(src, st, name, module));
+    } else if ((m = SETTING_RE.exec(text))) {
       module.delimiter = unescapeString(m[1] as string);
     } else if ((m = USE_RE.exec(text))) {
       imports.push({ spec: m[1] as string, offset: st.start });
@@ -472,11 +509,11 @@ export function parseModule(source: string, path: string): { module: Module; imp
       if (module.defs.has(name)) fail(src, `Duplicate definition '${name}'`, st.start);
       const bodyStart = st.start + m[0].length;
       const body = new Parser(src, bodyStart, st.end, module).parseTop(true);
-      module.defs.set(name, { name, body, module, range: [st.start, st.end] });
+      module.defs.set(name, { name, body, module, range: [st.start, st.end], form: 'short' });
     } else {
       if (module.anonymous) fail(src, 'Only one unnamed expression is allowed per file', st.start);
       const body = new Parser(src, st.start, st.end, module).parseTop(false);
-      module.anonymous = { name: '<main>', body, module, range: [st.start, st.end] };
+      module.anonymous = { name: '<main>', body, module, range: [st.start, st.end], form: 'short' };
     }
   }
   return { module, imports };
