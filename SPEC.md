@@ -79,7 +79,7 @@ greeting = [How [are you|'s [it|everything]]|What]
 |---|---|
 | Definition | `name = body` (one line, or several lines inside `[ ]`) |
 | Whole file as a single program | A file with no `main` and one unnamed expression uses that expression as `main` |
-| Choice | `[a|b|c]` |
+| Choice | `[a|b|c]`, or without brackets as a whole definition: `name = a | b | c` |
 | Empty alternative | `[Good morning!|]` |
 | Reference | `$name`, `$ns.name` |
 | Unwrapped reference (merge members into this choice) | `[*$a|*$b|other]` |
@@ -311,7 +311,7 @@ main = [$a|$b] $c
 ```
 
 With uniform sampling over paths, `*$a` and `$a` give the same results when `a` is a
-single choice, so `*` is structural only (see section 9, item 10).
+single choice, so `*` is structural only (see section 9, open item 5).
 
 **v1 sub-branches**
 
@@ -344,23 +344,24 @@ main = Excuse me, [what @q|that] is really neat [@q: ?|@else: .]
 with plain sequencing, and its sample outputs appear inconsistent with those rules (the
 final `"T"` never shows up). Re-express it by intent when needed.
 
-## 9. Open questions
+## 9. Decisions and open questions
 
-1. **Choice brackets.** `[ ]` matches v2. `{ }` is common in wildcard and prompt tools and
-   would free `[ ]`. The spec currently uses `[ ]` for choices and `{n}` for repeat.
-2. **Unbracketed top-level alternation.** `name = a | b | c` on one definition line. v2
-   deliberately required brackets, so this is off until you say otherwise.
-3. **Namespace separator.** `$ns.name` collides with a sentence-ending period only when a
-   letter follows the dot immediately, which is rare. Alternatives: `/` or `::`.
-4. **Tag and guard syntax.** `@tag`, `@k=v`, `@q:`, `@else` is a first proposal.
-5. **Glue and join escapes** for forcing or suppressing a delimiter at one spot.
-6. **Global delimiter details.** Should the sample outputs in the sketch's pane show the
-   delimiter in use?
-7. **AnyOrder limits.** The UI warns above 7 items (5040), and exact duplicate items
+Decided:
+
+- Choices use `[ ]`, and `{n}` is repeat.
+- A definition line may write its choice without brackets: `greeting = Hello | Hi | Hey`.
+  Brackets are required for a choice inside a sentence.
+- Namespaces use `$ns.name`.
+- Tags and guards use `@tag`, `@k=v`, `@q:`, `@else:`.
+
+Open:
+
+1. **Glue and join escapes** for forcing or suppressing a delimiter at one spot.
+2. **AnyOrder limits.** The UI warns above 7 items (5040), and exact duplicate items
    could collapse.
-8. **Persistence, fork, rename and gist loading** from the old app: carry over or defer.
-9. **Back-references**: build now or later.
-10. **Is `*$name` worth keeping?** Under uniform sampling it never changes results. It
-    would matter only with weighted choices.
+3. **Persistence, fork, rename and gist loading** from the old app: carry over or defer.
+4. **Back-references**: build now or later.
+5. **Is `*$name` worth keeping?** Under uniform sampling it never changes results. It
+   would matter only with weighted choices.
 
 The full user-facing language reference is `DSL.md`.

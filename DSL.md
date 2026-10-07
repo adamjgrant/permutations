@@ -123,6 +123,18 @@ Choices nest, and text can sit around them:
 
 Short form: `[a|b|c]`. Long form: `one of`, one option per line.
 
+**Without brackets.** When a definition's whole right-hand side is a choice, the brackets
+are optional:
+
+```
+greeting = Hello | Hi | Hey
+greeting = [Hello | Hi | Hey]     # same thing
+```
+
+Brackets are still required for a choice inside a sentence, such as `Say [Hello|Hi] now`.
+If a definition mixes text with a choice, bracket the choice. A `|` outside brackets on a
+definition line always splits the whole line into options.
+
 Options can span lines inside the brackets. Whitespace and newlines around `|` and the
 brackets are ignored.
 
@@ -496,7 +508,7 @@ line        = comment | setting | import | definition | sequence
 comment     = "#" any-text            (only at the start of a line)
 setting     = "delimiter" "=" string
 import      = "use" path | "from" path "use" name { "," name }
-definition  = path "=" sequence
+definition  = path "=" ( sequence | sequence { "|" sequence } )
 sequence    = piece { [ whitespace ] piece }
 piece       = ( text | group | ref ) { postfix }
 group       = "[" alternatives [ ";" settings ] "]"
