@@ -1,4 +1,4 @@
-import { compile, Node, Output } from '../src';
+import { compile, formatSource, Node, Output } from '../src';
 
 // An independent oracle: enumerate every path through the syntax tree directly, with no
 // counting tables or unranking. The engine's all() must produce the same multiset.
@@ -192,7 +192,7 @@ function generate(rand: () => number): string {
 
 describe('engine versus an independent enumerator', () => {
   test('300 random programs agree on counts, texts, tags and indexing', () => {
-    const rand = lcg(2026);
+    const rand = lcg(Number(process.env.FUZZ_SEED ?? 2026));
     let checked = 0;
     let withTags = 0;
     for (let i = 0; i < 300; i++) {
@@ -217,5 +217,37 @@ describe('engine versus an independent enumerator', () => {
     }
     expect(checked).toBeGreaterThan(150);
     expect(withTags).toBeGreaterThan(20);
+  });
+});
+
+describe('formatter versus random programs', () => {
+  test('long, short and auto conversions never change what a program means', () => {
+    const rand = lcg(Number(process.env.FUZZ_SEED ?? 77) + 1);
+    let checked = 0;
+    for (let i = 0; i < 300; i++) {
+      const src = generate(rand);
+      let prog;
+      try {
+        prog = compile(src);
+      } catch {
+        continue;
+      }
+      if (prog.count > 3000n) continue;
+      const base = [...prog.all()].map(key).sort();
+      for (const mode of ['long', 'short', 'auto'] as const) {
+        const { output, skipped } = formatSource(src, mode);
+        expect(skipped).toEqual([]);
+        const again = compile(output);
+        expect(again.count).toBe(prog.count);
+        expect([...again.all()].map(key).sort()).toEqual(base);
+        // Through the other form and back.
+        const back = formatSource(formatSource(output, mode === 'long' ? 'short' : 'long').output, 'short').output;
+        expect([...compile(back).all()].map(key).sort()).toEqual(base);
+        // Idempotent.
+        expect(formatSource(output, mode).output).toBe(output);
+      }
+      checked++;
+    }
+    expect(checked).toBeGreaterThan(150);
   });
 });

@@ -231,7 +231,10 @@ function longSeqAsItem(seq: SeqNode): string[] {
 function longOption(o: Option): string[] {
   const tags = o.tags.map(tagLeaf);
   const d = o.seq.scopeDelim ?? o.seq.joinDelim;
-  if (o.guard) return [whenHeader(o.guard), ...indent([...delimLeaf(d), ...longPieces(o.seq.pieces), ...tags])];
+  if (o.guard) {
+    const body = [...delimLeaf(d), ...longPieces(o.seq.pieces), ...tags];
+    return [whenHeader(o.guard), ...indent(body.length ? body : ['nothing'])];
+  }
   if (tags.length) return ['sequence', ...indent([...delimLeaf(d), ...longPieces(o.seq.pieces), ...tags])];
   return longSeqAsItem(o.seq);
 }
