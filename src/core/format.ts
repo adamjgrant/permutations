@@ -22,7 +22,6 @@ function escapeText(v: string): string {
     const c = v[i] as string;
     const n = v[i + 1];
     if ('\\[]|$@&'.includes(c)) out += '\\' + c;
-    else if (c === '*' && n === '$') out += '\\*';
     else if (c === '{' && n !== undefined && /[0-9]/.test(n)) out += '\\{';
     else if (c === ':' && i === 0 && (isIdentStart(n) || n === '[')) out += '\\:';
     else if (c === ';' && /^;\s*delimiter/.test(v.slice(i))) out += '\\;';
@@ -93,7 +92,7 @@ function shortSeq(seq: SeqNode): string {
 
 /** Wrap the final piece of already-printed text in `[...]`. Used only after a ref/transform/repeat. */
 function wrapLast(out: string): string {
-  const m = /(\*?\$[A-Za-z_][\w.]*(?::[A-Za-z_]\w*|:\[[^\]]*\]|\{[^}]*\})*)$/.exec(out);
+  const m = /(\$[A-Za-z_][\w.]*(?::[A-Za-z_]\w*|:\[[^\]]*\]|\{[^}]*\})*)$/.exec(out);
   if (!m) return out;
   return out.slice(0, m.index) + '[' + m[1] + ']';
 }
@@ -136,7 +135,7 @@ function shortNode(n: Node): string {
     case 'text':
       return escapeText(n.value);
     case 'ref':
-      return (n.splat ? '*$' : '$') + n.path;
+      return '$' + n.path;
     case 'seq':
       if (n.joinDelim !== undefined || n.scopeDelim !== undefined) {
         const d = (n.scopeDelim ?? n.joinDelim) as string;
@@ -242,7 +241,7 @@ function longNode(n: Node): string[] {
     case 'text':
       return [longText(n.value)];
     case 'ref':
-      return [n.splat ? `members of ${n.path}` : `ref ${n.path}`];
+      return [`ref ${n.path}`];
     case 'seq':
       return longSeqAsItem(n);
     case 'group':

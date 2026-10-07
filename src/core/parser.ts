@@ -256,10 +256,7 @@ export class Parser {
       let node: Node | undefined;
       if (c === '[') {
         node = this.parseGroup();
-      } else if (
-        (c === '$' && isIdentStart(next)) ||
-        (c === '*' && next === '$' && isIdentStart(this.src[this.pos + 2]))
-      ) {
+      } else if (c === '$' && isIdentStart(next)) {
         node = this.parseRef();
       } else if (c === '@' && (pending || pieces.length === 0)) {
         const tm = this.matchAt(TAG_RE, this.pos);
@@ -305,7 +302,6 @@ export class Parser {
       if (c === '[' || c === ']') break;
       if (c === '|' && allowPipe) break;
       if (c === '$' && isIdentStart(next)) break;
-      if (c === '*' && next === '$' && isIdentStart(src[i + 2])) break;
       if (isWs(c)) {
         let j = i;
         while (j < this.end && isWs(src[j])) j++;
@@ -332,8 +328,7 @@ export class Parser {
 
   private parseRef(): RefNode {
     const start = this.pos;
-    const splat = this.src[this.pos] === '*';
-    this.pos += splat ? 2 : 1;
+    this.pos++;
     const nameStart = this.pos;
     for (;;) {
       while (isIdentChar(this.src[this.pos])) this.pos++;
@@ -344,7 +339,6 @@ export class Parser {
       kind: 'ref',
       id: newId(),
       path: this.src.slice(nameStart, this.pos),
-      splat,
       range: [start, this.pos],
     };
   }

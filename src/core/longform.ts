@@ -29,7 +29,6 @@ const RE = {
   anyOrder: /^any order$/,
   nothing: /^nothing$/,
   ref: new RegExp(`^ref[ \\t]+(${PATH})$`),
-  members: new RegExp(`^members of[ \\t]+(${PATH})$`),
   repeat: /^repeat[ \t]+(\d+)(?:\.\.(\d+))?$/,
   transform: new RegExp(`^transform[ \\t]+(${NAME}(?:[ \\t]*\\|[ \\t]*${NAME})*)$`),
   tag: new RegExp(`^tag[ \\t]+(${NAME})(?:[ \\t]*=[ \\t]*(\\S+))?$`),
@@ -214,11 +213,7 @@ class LongParser {
     }
     if (RE.nothing.test(text)) return { item: { t: 'empty', line }, next: this.noChildren(index, text) };
     if ((m = RE.ref.exec(text))) {
-      const node: RefNode = { kind: 'ref', id: newId(), path: m[1] as string, splat: false, range: [line.start, line.end] };
-      return here(node, this.noChildren(index, text));
-    }
-    if ((m = RE.members.exec(text))) {
-      const node: RefNode = { kind: 'ref', id: newId(), path: m[1] as string, splat: true, range: [line.start, line.end] };
+      const node: RefNode = { kind: 'ref', id: newId(), path: m[1] as string, range: [line.start, line.end] };
       return here(node, this.noChildren(index, text));
     }
     if ((m = RE.repeat.exec(text))) {

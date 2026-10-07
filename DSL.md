@@ -91,7 +91,7 @@ expressions.
 | `any order` | Every ordering of the indented items. |
 | `repeat 6` or `repeat 2..4` | Repeat the indented piece. |
 | `transform lower \| upper` | Apply one of the transforms to the indented piece. |
-| `ref name` | A reference. `members of name` is the unwrapped form. |
+| `ref name` | A reference. |
 | `nothing` | An empty piece, or an empty option inside `one of`. |
 | `tag q`, `tag severity = 5` | Set a tag. Goes inside the option it belongs to (a `sequence`, `when` or `otherwise` block). |
 | `when q`, `when not q`, `when k = 5`, `otherwise` | A guarded option, directly under `one of`. The indented lines are its content. |
@@ -155,7 +155,6 @@ Most punctuation is plain text. Characters are only special in these places:
 | `\|` | inside brackets, and at the top level of a definition line |
 | `&` | inside brackets, with whitespace on both sides (`Q&A` is plain text) |
 | `$` | followed by a letter or `_` (a reference). `$5` is plain text. |
-| `*` | directly before `$` (an unwrapped reference) |
 | `:` | directly after `]` or a reference (a transform) |
 | `{` | directly after a piece and followed by a digit (a repeat) |
 | `@` | right after whitespace, inside an option (a tag or guard) |
@@ -247,30 +246,20 @@ branch main
   ", friend."
 ```
 
-### 4.5 Unwrapped references (merge into this choice)
+### 4.5 References inside choices
 
-`*$name` merges a definition's own options into the choice it sits in, instead of
-inserting the definition as one nested piece.
+A reference inside a choice contributes its own options, so merging needs no special
+syntax. "A or B, then C":
 
 ```
 a = [A|B]
-x = [$a|C]      # results: A, B, C
-y = [*$a|C]     # results: A, B, C  (same)
+b = [X|Y]
+c = [1|2]
+main = [$a|$b] $c        # 4 choices (A, B, X, Y), then 1 or 2: 8 results
 ```
 
-Because sampling is uniform over complete results (section 8), both forms produce the same
-set of results with the same odds. The difference is structural only: the chart draws
-`*$a` as a flattened fan-out of A, B and C, and `$a` as one pill. `*$name` requires the
-definition to be a single choice. Long form: `members of name`.
-
-"A or B, then C" needs neither:
-
-```
-main = [$a|$b] $c
-```
-
-**[open]** Because the results are the same, `*$name` may be redundant and could be
-removed. Weighted choices would be the reason to keep it.
+Because sampling is uniform over complete results (section 8), `[$a|C]` gives A, B and C
+equal odds, exactly as if you had written `[A|B|C]`.
 
 ### 4.6 Any order
 
@@ -543,7 +532,6 @@ Do:
 - Give shared sub-phrases a name and reference it, instead of repeating text.
 - Use `[x|]` for optional text.
 - Use tags and guards when a later choice must agree with an earlier one.
-- Prefer plain `$name` over `*$name`. They give the same results (section 4.5).
 
 Do not:
 
@@ -579,7 +567,7 @@ alternatives= option { "|" option }  |  item { "&" item }
 option      = [ guard ] sequence { tag }
 guard       = "@" [ "!" ] name [ "=" value ] ":"  |  "@else:"
 tag         = "@" name [ "=" value ]
-ref         = "$" path  |  "*$" path
+ref         = "$" path
 postfix     = ":" ( name | group )  |  "{" n [ ".." m ] [ ";" settings ] "}"
 range       = ch ".." ch                  (inside a group, as an option)
 path        = name { "." name }
@@ -593,7 +581,7 @@ item     = block | leaf | shortline
 block    = ("one of" | "sequence" | "tight" | "any order"
            | "repeat" n [".." m] | "transform" name {"|" name}
            | "when" ["not"] name ["=" value] | "otherwise") NEWLINE INDENT item+ DEDENT
-leaf     = "nothing" | "ref" path | "members of" path | "tag" name ["=" value]
+leaf     = "nothing" | "ref" path | "tag" name ["=" value]
            | "delimiter" string | string
 shortline = any other line, parsed as a short-form expression
 ```
@@ -606,7 +594,6 @@ shortline = any other line, parsed as a short-form expression
 | Optional | `[a\|]` |
 | Every ordering | `[a & b]` |
 | Reuse | `x = ...` then `$x` |
-| Merge options in | `[*$x\|c]` |
 | Repeat | `$x{3}` or `$x{2..4}` |
 | A number or letter range | `[1..6]` `[A..F]` |
 | Change case | `$x:upper` |

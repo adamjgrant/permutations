@@ -27,7 +27,6 @@ export interface RefNode {
   kind: 'ref';
   id: number;
   path: string;
-  splat: boolean;
   range: Range;
   target?: Target | undefined;
 }

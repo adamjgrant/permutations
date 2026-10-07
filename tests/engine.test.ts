@@ -93,11 +93,12 @@ greeting = [How [are you|'s [it|everything]]|What [is new|is going on]]`;
 });
 
 describe('references, namespaces, imports', () => {
-  test('unwrapped and plain references give the same results', () => {
-    const a = 'a = [A|B]\nmain = [*$a|C]';
-    const b = 'a = [A|B]\nmain = [$a|C]';
-    expect(texts(a)).toEqual(['A', 'B', 'C']);
-    expect(texts(b)).toEqual(['A', 'B', 'C']);
+  test('a reference inside a choice contributes its options', () => {
+    expect(texts('a = [A|B]\nmain = [$a|C]')).toEqual(['A', 'B', 'C']);
+  });
+
+  test('a leading star is plain text', () => {
+    expect(texts('a = [A|B]\nmain = *$a')).toEqual(['*A', '*B']);
   });
 
   test('A or B then C', () => {

@@ -82,7 +82,6 @@ greeting = [How [are you|'s [it|everything]]|What]
 | Choice | `[a|b|c]`, or without brackets as a whole definition: `name = a | b | c` |
 | Empty alternative | `[Good morning!|]` |
 | Reference | `$name`, `$ns.name` |
-| Unwrapped reference (merge members into this choice) | `[*$a|*$b|other]` |
 | Any order (every ordering) | `[a & b]` |
 | Repeat | `$hex{6}`, `[a|b]{2..3}` |
 | Range | `[1..6]`, `[0..9|A..F]` |
@@ -132,7 +131,6 @@ branch greeting
 | Sequence | `sequence` (joined with the delimiter) or `tight` (glued) |
 | Empty alternative | `nothing` |
 | Reference | `ref name` |
-| Unwrapped reference | `members of name` |
 | Any order | `any order` |
 | Repeat | `repeat 6` |
 | Transform | `transform lower \| upper` with the piece indented under it |
@@ -305,14 +303,12 @@ Example DNA Sequence [[A & T][G & C]; delimiter=""]
 All personnel [must have a parents signature & ages 18 and younger]
 ```
 
-**v1 unwrapped branch** (A or B, then C)
+**v1 unwrapped branch** (A or B, then C). A reference inside a choice already contributes its
+options, so no special syntax is needed:
 
 ```
 main = [$a|$b] $c
 ```
-
-With uniform sampling over paths, `*$a` and `$a` give the same results when `a` is a
-single choice, so `*` is structural only (see section 9, open item 5).
 
 **v1 sub-branches**
 
@@ -362,7 +358,8 @@ Open:
    could collapse.
 3. **Persistence, fork, rename and gist loading** from the old app: carry over or defer.
 4. **Back-references**: build now or later.
-5. **Is `*$name` worth keeping?** Under uniform sampling it never changes results. It
-   would matter only with weighted choices.
+
+Removed: unwrapped references (`*$name`). Under uniform sampling they never changed results.
+They can return if weighted choices are added.
 
 The full user-facing language reference is `DSL.md`.
