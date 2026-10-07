@@ -92,8 +92,9 @@ Most punctuation is plain text. Characters are only special in these places:
 |---|---|
 | `[` `]` | always |
 | `\` | always (it is the escape) |
-| `\|` and `&` | inside brackets |
-| `$` | followed by a letter, digit or `_` (a reference) |
+| `\|` | inside brackets, and at the top level of a definition line |
+| `&` | inside brackets, with whitespace on both sides (`Q&A` is plain text) |
+| `$` | followed by a letter or `_` (a reference). `$5` is plain text. |
 | `*` | directly before `$` (an unwrapped reference) |
 | `:` | directly after `]` or a reference (a transform) |
 | `{` | directly after a piece and followed by a digit (a repeat) |
@@ -165,7 +166,7 @@ greeting = [Hello|Hi]
 main = $greeting, friend.
 ```
 
-- Names use letters, digits and `_`.
+- Names start with a letter or `_`, then use letters, digits and `_`.
 - `main` is the entry point. A file with no `main` and a single unnamed expression uses
   that expression as `main`.
 - A reference is `$name`. The name ends at the first character that is not a letter,
@@ -227,8 +228,9 @@ Long form: `any order`.
 
 ### 4.7 Repeat
 
-`{n}` repeats the piece before it `n` times. `{n..m}` repeats between `n` and `m` times,
-each count equally likely. Each repetition makes its own independent choices.
+`{n}` repeats the piece before it `n` times. `{n..m}` repeats between `n` and `m` times.
+Each repetition makes its own independent choices, and sampling stays uniform over all the
+results (a count with more results is picked more often).
 
 ```
 hex = [0..9|A..F]

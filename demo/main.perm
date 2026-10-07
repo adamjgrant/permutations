@@ -1,4 +1,0 @@
-
-from lib import greeting
-
-main = $greeting World!

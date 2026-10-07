@@ -2,37 +2,159 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { Engine } from './engine/engine';
+import { compile, LoadedSource, PermError, TransformFn } from './index';
 
-function main() {
-  const args = process.argv.slice(2);
+const USAGE = `Usage: perm <file | program> [options]
 
-  if (args.length < 1) {
-    console.error('Usage: perm <file> [entryPoint]');
-    process.exit(1);
+  (no option)          one random result
+  -n N                 N distinct random results
+  --all [--limit N]    every result
+  --count              how many permutations there are
+  --json               print results as JSON (text plus tags)
+  --entry NAME         start from NAME instead of main
+  --delimiter STR      global delimiter (default: a single space)
+  --set key=value      host value, available as $key (repeatable)
+  --fn FILE            JS module exporting custom transforms
+  -h, --help           show this help
+
+If the first argument is not an existing file, it is treated as a program.
+`;
+
+interface Args {
+  target?: string;
+  n?: number;
+  all: boolean;
+  limit?: number;
+  count: boolean;
+  json: boolean;
+  entry?: string;
+  delimiter?: string;
+  values: Record<string, string>;
+  fnFiles: string[];
+  help: boolean;
+}
+
+function parseArgs(argv: string[]): Args {
+  const a: Args = { all: false, count: false, json: false, values: {}, fnFiles: [], help: false };
+  const need = (i: number, flag: string): string => {
+    const v = argv[i];
+    if (v === undefined) throw new Error(`${flag} needs a value`);
+    return v;
+  };
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i] as string;
+    switch (arg) {
+      case '-h':
+      case '--help':
+        a.help = true;
+        break;
+      case '-n':
+        a.n = parseInt(need(++i, '-n'), 10);
+        if (!Number.isInteger(a.n) || a.n < 1) throw new Error('-n needs a positive integer');
+        break;
+      case '--all':
+        a.all = true;
+        break;
+      case '--limit':
+        a.limit = parseInt(need(++i, '--limit'), 10);
+        if (!Number.isInteger(a.limit) || a.limit < 1) throw new Error('--limit needs a positive integer');
+        break;
+      case '--count':
+        a.count = true;
+        break;
+      case '--json':
+        a.json = true;
+        break;
+      case '--entry':
+        a.entry = need(++i, '--entry');
+        break;
+      case '--delimiter':
+        a.delimiter = need(++i, '--delimiter');
+        break;
+      case '--set': {
+        const kv = need(++i, '--set');
+        const eq = kv.indexOf('=');
+        if (eq < 1) throw new Error('--set needs key=value');
+        a.values[kv.slice(0, eq)] = kv.slice(eq + 1);
+        break;
+      }
+      case '--fn':
+        a.fnFiles.push(need(++i, '--fn'));
+        break;
+      default:
+        if (arg.startsWith('-') && arg.length > 1 && !a.target) throw new Error(`Unknown option ${arg}`);
+        if (a.target !== undefined) throw new Error(`Unexpected argument: ${arg}`);
+        a.target = arg;
+    }
+  }
+  return a;
+}
+
+function loader(spec: string, fromPath: string): LoadedSource | undefined {
+  const base = fromPath.startsWith('<') ? process.cwd() : path.dirname(fromPath);
+  const candidates = [path.resolve(base, spec), path.resolve(base, spec + '.perm')];
+  for (const p of candidates) {
+    if (fs.existsSync(p) && fs.statSync(p).isFile()) return { path: p, source: fs.readFileSync(p, 'utf-8') };
+  }
+  return undefined;
+}
+
+function main(): void {
+  let args: Args;
+  try {
+    args = parseArgs(process.argv.slice(2));
+  } catch (e) {
+    console.error((e as Error).message);
+    console.error(USAGE);
+    process.exit(2);
+  }
+  if (args.help || args.target === undefined) {
+    console.log(USAGE);
+    process.exit(args.help ? 0 : 2);
   }
 
-  const filePath = args[0];
-  const entryPoint = args[1] || 'main';
+  const isFile = fs.existsSync(args.target) && fs.statSync(args.target).isFile();
+  const source = isFile ? fs.readFileSync(args.target, 'utf-8') : args.target;
+  const progPath = isFile ? path.resolve(args.target) : '<program>';
 
-  if (!fs.existsSync(filePath)) {
-    console.error(`Error: File not found: ${filePath}`);
-    process.exit(1);
+  const fns: Record<string, TransformFn> = {};
+  for (const f of args.fnFiles) {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    Object.assign(fns, require(path.resolve(f)));
   }
 
   try {
-    const absoluteFilePath = path.resolve(filePath);
-    const script = fs.readFileSync(absoluteFilePath, 'utf-8');
-    const engine = new Engine();
+    const prog = compile(source, {
+      path: progPath,
+      load: loader,
+      values: args.values,
+      fns,
+      ...(args.entry !== undefined ? { entry: args.entry } : {}),
+      ...(args.delimiter !== undefined ? { delimiter: args.delimiter } : {}),
+    });
 
-    engine.compile(script, path.dirname(absoluteFilePath));
-    const result = engine.generate(entryPoint);
+    if (args.count) {
+      console.log(prog.count.toString());
+      return;
+    }
 
-    // console.log(JSON.stringify(result)); // DEBUG: Show exact chars
-    console.log(result);
-  } catch (error: any) {
-    console.error('Error executing script:', error.message);
-    process.exit(1);
+    const results = args.all
+      ? prog.all(args.limit !== undefined ? { limit: args.limit } : {})
+      : args.n !== undefined
+        ? prog.sample(args.n)
+        : [prog.one()];
+
+    if (args.json) {
+      console.log(JSON.stringify([...results], null, 2));
+    } else {
+      for (const r of results) console.log(r.text);
+    }
+  } catch (e) {
+    if (e instanceof PermError) {
+      console.error(`Error: ${e.message}`);
+      process.exit(1);
+    }
+    throw e;
   }
 }
 
