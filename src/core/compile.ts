@@ -1,5 +1,5 @@
 import { Program } from './engine';
-import { fail, ImportRequest, parseModule } from './parser';
+import { fail, ImportRequest, lineCol, parseModule } from './parser';
 import { builtinTransforms, TransformFn } from './transforms';
 import { Def, Module, Node, PermError, RefNode } from './types';
 
@@ -144,7 +144,15 @@ function linkRef(module: Module, ref: RefNode, values: Record<string, string>): 
     ref.target = { kind: 'value', value: values[path] as string };
     return;
   }
-  fail(module.source, `Unknown reference $${path}`, ref.range[0]);
+  if (path.includes('.')) fail(module.source, `Unknown reference $${path}`, ref.range[0]);
+  const { line, col } = lineCol(module.source, ref.range[0]);
+  throw new PermError(
+    `Unknown reference $${path} (line ${line}, column ${col}). ` +
+      `If it is a host value, pass --set ${path}=... on the command line, or the 'values' option when compiling`,
+    ref.range[0],
+    line,
+    col,
+  );
 }
 
 function checkCycles(modules: Module[]): void {

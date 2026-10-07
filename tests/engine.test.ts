@@ -306,6 +306,11 @@ describe('errors', () => {
     expect(() => compile('main = $nope')).toThrow(/Unknown reference \$nope \(line 1, column 8\)/);
   });
 
+  test('an unknown plain name hints at host values, a dotted one does not', () => {
+    expect(() => compile('main = $year')).toThrow(/pass --set year=\.\.\./);
+    expect(() => compile('main = $a.b')).toThrow(/^Unknown reference \$a\.b \(line 1, column 8\)$/);
+  });
+
   test('mixing | and & is rejected', () => {
     expect(() => compile('[a | b & c]')).toThrow(/Cannot mix/);
   });
