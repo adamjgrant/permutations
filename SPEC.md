@@ -351,13 +351,17 @@ Decided:
 - Namespaces use `$ns.name`.
 - Tags and guards use `@tag`, `@k=v`, `@q:`, `@else:`.
 
-Open:
+Resolved during the build:
 
-1. **Glue and join escapes** for forcing or suppressing a delimiter at one spot.
-2. **AnyOrder limits.** The UI warns above 7 items (5040), and exact duplicate items
-   could collapse.
-3. **Persistence, fork, rename and gist loading** from the old app: carry over or defer.
-4. **Back-references**: build now or later.
+- **Glue and join escapes.** Short form: pieces that touch are glued, a space is a join. To
+  force the other way, add or remove the space, or wrap in `[...; delimiter=""]`. Long form
+  has `tight` for glued runs. No extra escape syntax is needed.
+- **AnyOrder limits.** n! is counted exactly. The UI warns above 7 items (5040). Duplicate
+  items do not collapse; they count as separate paths and `distinct` removes repeated text.
+- **Persistence, fork, rename, gist loading.** The web app keeps the current program in
+  localStorage and supports share links. Forking, naming and gist loading are deferred.
+- **Back-references** (`[Alice|Bob]=who ... $who`). Deferred. Tags and guards cover the
+  coupling cases we have.
 
 Removed: unwrapped references (`*$name`). Under uniform sampling they never changed results.
 They can return if weighted choices are added.

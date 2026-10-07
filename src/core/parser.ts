@@ -10,6 +10,7 @@ import {
   Option,
   PermError,
   Piece,
+  Range,
   RefNode,
   RepeatNode,
   SeqNode,
@@ -217,8 +218,9 @@ export class Parser {
     let guard: Guard | undefined;
     const gm = this.matchAt(GUARD_RE, this.pos);
     if (gm) {
-      if (gm[1]) guard = { kind: 'else' };
-      else guard = { kind: 'tag', name: gm[3] as string, negate: !!gm[2], value: gm[4] };
+      const grange: Range = [this.pos, this.pos + gm[0].length];
+      if (gm[1]) guard = { kind: 'else', range: grange };
+      else guard = { kind: 'tag', name: gm[3] as string, negate: !!gm[2], value: gm[4], range: grange };
       this.pos += gm[0].length;
       this.module.hasTags = true;
     }
@@ -261,7 +263,7 @@ export class Parser {
       } else if (c === '@' && (pending || pieces.length === 0)) {
         const tm = this.matchAt(TAG_RE, this.pos);
         if (tm) {
-          tags.push({ name: tm[1] as string, value: tm[2] });
+          tags.push({ name: tm[1] as string, value: tm[2], range: [this.pos, this.pos + tm[0].length] });
           this.module.hasTags = true;
           this.pos += tm[0].length;
           continue;

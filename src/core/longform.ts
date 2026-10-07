@@ -238,7 +238,7 @@ class LongParser {
     }
     if ((m = RE.tag.exec(text))) {
       this.module.hasTags = true;
-      return { item: { t: 'tag', tag: { name: m[1] as string, value: m[2] }, line }, next: this.noChildren(index, 'tag') };
+      return { item: { t: 'tag', tag: { name: m[1] as string, value: m[2], range: [line.start, line.end] }, line }, next: this.noChildren(index, 'tag') };
     }
     if ((m = RE.delimiter.exec(text))) {
       return { item: { t: 'delim', value: unescapeString(m[1] as string), line }, next: this.noChildren(index, 'delimiter') };
@@ -246,8 +246,8 @@ class LongParser {
     if (RE.otherwise.test(text) || (m = RE.when.exec(text))) {
       this.module.hasTags = true;
       const guard: Guard = RE.otherwise.test(text)
-        ? { kind: 'else' }
-        : { kind: 'tag', name: (m as RegExpExecArray)[2] as string, negate: !!(m as RegExpExecArray)[1], value: (m as RegExpExecArray)[3] };
+        ? { kind: 'else', range: [line.start, line.end] }
+        : { kind: 'tag', name: (m as RegExpExecArray)[2] as string, negate: !!(m as RegExpExecArray)[1], value: (m as RegExpExecArray)[3], range: [line.start, line.end] };
       const { items, next } = this.needChildren(index, text);
       const { content, tags, delim } = this.split(items);
       const { seq, tags: inner } = this.seqOf(content, true, delim, this.rangeOf(index, next));

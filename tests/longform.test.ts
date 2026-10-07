@@ -253,3 +253,12 @@ main = $x $y
     expect(skipped[0]?.reason).toMatch(/line break/);
   });
 });
+
+describe('formatSource with names', () => {
+  test('converts only the named definitions', () => {
+    const src = 'a = [x|y]\nb = [p|q]\nmain = $a $b';
+    const { output, changed } = formatSource(src, 'long', ['b']);
+    expect(changed).toEqual(['b']);
+    expect(output.startsWith('a = [x|y]\nbranch b')).toBe(true);
+  });
+});

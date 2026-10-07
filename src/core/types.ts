@@ -6,11 +6,13 @@ export type Range = [number, number];
 export interface Tag {
   name: string;
   value?: string | undefined;
+  /** Where the tag is written, so the chart can select and edit exactly it. */
+  range?: Range | undefined;
 }
 
 export type Guard =
-  | { kind: 'else' }
-  | { kind: 'tag'; name: string; negate: boolean; value?: string | undefined };
+  | { kind: 'else'; range?: Range | undefined }
+  | { kind: 'tag'; name: string; negate: boolean; value?: string | undefined; range?: Range | undefined };
 
 export interface TextNode {
   kind: 'text';

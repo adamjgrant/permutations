@@ -293,7 +293,8 @@ export interface FormatResult {
   skipped: { name: string; reason: string }[];
 }
 
-export function formatSource(source: string, mode: FormatMode): FormatResult {
+/** Convert definitions between forms. Pass `names` to convert only those definitions. */
+export function formatSource(source: string, mode: FormatMode, names?: string[]): FormatResult {
   const { module } = parseModule(source, '<format>');
   const defs = [...module.defs.values()].sort((a, b) => a.range[0] - b.range[0]);
   const edits: { start: number; end: number; text: string }[] = [];
@@ -301,6 +302,7 @@ export function formatSource(source: string, mode: FormatMode): FormatResult {
   const skipped: { name: string; reason: string }[] = [];
 
   for (const def of defs) {
+    if (names && !names.includes(def.name)) continue;
     const shortOrUndefined = (): { text?: string; reason?: string } => {
       try {
         return { text: printShortDef(def) };

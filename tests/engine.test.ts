@@ -273,6 +273,22 @@ describe('errors', () => {
     expect(() => compile('main = Hello\nother = a [b|c] [d')).toThrow(/Unclosed \[ \(line 2, column 17\)/);
   });
 
+  test('tags and guards know where they are written', () => {
+    const src = 'main = [what @q|that] [@q: ?|@else: .]';
+    const p = compile(src);
+    const found: string[] = [];
+    const walk = (n: any): void => {
+      if (n.kind === 'group') for (const o of n.options) {
+        for (const t of o.tags) found.push(src.slice(t.range[0], t.range[1]));
+        if (o.guard) found.push(src.slice(o.guard.range[0], o.guard.range[1]));
+        walk(o.seq);
+      }
+      if (n.kind === 'seq') n.pieces.forEach((pc: any) => walk(pc.node));
+    };
+    walk(p.ast);
+    expect(found).toEqual(['@q', '@q:', '@else:']);
+  });
+
   test('definitions are listed for the chart', () => {
     const p = compile('b = x\nmain = $b\na = y');
     expect(p.definitions.map((d) => d.name)).toEqual(['b', 'main', 'a']);
