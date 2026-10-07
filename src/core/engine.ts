@@ -357,6 +357,17 @@ export class Program {
     return this.entry.body;
   }
 
+  /** Every definition in the program's own file, in source order (imports excluded). */
+  get definitions(): Def[] {
+    const root = this.entry.module;
+    return [...root.defs.values()].sort((a, b) => a.range[0] - b.range[0]);
+  }
+
+  /** Every module that was loaded, the entry module first. */
+  get loadedModules(): Module[] {
+    return this.modules;
+  }
+
   get delimiter(): string {
     return this.opts.delimiter;
   }

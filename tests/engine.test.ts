@@ -268,6 +268,15 @@ describe('errors', () => {
     expect(() => compile('Hello [world')).toThrow(/Unclosed/);
   });
 
+  test('unclosed bracket points at the bracket', () => {
+    expect(() => compile('main = Hello\nother = a [b|c] [d')).toThrow(/Unclosed \[ \(line 2, column 17\)/);
+  });
+
+  test('definitions are listed for the chart', () => {
+    const p = compile('b = x\nmain = $b\na = y');
+    expect(p.definitions.map((d) => d.name)).toEqual(['b', 'main', 'a']);
+  });
+
   test('unmatched close bracket', () => {
     expect(() => compile('Hello world]')).toThrow(/Unmatched/);
   });

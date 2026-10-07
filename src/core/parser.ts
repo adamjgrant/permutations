@@ -86,6 +86,18 @@ export function indentWidth(ws: string): number {
   return w;
 }
 
+/** Offset of the innermost `[` that is never closed, or the statement start if none is found. */
+function lastUnclosedBracket(src: string, start: number, end: number): number {
+  const stack: number[] = [];
+  for (let i = start; i < end; i++) {
+    const c = src[i];
+    if (c === '\\') i++;
+    else if (c === '[') stack.push(i);
+    else if (c === ']') stack.pop();
+  }
+  return stack.length ? (stack[stack.length - 1] as number) : start;
+}
+
 function splitStatements(src: string): Statement[] {
   const lines: Statement[] = [];
   let pos = 0;
@@ -133,7 +145,7 @@ function splitStatements(src: string): Statement[] {
       j++;
       depth += bracketDelta(text(j));
     }
-    if (depth > 0) fail(src, 'Unclosed [', L.start);
+    if (depth > 0) fail(src, 'Unclosed [', lastUnclosedBracket(src, L.start, (lines[j] as Statement).end));
     out.push({ start: L.start, end: (lines[j] as Statement).end });
     i = j + 1;
   }
