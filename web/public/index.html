@@ -7,16 +7,30 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<div id="fatal" class="fatal" role="alert" hidden></div>
+<script>
+  window.addEventListener('error', function (e) {
+    var f = document.getElementById('fatal');
+    if (f && !document.querySelector('.app .pane')) { f.hidden = false; f.textContent = 'The app failed to start: ' + e.message; }
+  });
+</script>
+<noscript><p class="fatal">Permutations needs JavaScript to draw the chart and run the examples.</p></noscript>
 <main class="app">
   <section class="pane chart-pane" aria-labelledby="chart-title">
     <header class="pane-head">
       <h2 id="chart-title">Flow chart</h2>
       <span id="stale" class="badge warn" hidden>Last valid chart</span>
       <div class="tools" role="toolbar" aria-label="Chart tools">
-        <button id="t-add" type="button" title="Add an alternative to the selected choice" disabled>Add alternative</button>
-        <button id="t-up" type="button" title="Move the selected alternative up" disabled>Move up</button>
-        <button id="t-down" type="button" title="Move the selected alternative down" disabled>Move down</button>
-        <button id="t-del" type="button" title="Delete the selected alternative" disabled>Delete</button>
+        <button id="t-add" type="button" title="Add an alternative to the selected choice (+)" disabled>Add alternative</button>
+        <button id="t-up" type="button" title="Move the selected alternative up (Alt+Up)" disabled>Move up</button>
+        <button id="t-down" type="button" title="Move the selected alternative down (Alt+Down)" disabled>Move down</button>
+        <button id="t-del" type="button" title="Delete the selected alternative (Delete)" disabled>Delete</button>
+        <span class="sep" aria-hidden="true"></span>
+        <button id="t-tag" type="button" title="Add a tag to the selected alternative (t)" disabled>Add tag</button>
+        <button id="t-guard" type="button" title="Add a guard to the selected alternative (g)" disabled>Add guard</button>
+        <span class="sep" aria-hidden="true"></span>
+        <button id="t-extract" type="button" title="Move the selected alternatives or box into a new branch. Space adds more alternatives to the selection." disabled>Extract to branch</button>
+        <button id="t-new" type="button" title="Add a new branch at the end of the code">New branch</button>
         <span class="sep" aria-hidden="true"></span>
         <button id="z-out" type="button" aria-label="Zoom out">&minus;</button>
         <button id="z-fit" type="button" title="Fit the chart to the pane">Fit</button>
@@ -24,21 +38,31 @@
       </div>
     </header>
     <div id="chart" class="chart-scroll" tabindex="-1"></div>
-    <p class="hint">Double-click text to edit it. Hover a choice to add, move or delete alternatives. Click a box to find it in the code.</p>
+    <p id="chart-hints" class="hint warn-hint" role="status" hidden></p>
+    <p class="hint">Double-click text to edit it. Click a tag or guard chip to change or remove it. Hover or focus a choice for its controls. Keyboard: arrows move, Enter edits, Delete removes, Alt+Up/Down reorders, + adds, t and g add a tag or guard, Space selects for extraction.</p>
   </section>
 
   <section class="pane code-pane" aria-labelledby="code-title">
     <header class="pane-head">
       <h2 id="code-title">Code</h2>
       <div class="tools">
-        <button id="b-expand" type="button" hidden>Expand</button>
-        <button id="b-collapse" type="button" hidden>Collapse</button>
+        <button id="b-help" type="button" aria-expanded="false" aria-controls="help">Syntax help</button>
+        <button id="b-expand" type="button" title="Write every definition in long form">Expand all</button>
+        <button id="b-collapse" type="button" title="Write every definition in short form">Collapse all</button>
         <button id="b-reset" type="button">Example</button>
         <button id="b-share" type="button" class="primary">Share</button>
       </div>
     </header>
-    <div id="editor" class="editor"></div>
-    <div id="error" class="error" role="alert" hidden></div>
+    <div class="editor-wrap">
+      <div id="editor" class="editor"></div>
+      <aside id="help" class="help" aria-label="Syntax help" hidden>
+        <header><h3>Syntax help</h3><button id="help-close" type="button">Close</button></header>
+        <p class="note">Insert puts the snippet at the cursor in the code.</p>
+        <ul id="help-list"></ul>
+      </aside>
+    </div>
+    <div id="notice" class="notice" role="status" aria-live="polite" hidden><span id="notice-text"></span><button id="notice-close" type="button" aria-label="Dismiss message">Dismiss</button></div>
+    <div id="error" class="error" role="alert" aria-live="assertive" hidden></div>
   </section>
 
   <section class="pane ex-pane" aria-labelledby="ex-title">

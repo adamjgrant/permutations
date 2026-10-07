@@ -1,10 +1,18 @@
-import * as core from '../../src/index';
-import type { TextNode } from '../../src/core/types';
+import type { RefNode, TextNode } from '../../src/core/types';
 import { Analysis, analyze, DEFAULT_PROGRAM, decodeShare, describeError, encodeShare, formatCount, tagLabel } from './model';
 import { Box, layout, Layout } from './layout';
-import { canvasMeasure, ChartActions, ChartView } from './chart';
+import { canvasMeasure, ChartActions, ChartView, DefAction, FocusKey } from './chart';
 import { createEditor } from './editor';
-import { addAlternative, ChoiceNode, deleteAlternative, EditResult, editText, fillEmpty, isStructurallyEditable, moveAlternative, replaceAll } from './patch';
+import {
+  addAlternative, addGuard, addTag, alternatives, applyPatches, ChoiceNode, deleteAlternative, EditResult, editGuard, editRange, editTag, editText, fillEmpty,
+  guardInputOf, isStructurallyEditable, mapAfterMove, mapOffset, moveAlternative, parseGuardInput, parseTagInput, tagInputOf, Patch,
+} from './patch';
+import {
+  convertForms, createDefinition, deleteDefinition, EditOrError, ExtractSelection, extractToBranch, failed, referencesTo, renameDefinition,
+  retargetReference, skippedNotice, uniqueName,
+} from './defs';
+import { closePopover, openPopover } from './popover';
+import { HELP_ITEMS, insertionFor } from './help';
 
 const STORAGE_KEY = 'permutations.v3.source';
 const ALL_LIMIT = 1000;
@@ -12,10 +20,38 @@ const DEBOUNCE_MS = 250;
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 
-// A formatter may arrive in the core later. Nothing here depends on it.
-type Formatter = (source: string, mode: 'short' | 'long' | 'auto') => string;
-const FORMATTER_EXPORT = 'format' + 'Source';
-const formatter = (core as unknown as Record<string, unknown>)[FORMATTER_EXPORT] as Formatter | undefined;
+// --- never white-screen --------------------------------------------------------
+
+function showError(message: string, offset?: number): void {
+  const box = $('error');
+  box.hidden = false;
+  box.textContent = message;
+  box.title = offset === undefined ? '' : 'Click to jump to the error';
+  box.onclick = offset === undefined ? null : () => editor.focusAt(offset);
+}
+
+function showFatal(e: unknown): void {
+  const { message } = describeError(e);
+  try {
+    showError(`Something went wrong: ${message}. Your code is unchanged.`);
+  } catch {
+    document.body.insertAdjacentText('afterbegin', `Something went wrong: ${message}`);
+  }
+}
+
+window.addEventListener('error', (ev) => showFatal(ev.error ?? ev.message));
+window.addEventListener('unhandledrejection', (ev) => showFatal(ev.reason));
+
+/** Run an event handler so that no exception escapes. */
+const safe =
+  <A extends unknown[]>(fn: (...a: A) => void) =>
+  (...a: A): void => {
+    try {
+      fn(...a);
+    } catch (e) {
+      showFatal(e);
+    }
+  };
 
 // --- state -----------------------------------------------------------------
 
@@ -24,17 +60,19 @@ let hasError = false;
 let lastLayout: Layout | undefined;
 const collapsed = new Set<string>();
 let selectedId: string | undefined;
+const multi = new Set<string>();
 let timer: number | undefined;
 let hlActive = false;
+let noticeTimer: number | undefined;
 const measure = canvasMeasure();
 
 function loadInitial(): string {
-  const m = /^#code=(.+)$/.exec(location.hash);
-  if (m) {
-    const s = decodeShare(m[1] as string);
-    if (s !== undefined) return s;
-  }
   try {
+    const m = /^#code=(.+)$/.exec(location.hash);
+    if (m) {
+      const s = decodeShare(m[1] as string);
+      if (s !== undefined) return s;
+    }
     const s = localStorage.getItem(STORAGE_KEY);
     if (s !== null && s.trim() !== '') return s;
   } catch {
@@ -43,14 +81,57 @@ function loadInitial(): string {
   return DEFAULT_PROGRAM;
 }
 
-// --- chart actions ---------------------------------------------------------
+// --- notices ---------------------------------------------------------------
+
+function notify(message: string, kind: 'info' | 'warn' = 'info'): void {
+  const n = $('notice');
+  n.className = `notice ${kind}`;
+  $('notice-text').textContent = message;
+  n.hidden = false;
+  window.clearTimeout(noticeTimer);
+  if (kind === 'info') noticeTimer = window.setTimeout(clearNotice, 20000);
+}
+
+function clearNotice(): void {
+  $('notice').hidden = true;
+  $('notice-text').textContent = '';
+}
+$('notice-close').addEventListener('click', clearNotice);
+
+// --- applying edits ----------------------------------------------------------
 
 const canEdit = (): boolean => analysis !== undefined && !hasError && editor.getText() === analysis.source;
 
-function applyEdit(result: EditResult | undefined, opts: { startEdit?: boolean } = {}): void {
-  if (!result || result.patches.length === 0) return;
+/**
+ * Apply an edit as ONE editor change (one undo step). The result is checked first: an edit that
+ * would leave a program that no longer compiles is refused with the reason. Returns an error message or undefined.
+ */
+function applyEdit(result: EditOrError | EditResult | undefined, opts: { startEdit?: boolean; focus?: Box; map?: (patches: Patch[], pos: number) => number; then?: (patches: Patch[]) => void } = {}): string | undefined {
+  if (!result) {
+    const m = 'That edit is not possible here.';
+    notify(m, 'warn');
+    return m;
+  }
+  if (failed(result)) {
+    notify(result.error, 'warn');
+    return result.error;
+  }
+  if (result.patches.length === 0) return undefined;
+  const src = editor.getText();
+  const next = applyPatches(src, result.patches);
+  try {
+    analyze(next);
+  } catch (e) {
+    const m = `That change would break the program (${describeError(e).message}), so it was not applied.`;
+    notify(m, 'warn');
+    return m;
+  }
+  clearNotice();
+  const key: FocusKey | undefined = opts.focus ? chart.focusKey(opts.focus) : chart.hasFocus() ? chart.focusKey() : document.activeElement?.closest('.popover') ? chart.lastKey() : undefined;
   editor.patch(result.patches);
   refresh();
+  if (key) chart.restoreKey(key, (n) => (opts.map ?? mapOffset)(result.patches, n));
+  opts.then?.(result.patches);
   const sel = result.select;
   if (sel && opts.startEdit) {
     const box = chart.findByRange('text', sel);
@@ -59,6 +140,7 @@ function applyEdit(result: EditResult | undefined, opts: { startEdit?: boolean }
       chart.beginEdit(box);
     }
   }
+  return undefined;
 }
 
 function selectBox(box: Box, reveal = true): void {
@@ -71,14 +153,89 @@ function selectBox(box: Box, reveal = true): void {
   updateTools();
 }
 
+function toggleRow(box: Box): void {
+  const row = chart.contextFor(box.id).row;
+  if (!row) return;
+  if (multi.size === 0) {
+    const cur = chart.contextFor(selectedId).row;
+    if (cur) multi.add(cur.id);
+  }
+  const first = chart.boxes.find((b) => b.id === [...multi][0]);
+  if (first && first.frameId !== row.frameId) multi.clear();
+  if (multi.has(row.id)) multi.delete(row.id);
+  else multi.add(row.id);
+  selectedId = row.id;
+  chart.setSelected([...multi]);
+  notify(`${multi.size} ${multi.size === 1 ? 'alternative' : 'alternatives'} selected. Use Extract to branch to move them into a new branch.`);
+  updateTools();
+}
+
+// --- popovers ---------------------------------------------------------------
+
+function anchorOf(box: Box | undefined): { left: number; top: number; right: number; bottom: number } {
+  const r = box ? chart.rectOf(box) : $('chart').getBoundingClientRect();
+  return { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
+}
+
+function focusDef(name: string): void {
+  const label = chart.boxes.find((b) => b.kind === 'defLabel' && b.name === name);
+  if (label) chart.focusBox(label.id);
+}
+
+function nameDialog(title: string, label: string, value: string, hint: string, anchor: Box | undefined, run: (name: string) => string | void, okLabel: string): void {
+  openPopover({
+    title,
+    label,
+    value,
+    hint,
+    anchor: anchorOf(anchor),
+    returnFocus: document.activeElement as HTMLElement | null,
+    actions: [
+      { label: okLabel, kind: 'primary', run: (v) => run(v.trim()) },
+      { label: 'Cancel', run: () => undefined },
+    ],
+  });
+}
+
+// --- chart actions ---------------------------------------------------------
+
+function altOf(row: Box): { node: ChoiceNode; index: number } | undefined {
+  if (!row.node || (row.node.kind !== 'group' && row.node.kind !== 'anyorder')) return undefined;
+  return { node: row.node, index: row.index ?? 0 };
+}
+
 const actions: ChartActions = {
   canEdit,
-  canRestructure: (frame) => !!frame.node && isStructurallyEditable(frame.node as ChoiceNode),
-  select: (b) => selectBox(b),
-  editText(box, value) {
+  canRestructure: (frame) => canEdit() && !!frame.node && isStructurallyEditable(frame.node as ChoiceNode, analysis?.source),
+  rowCaps(row) {
+    const a = altOf(row);
+    if (!a || !analysis) return { tag: false, guard: false, move: false };
+    const alt = alternatives(a.node)[a.index];
+    const group = a.node.kind === 'group';
+    return { move: true, tag: group && !!alt?.option && alt.count === 1, guard: group && !!alt?.option && alt.count === 1 && !alt.option.guard };
+  },
+  select(b, extend) {
+    if (extend) toggleRow(b);
+    else {
+      multi.clear();
+      selectBox(b);
+    }
+  },
+  commitText(box, value) {
+    if (!analysis || !canEdit()) return 'The code has an error, so the chart cannot edit it right now.';
+    const src = analysis.source;
+    let result: EditOrError | undefined;
+    if (box.kind === 'text') result = editText(src, box.node as TextNode, value);
+    else if (box.kind === 'empty') result = box.node?.kind === 'text' ? editText(src, box.node, value) : box.range ? fillEmpty(src, box.range, value) : undefined;
+    else if (box.kind === 'range' && box.range) result = editRange(src, box.range, value);
+    else if (box.kind === 'ref' && box.node?.kind === 'ref') result = retargetReference(src, box.node as RefNode, value);
+    return applyEdit(result, { focus: box });
+  },
+  editChip: (box) => editChip(box),
+  removeChip(box) {
     if (!analysis || !canEdit()) return;
-    if (box.kind === 'text') applyEdit(editText(analysis.source, box.node as TextNode, value));
-    else if (box.kind === 'empty' && box.range) applyEdit(fillEmpty(analysis.source, box.range, value));
+    if (box.kind === 'tag' && box.tag) applyEdit(editTag(analysis.source, box.tag, null), { focus: box });
+    else if (box.kind === 'guard' && box.guard) applyEdit(editGuard(analysis.source, box.guard, null), { focus: box });
   },
   addAlternative(frame) {
     if (!analysis || !canEdit()) return;
@@ -90,14 +247,179 @@ const actions: ChartActions = {
   },
   moveAlternative(row, delta) {
     if (!analysis || !canEdit()) return;
-    applyEdit(moveAlternative(analysis.source, row.node as ChoiceNode, row.index ?? 0, delta));
+    applyEdit(moveAlternative(analysis.source, row.node as ChoiceNode, row.index ?? 0, delta), { map: mapAfterMove });
+  },
+  addTag(row) {
+    const a = altOf(row);
+    if (!a || !analysis || !canEdit()) return;
+    const src = analysis.source;
+    openPopover({
+      title: 'Add a tag',
+      label: 'Tag',
+      value: '',
+      hint: 'A name, or name=value. Example: q or severity=5. Later guards can test it.',
+      placeholder: 'q',
+      anchor: anchorOf(row),
+      returnFocus: document.activeElement as HTMLElement | null,
+      actions: [
+        {
+          label: 'Add tag',
+          kind: 'primary',
+          run(v) {
+            const p = parseTagInput(v);
+            if ('error' in p) return p.error;
+            return applyEdit(addTag(src, a.node, a.index, p.spec));
+          },
+        },
+        { label: 'Cancel', run: () => undefined },
+      ],
+    });
+  },
+  addGuard(row) {
+    const a = altOf(row);
+    if (!a || !analysis || !canEdit()) return;
+    const src = analysis.source;
+    const known = analysis.knownTags;
+    openPopover({
+      title: 'Add a guard',
+      label: 'Guard',
+      value: '',
+      hint: 'A tag name, !name for "not set", name=value, or else. The alternative is only available when the guard holds, and the tag must be set earlier.',
+      placeholder: 'q',
+      anchor: anchorOf(row),
+      returnFocus: document.activeElement as HTMLElement | null,
+      actions: [
+        {
+          label: 'Add guard',
+          kind: 'primary',
+          run(v) {
+            const p = parseGuardInput(v);
+            if ('error' in p) return p.error;
+            const err = applyEdit(addGuard(src, a.node, a.index, p.spec));
+            if (!err && p.spec.kind === 'tag' && !known.has(p.spec.name)) {
+              notify(`No alternative sets the tag "${p.spec.name}" yet, so this guard has nothing to test. Add the tag with @ on an earlier alternative.`, 'warn');
+            }
+            return err;
+          },
+        },
+        { label: 'Cancel', run: () => undefined },
+      ],
+    });
   },
   toggleNamespace(ns) {
     if (collapsed.has(ns)) collapsed.delete(ns);
     else collapsed.add(ns);
     relayout();
   },
+  defAction: (def, action) => defAction(def, action),
+  announce: (m) => {
+    if (m) notify(m, 'warn');
+  },
 };
+
+function editChip(box: Box): void {
+  if (!analysis || !canEdit()) return;
+  const src = analysis.source;
+  const isTag = box.kind === 'tag';
+  if (isTag && !box.tag) return;
+  if (!isTag && !box.guard) return;
+  const known = analysis.knownTags;
+  openPopover({
+    title: isTag ? 'Edit tag' : 'Edit guard',
+    label: isTag ? 'Tag' : 'Guard',
+    value: isTag ? tagInputOf(box.tag!) : guardInputOf(box.guard!),
+    hint: isTag
+      ? 'A name, or name=value. Remove the tag with the Remove button.'
+      : 'A tag name, !name for "not set", name=value, or else.' + (box.note ? ' ' + box.note : ''),
+    anchor: anchorOf(box),
+    returnFocus: document.activeElement as HTMLElement | null,
+    actions: [
+      {
+        label: 'Save',
+        kind: 'primary',
+        run(v) {
+          if (isTag) {
+            const p = parseTagInput(v);
+            if ('error' in p) return p.error;
+            return applyEdit(editTag(src, box.tag!, p.spec), { focus: box });
+          }
+          const p = parseGuardInput(v);
+          if ('error' in p) return p.error;
+          const err = applyEdit(editGuard(src, box.guard!, p.spec), { focus: box });
+          if (!err && p.spec.kind === 'tag' && !known.has(p.spec.name)) notify(`No alternative sets the tag "${p.spec.name}", so this guard has nothing to test.`, 'warn');
+          return err;
+        },
+      },
+      {
+        label: 'Remove',
+        kind: 'danger',
+        run: () => applyEdit(isTag ? editTag(src, box.tag!, null) : editGuard(src, box.guard!, null), { focus: box }),
+      },
+      { label: 'Cancel', run: () => undefined },
+    ],
+  });
+}
+
+function defAction(def: Box, action: DefAction): void {
+  if (!analysis || !canEdit() || !def.name) return;
+  const src = analysis.source;
+  const name = def.name === '<main>' ? 'main' : def.name;
+  if (action === 'convert') {
+    const mode = def.form === 'long' ? 'short' : 'long';
+    runConvert(mode, [name], name);
+    return;
+  }
+  if (action === 'rename') {
+    const refs = referencesTo(src, name).length;
+    nameDialog(`Rename ${name}`, 'New name', name, `The definition and ${refs} ${refs === 1 ? 'reference' : 'references'} will change together.`, def, (v) => {
+      const r = renameDefinition(src, name, v);
+      if (failed(r)) return r.error;
+      const err = applyEdit(r, { then: () => focusDef(v) });
+      if (!err && r.patches.length) notify(`Renamed ${name} to ${v}, ${refs} ${refs === 1 ? 'reference' : 'references'} updated.`);
+      return err;
+    }, 'Rename');
+    return;
+  }
+  const r = deleteDefinition(src, name);
+  if (failed(r)) {
+    notify(r.error, 'warn');
+    openPopover({ title: `Cannot delete ${name}`, message: r.error, anchor: anchorOf(def), returnFocus: document.activeElement as HTMLElement | null, actions: [{ label: 'OK', kind: 'primary', run: () => undefined }] });
+    return;
+  }
+  openPopover({
+    title: `Delete ${name}?`,
+    message: 'Nothing refers to it. You can undo this in the code editor.',
+    anchor: anchorOf(def),
+    returnFocus: document.activeElement as HTMLElement | null,
+    actions: [
+      { label: 'Delete', kind: 'danger', run: () => applyEdit(r) },
+      { label: 'Cancel', run: () => undefined },
+    ],
+  });
+}
+
+function runConvert(mode: 'short' | 'long', names: string[] | undefined, label: string | undefined): void {
+  if (!canEdit()) {
+    notify('Fix the error in the code first, then Expand or Collapse.', 'warn');
+    return;
+  }
+  const src = editor.getText();
+  let res;
+  try {
+    res = convertForms(src, mode, names);
+  } catch (e) {
+    notify(describeError(e).message, 'warn');
+    return;
+  }
+  const skipped = skippedNotice(res.skipped);
+  const verb = mode === 'long' ? 'Expanded' : 'Collapsed';
+  if (!res.patches.length) {
+    notify(skipped || (label ? `${label} is already in ${mode} form.` : `Everything is already in ${mode} form.`), skipped ? 'warn' : 'info');
+    return;
+  }
+  const err = applyEdit({ patches: res.patches });
+  if (!err) notify(`${verb} ${res.changed.length} ${res.changed.length === 1 ? 'definition' : 'definitions'}.${skipped ? ' ' + skipped : ''}`, skipped ? 'warn' : 'info');
+}
 
 // --- chart -----------------------------------------------------------------
 
@@ -105,9 +427,24 @@ const chart = new ChartView($('chart'), actions);
 
 function relayout(): void {
   if (!analysis) return;
-  lastLayout = layout({ main: analysis.main, others: analysis.others, source: analysis.source, collapsed, measure });
+  lastLayout = layout({
+    main: analysis.main,
+    others: analysis.others,
+    source: analysis.source,
+    collapsed,
+    measure,
+    defaultDelimiter: analysis.delimiter,
+    knownTags: analysis.knownTags,
+  });
   chart.render(lastLayout);
+  const names = [...new Set(lastLayout.boxes.filter((b) => b.kind === 'guard' && b.warn && b.guard?.kind === 'tag').map((b) => (b.guard as { name: string }).name))];
+  const hints = $('chart-hints');
+  hints.hidden = names.length === 0;
+  hints.textContent = names.length
+    ? `Hint: no alternative sets ${names.map((n) => `"${n}"`).join(', ')}, so ${names.length === 1 ? 'the guard on it has' : 'guards on them have'} nothing to test. Add the tag with @ on an earlier alternative.`
+    : '';
   selectedId = undefined;
+  multi.clear();
   syncFromCursor();
   updateTools();
 }
@@ -122,33 +459,89 @@ function syncFromCursor(scroll = false): void {
   updateTools();
 }
 
+function currentExtraction(): ExtractSelection | undefined {
+  const boxes = chart.boxes;
+  if (multi.size) {
+    const rows = boxes.filter((b) => multi.has(b.id));
+    const node = rows[0]?.node;
+    if (node && (node.kind === 'group' || node.kind === 'anyorder')) return { kind: 'alts', node, indices: rows.map((r) => r.index ?? 0) };
+    return undefined;
+  }
+  const b = boxes.find((x) => x.id === selectedId);
+  if (!b) return undefined;
+  if (b.kind === 'row' && b.node && (b.node.kind === 'group' || b.node.kind === 'anyorder')) return { kind: 'alts', node: b.node, indices: [b.index ?? 0] };
+  if (b.kind === 'range') {
+    const row = chart.contextFor(b.id).row;
+    if (row?.node && (row.node.kind === 'group' || row.node.kind === 'anyorder')) return { kind: 'alts', node: row.node, indices: [row.index ?? 0] };
+    return undefined;
+  }
+  if (b.kind === 'frame' && b.node && b.node.kind !== 'seq') return { kind: 'node', node: b.node };
+  if ((b.kind === 'text' || b.kind === 'ref') && b.node) return { kind: 'node', node: b.node };
+  return undefined;
+}
+
 function updateTools(): void {
   const ctx = chart.contextFor(selectedId);
   const ok = canEdit();
   const restructure = ok && !!ctx.frame && actions.canRestructure(ctx.frame);
   const row = ctx.row;
-  const any = ctx.frame?.frameOf === 'anyorder';
+  const caps = row ? actions.rowCaps(row) : { tag: false, guard: false, move: false };
   $<HTMLButtonElement>('t-add').disabled = !restructure;
   $<HTMLButtonElement>('t-del').disabled = !(restructure && row && (row.count ?? 1) > 1);
-  $<HTMLButtonElement>('t-up').disabled = !(restructure && row && !any && (row.index ?? 0) > 0);
-  $<HTMLButtonElement>('t-down').disabled = !(restructure && row && !any && (row.index ?? 0) < (row.count ?? 1) - 1);
+  $<HTMLButtonElement>('t-up').disabled = !(restructure && row && (row.index ?? 0) > 0);
+  $<HTMLButtonElement>('t-down').disabled = !(restructure && row && (row.index ?? 0) < (row.count ?? 1) - 1);
+  $<HTMLButtonElement>('t-tag').disabled = !(restructure && caps.tag);
+  $<HTMLButtonElement>('t-guard').disabled = !(restructure && caps.guard);
+  $<HTMLButtonElement>('t-extract').disabled = !(ok && currentExtraction());
+  $<HTMLButtonElement>('t-new').disabled = !ok;
 }
 
-$('t-add').addEventListener('click', () => {
+const on = (id: string, fn: () => void): void => $(id).addEventListener('click', safe(fn));
+
+on('t-add', () => {
   const f = chart.contextFor(selectedId).frame;
   if (f) actions.addAlternative(f);
 });
-$('t-del').addEventListener('click', () => {
+on('t-del', () => {
   const r = chart.contextFor(selectedId).row;
   if (r) actions.deleteAlternative(r);
 });
-$('t-up').addEventListener('click', () => {
+on('t-up', () => {
   const r = chart.contextFor(selectedId).row;
   if (r) actions.moveAlternative(r, -1);
 });
-$('t-down').addEventListener('click', () => {
+on('t-down', () => {
   const r = chart.contextFor(selectedId).row;
   if (r) actions.moveAlternative(r, 1);
+});
+on('t-tag', () => {
+  const r = chart.contextFor(selectedId).row;
+  if (r) actions.addTag(r);
+});
+on('t-guard', () => {
+  const r = chart.contextFor(selectedId).row;
+  if (r) actions.addGuard(r);
+});
+on('t-new', () => {
+  if (!analysis || !canEdit()) return;
+  const src = analysis.source;
+  nameDialog('New branch', 'Name', uniqueName(src, 'branch'), 'Letters, digits and underscores. It is added at the end of the code in the same style as the rest.', undefined, (v) => {
+    const r = createDefinition(src, v);
+    if (failed(r)) return r.error;
+    return applyEdit(r, { then: () => focusDef(v) });
+  }, 'Create');
+});
+on('t-extract', () => {
+  if (!analysis || !canEdit()) return;
+  const sel = currentExtraction();
+  if (!sel) return;
+  const src = analysis.source;
+  const anchor = chart.boxes.find((b) => b.id === selectedId);
+  nameDialog('Extract to branch', 'Name for the new branch', uniqueName(src, 'part'), 'The selection is replaced by a reference, and the new branch is added at the end of the code.', anchor, (v) => {
+    const r = extractToBranch(src, sel, v);
+    if (failed(r)) return r.error;
+    return applyEdit(r, { then: () => focusDef(v) });
+  }, 'Extract');
 });
 
 function zoom(factor: number): void {
@@ -157,9 +550,9 @@ function zoom(factor: number): void {
   if (lastLayout) chart.render(lastLayout);
   syncFromCursor();
 }
-$('z-in').addEventListener('click', () => zoom(1.2));
-$('z-out').addEventListener('click', () => zoom(1 / 1.2));
-$('z-fit').addEventListener('click', () => {
+on('z-in', () => zoom(1.2));
+on('z-out', () => zoom(1 / 1.2));
+on('z-fit', () => {
   chart.fit = true;
   if (lastLayout) chart.render(lastLayout);
   syncFromCursor();
@@ -167,25 +560,28 @@ $('z-fit').addEventListener('click', () => {
 let resizeTimer: number | undefined;
 window.addEventListener('resize', () => {
   window.clearTimeout(resizeTimer);
-  resizeTimer = window.setTimeout(() => {
-    if (chart.fit && lastLayout) {
-      chart.render(lastLayout);
-      syncFromCursor();
-    }
-  }, 120);
+  resizeTimer = window.setTimeout(
+    safe(() => {
+      if (chart.fit && lastLayout) {
+        chart.render(lastLayout);
+        syncFromCursor();
+      }
+    }),
+    120,
+  );
 });
 
 // --- editor ----------------------------------------------------------------
 
 const editor = createEditor($('editor'), loadInitial(), {
   onChange: schedule,
-  onCursor() {
+  onCursor: safe(() => {
     if (hlActive) {
       hlActive = false;
       queueMicrotask(() => editor.highlight(null));
     }
     syncFromCursor(true);
-  },
+  }),
 });
 
 function schedule(): void {
@@ -210,13 +606,10 @@ function refresh(): void {
   try {
     next = analyze(src);
   } catch (e) {
+    // Any error, not only the compiler's own, lands here and keeps the last good chart.
     const { message, offset } = describeError(e);
     hasError = true;
-    const box = $('error');
-    box.hidden = false;
-    box.textContent = message;
-    box.title = 'Click to jump to the error';
-    box.onclick = offset === undefined ? null : () => editor.focusAt(offset);
+    showError(message, offset);
     editor.error(offset ?? null);
     $('stale').hidden = !analysis;
     if (!analysis) chart.render(emptyLayout());
@@ -228,10 +621,15 @@ function refresh(): void {
   $('error').hidden = true;
   $('stale').hidden = true;
   editor.error(null);
-  relayout();
-  renderCount();
-  renderSamples();
-  resetAll();
+  try {
+    relayout();
+    renderCount();
+    renderSamples();
+    resetAll();
+  } catch (e) {
+    hasError = true;
+    showFatal(e);
+  }
 }
 
 function emptyLayout(): Layout {
@@ -289,7 +687,7 @@ function resetAll(): void {
   }
   const label = c > BigInt(ALL_LIMIT) ? `List the first ${formatCount(BigInt(ALL_LIMIT))}` : `List all ${formatCount(c)}`;
   intro.innerHTML = `<span>This program has <strong>${formatCount(c)}</strong> ${c === 1n ? 'permutation' : 'permutations'}.</span><button id="b-list" type="button" class="primary">${label}</button>`;
-  $('b-list').addEventListener('click', listAll);
+  $('b-list').addEventListener('click', safe(listAll));
 }
 
 function listAll(): void {
@@ -309,9 +707,9 @@ function showTab(which: 'random' | 'all'): void {
   $('tab-random').setAttribute('aria-selected', String(which === 'random'));
   $('tab-all').setAttribute('aria-selected', String(which === 'all'));
 }
-$('tab-random').addEventListener('click', () => showTab('random'));
-$('tab-all').addEventListener('click', () => showTab('all'));
-$('b-new').addEventListener('click', renderSamples);
+on('tab-random', () => showTab('random'));
+on('tab-all', () => showTab('all'));
+on('b-new', renderSamples);
 
 // --- toolbar ---------------------------------------------------------------
 
@@ -322,39 +720,77 @@ function toast(msg: string): void {
   window.setTimeout(() => t.classList.remove('show'), 2200);
 }
 
-$('b-share').addEventListener('click', async () => {
-  const url = `${location.origin}${location.pathname}#code=${encodeShare(editor.getText())}`;
-  history.replaceState(null, '', url);
-  try {
-    await navigator.clipboard.writeText(url);
-    toast('Link copied');
-  } catch {
-    const ta = document.createElement('textarea');
-    ta.value = url;
-    document.body.appendChild(ta);
-    ta.select();
-    const ok = document.execCommand('copy');
-    ta.remove();
-    toast(ok ? 'Link copied' : 'Copy failed. The link is in the address bar.');
-  }
-});
-$('b-reset').addEventListener('click', () => editor.setText(DEFAULT_PROGRAM));
-
-if (formatter) {
-  const run = (mode: 'long' | 'short'): void => {
-    const src = editor.getText();
+$('b-share').addEventListener(
+  'click',
+  safe(async () => {
+    const url = `${location.origin}${location.pathname}#code=${encodeShare(editor.getText())}`;
+    history.replaceState(null, '', url);
     try {
-      const r = replaceAll(src, formatter(src, mode));
-      if (r.patches.length) editor.patch(r.patches);
-    } catch (e) {
-      toast(describeError(e).message);
+      await navigator.clipboard.writeText(url);
+      toast('Link copied');
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = url;
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand('copy');
+      ta.remove();
+      toast(ok ? 'Link copied' : 'Copy failed. The link is in the address bar.');
     }
-  };
-  $('b-expand').hidden = false;
-  $('b-collapse').hidden = false;
-  $('b-expand').addEventListener('click', () => run('long'));
-  $('b-collapse').addEventListener('click', () => run('short'));
-}
+  }),
+);
+on('b-reset', () => editor.setText(DEFAULT_PROGRAM));
+on('b-expand', () => runConvert('long', undefined, undefined));
+on('b-collapse', () => runConvert('short', undefined, undefined));
 
+// --- syntax help -------------------------------------------------------------
+
+function buildHelp(): void {
+  const list = $('help-list');
+  list.textContent = '';
+  for (const h of HELP_ITEMS) {
+    const li = document.createElement('li');
+    const title = document.createElement('strong');
+    title.textContent = h.title;
+    const text = document.createElement('span');
+    text.textContent = h.text;
+    const code = document.createElement('code');
+    code.textContent = h.snippet.trimEnd();
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = 'Insert';
+    btn.setAttribute('aria-label', `Insert ${h.title} snippet into the code`);
+    btn.addEventListener(
+      'click',
+      safe(() => {
+        const sel = editor.view.state.selection.main;
+        const ins = insertionFor(h, editor.getText(), sel.from, sel.to);
+        editor.view.dispatch({ changes: { from: ins.from, to: ins.to, insert: ins.insert }, selection: { anchor: ins.cursor }, scrollIntoView: true, userEvent: 'input.snippet' });
+        toast(`Inserted ${h.title.toLowerCase()}`);
+      }),
+    );
+    li.append(title, text, code, btn);
+    list.appendChild(li);
+  }
+}
+buildHelp();
+
+function setHelp(open: boolean): void {
+  $('help').hidden = !open;
+  $('b-help').setAttribute('aria-expanded', String(open));
+  if (open) $('help-close').focus();
+  else $('b-help').focus();
+}
+on('b-help', () => setHelp($('help').hidden !== false));
+on('help-close', () => setHelp(false));
+$('help').addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') setHelp(false);
+});
+
+// --- start -----------------------------------------------------------------
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closePopover();
+});
 refresh();
 showTab('random');

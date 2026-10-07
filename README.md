@@ -18,7 +18,7 @@ Hello friend!
 |---|---|
 | Parser (short form), engine, counting, uniform sampling, CLI | working, tested |
 | Long form, `perm fmt` | working, tested (round trips checked) |
-| Web app: three panes, live flow chart, chart edits as text patches | working (`web/`), see below |
+| Web app: flow chart, code, examples; chart edits are text patches in both short and long form; rename, extract to branch, new/delete branch, tag and guard chips, range boxes, Expand and Collapse, syntax help, keyboard access | working (`web/`) |
 
 ## Use
 
@@ -33,11 +33,14 @@ Web app:
 
 ```bash
 cd web && npm install && npm run dev   # http://localhost:5173
-npm test                               # layout and patch tests
+npm test                               # layout, patch, definition and navigation tests
+npm run typecheck && npm run build     # checks, then dist/
 ```
 
-Not built yet in the web app: renaming or creating definitions from the chart, editing tag
-and guard chips, and the Expand and Collapse buttons (they appear once wired to `formatSource`).
+The chart edits the code, never regenerates it: every change is a text patch (one undo step) that
+keeps your comments, spacing and indentation. Keyboard: arrows move between boxes, Enter edits,
+Delete removes, Alt+Up/Down reorders, `+` adds, `t` and `g` add a tag or guard, Space selects for
+Extract to branch. Imports (`use`, `from`) need a loader and are not available in the browser.
 
 As a library:
 

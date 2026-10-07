@@ -6,7 +6,8 @@
 // labelled BRANCHES, then every other named definition. Dashed curved edges run from each
 // reference pill to the definition it names.
 
-import type { AnyOrderNode, GroupNode, Node, Option, Range, SeqNode } from '../../src/core/types';
+import type { AnyOrderNode, GroupNode, Guard, Node, Option, Range, SeqNode, Tag } from '../../src/core/types';
+import { Alt, alternatives, isRangeText } from './patch';
 import { trimRange } from './ranges';
 
 export type BoxKind =
@@ -22,6 +23,7 @@ export type BoxKind =
   | 'empty'
   | 'tag'
   | 'guard'
+  | 'range'
   | 'transform'
   | 'repeat'
   | 'anyorder'
@@ -29,7 +31,7 @@ export type BoxKind =
 
 /** Boxes that hold content. Containers (def, frame, row) may enclose these. */
 export const LEAF_KINDS: ReadonlySet<BoxKind> = new Set<BoxKind>([
-  'defLabel', 'nsHeader', 'sectionLabel', 'text', 'ref', 'value', 'empty', 'tag', 'guard', 'transform', 'repeat', 'anyorder', 'delimiter',
+  'defLabel', 'nsHeader', 'sectionLabel', 'text', 'range', 'ref', 'value', 'empty', 'tag', 'guard', 'transform', 'repeat', 'anyorder', 'delimiter',
 ]);
 
 export interface Box {
@@ -62,6 +64,17 @@ export interface Box {
   target?: string;
   /** Defs and def labels: the definition name. */
   name?: string;
+  /** Defs: the syntax the definition is written in. */
+  form?: 'short' | 'long';
+  /** Tag and guard chips: the syntax node they stand for. */
+  tag?: Tag;
+  guard?: Guard;
+  /** Chips that deserve a warning style (a huge any-order group, a guard nobody sets). */
+  warn?: boolean;
+  /** Explains `warn`. */
+  note?: string;
+  /** Range boxes: how many values the range stands for. */
+  values?: number;
 }
 
 export interface Pt {
@@ -78,6 +91,8 @@ export interface Edge {
   to: string | null;
   /** Polyline, or for kind 'ref' four points of a cubic Bezier. */
   points: Pt[];
+  /** Text drawn on the edge, such as the delimiter that joins what the edge connects. */
+  label?: string;
 }
 
 export interface Layout {
@@ -94,6 +109,7 @@ export interface LDef {
   name: string;
   body: Node;
   range: Range;
+  form?: 'short' | 'long';
 }
 
 export type Measure = (text: string, kind: BoxKind) => number;
@@ -106,6 +122,10 @@ export interface LayoutInput {
   /** Namespaces drawn collapsed. */
   collapsed?: ReadonlySet<string>;
   measure?: Measure;
+  /** The delimiter that needs no label (the program's own). */
+  defaultDelimiter?: string;
+  /** Names of every tag some option sets. A guard on any other name gets a hint. */
+  knownTags?: ReadonlySet<string>;
 }
 
 export const M = {
@@ -125,6 +145,7 @@ export const M = {
   defPad: 16,
   defLabelH: 22,
   defGap: 28,
+  defControlsW: 190,
   maxTextW: 300,
 };
 
@@ -154,6 +175,8 @@ interface ChainItem {
   b: Block;
   gapBefore: number;
   link: boolean;
+  /** Delimiter drawn on the link edge that joins this item to the previous one. */
+  label?: string;
 }
 
 export function layout(input: LayoutInput): Layout {
@@ -217,7 +240,7 @@ export function layout(input: LayoutInput): Layout {
           const p = it.b.place(cx, y + above - it.b.cy);
           if (i === 0) first = p.first;
           else if (it.link) {
-            edges.push({
+            const e: Edge = {
               id: nid('e'),
               kind: 'flow',
               from: last,
@@ -226,7 +249,9 @@ export function layout(input: LayoutInput): Layout {
                 { x: prevEnd, y: y + above },
                 { x: cx, y: y + above },
               ],
-            });
+            };
+            if (it.label !== undefined) e.label = it.label;
+            edges.push(e);
           }
           last = p.last;
           cx += it.b.w;
@@ -243,12 +268,27 @@ export function layout(input: LayoutInput): Layout {
   const guardLabel = (g: NonNullable<Option['guard']>): string =>
     g.kind === 'else' ? '@else:' : '@' + (g.negate ? '!' : '') + g.name + (g.value !== undefined ? '=' + g.value : '') + ':';
   const delimLabel = (d: string): string => 'delimiter ' + JSON.stringify(d);
+  const defaultDelim = input.defaultDelimiter ?? ' ';
+  const knownTags = input.knownTags;
+  /** The delimiter in force below a node that sets `own`, or undefined when it is the default (nothing to label). */
+  const effective = (own: string | undefined, inherited: string | undefined): string | undefined =>
+    own === undefined ? inherited : own === defaultDelim ? undefined : own;
+  const edgeText = (d: string): string => {
+    const j = JSON.stringify(d);
+    return j.length > 9 ? j.slice(0, 7) + '…"' : j;
+  };
+  const fact = (n: number): bigint => {
+    let r = 1n;
+    for (let i = 2n; i <= BigInt(n); i++) r *= i;
+    return r;
+  };
 
   // --- nodes ---------------------------------------------------------------
 
-  const nodeBlock = (node: Node): Block => {
+  const nodeBlock = (node: Node, d?: string): Block => {
     switch (node.kind) {
       case 'text':
+        if (node.value === '') return leaf('empty', 'empty', { range: trim(node.range), node });
         return leaf('text', node.value, { range: node.range, node });
       case 'ref': {
         const label = '$' + node.path;
@@ -256,44 +296,85 @@ export function layout(input: LayoutInput): Layout {
         return leaf('value', label, { range: node.range, node });
       }
       case 'seq':
-        return seqBlock(node);
+        return seqBlock(node, d);
       case 'group':
-        return choiceBlock(node);
+        return choiceBlock(node, d);
       case 'anyorder':
-        return choiceBlock(node);
+        return choiceBlock(node, d);
       case 'repeat': {
         const label = node.min === node.max ? `×${node.min}` : `×${node.min}..${node.max}`;
         const chips: Block[] = [chip('repeat', label, { range: node.range, node })];
         if (node.delimiter !== undefined) chips.push(chip('delimiter', delimLabel(node.delimiter), { range: node.range, node }));
-        return wrapper(nodeBlock(node.inner), chips, 'repeat', node);
+        return wrapper(nodeBlock(node.inner, d), chips, 'repeat', node);
       }
       case 'transform': {
         const label = node.fns.length > 1 ? ':[' + node.fns.join('|') + ']' : ':' + node.fns[0];
-        return wrapper(nodeBlock(node.inner), [chip('transform', label, { range: node.range, node })], 'transform', node);
+        return wrapper(nodeBlock(node.inner, d), [chip('transform', label, { range: node.range, node })], 'transform', node);
       }
     }
   };
 
-  const seqItems = (seq: SeqNode, fallbackRange: Range): ChainItem[] => {
+  const seqItems = (seq: SeqNode, fallbackRange: Range, d?: string): ChainItem[] => {
     if (seq.pieces.length === 0) return [{ b: leaf('empty', 'empty', { range: trim(fallbackRange), node: seq }), gapBefore: 0, link: false }];
-    return seq.pieces.map((p, i) => ({ b: nodeBlock(p.node), gapBefore: M.gap, link: i > 0 }));
+    const here = effective(seq.joinDelim, d);
+    const inner = effective(seq.scopeDelim, d);
+    return seq.pieces.map((p, i) => {
+      const item: ChainItem = { b: nodeBlock(p.node, inner), gapBefore: M.gap, link: i > 0 };
+      if (i > 0 && p.join && here !== undefined) {
+        const label = edgeText(here);
+        item.label = label;
+        item.gapBefore = Math.max(M.gap, Math.ceil(measure(label, 'delimiter')) + 14);
+      }
+      return item;
+    });
   };
 
-  const seqBlock = (seq: SeqNode): Block => {
-    const items = seqItems(seq, seq.range);
+  const seqBlock = (seq: SeqNode, d?: string): Block => {
+    const items = seqItems(seq, seq.range, d);
     return items.length === 1 ? (items[0] as ChainItem).b : chain(items);
   };
 
   /** One row of a choice: optional guard chip, the sequence, then tag chips. */
-  const rowContent = (seq: SeqNode, range: Range, opt?: Option): Block => {
+  const rowContent = (alt: Alt, d?: string): Block => {
+    const opt = alt.option;
+    const range = alt.range;
     const items: ChainItem[] = [];
-    if (opt?.guard) items.push({ b: chip('guard', guardLabel(opt.guard), { range: trim(range) }), gapBefore: 0, link: false });
-    const body = seqItems(seq, range);
+    if (opt?.guard) {
+      const g = opt.guard;
+      const extra: Partial<Box> = { range: g.range ?? trim(range), guard: g };
+      if (g.kind === 'tag' && !g.negate && knownTags && !knownTags.has(g.name)) {
+        extra.warn = true;
+        extra.note = `No alternative sets the tag "${g.name}", so this guard can never match.`;
+      } else if (g.kind === 'tag' && knownTags && !knownTags.has(g.name)) {
+        extra.warn = true;
+        extra.note = `No alternative sets the tag "${g.name}", so this guard always matches.`;
+      }
+      items.push({ b: chip('guard', guardLabel(g), extra), gapBefore: 0, link: false });
+    }
+    const rangeText = rangeLabel(alt);
+    const body: ChainItem[] =
+      rangeText !== undefined
+        ? [{ b: leaf('range', rangeText, { range: trim(range), values: alt.count, ...(alt.option ? { node: alt.option.seq } : {}) }), gapBefore: 0, link: false }]
+        : seqItems(alt.seq, range, d);
     body.forEach((it, i) => {
       items.push(i === 0 && items.length > 0 ? { ...it, gapBefore: M.chipGap, link: false } : it);
     });
-    for (const t of opt?.tags ?? []) items.push({ b: chip('tag', tagLabel(t), { range: trim(range) }), gapBefore: M.chipGap, link: false });
+    for (const t of opt?.tags ?? []) items.push({ b: chip('tag', tagLabel(t), { range: t.range ?? trim(range), tag: t }), gapBefore: M.chipGap, link: false });
     return chain(items);
+  };
+
+  /** The source text of a range alternative such as `0..9`, or undefined for ordinary alternatives. */
+  const rangeLabel = (alt: Alt): string | undefined => {
+    if (!alt.option) return undefined;
+    const first = alt.option.seq.pieces[0]?.node;
+    if (first?.kind !== 'text' || alt.option.seq.pieces.length !== 1) return undefined;
+    if (source !== undefined) {
+      const t = trim(alt.range);
+      const text = source.slice(t[0], t[1]);
+      if (isRangeText(text) && (alt.count > 1 || text !== first.value)) return text;
+      return undefined;
+    }
+    return alt.count > 1 ? first.value + '..' : undefined;
   };
 
   const wrapper = (inner: Block, chips: Block[], frameOf: 'repeat' | 'transform', node: Node): Block => {
@@ -322,17 +403,26 @@ export function layout(input: LayoutInput): Layout {
     };
   };
 
-  const choiceBlock = (node: GroupNode | AnyOrderNode): Block => {
+  const choiceBlock = (node: GroupNode | AnyOrderNode, inherited?: string): Block => {
     const isAny = node.kind === 'anyorder';
-    const alts: { seq: SeqNode; range: Range; opt?: Option }[] = isAny
-      ? node.items.map((s) => ({ seq: s, range: s.range }))
-      : node.options.map((o) => ({ seq: o.seq, range: o.range, opt: o }));
+    const d = effective(node.delimiter, inherited);
+    const alts = alternatives(node);
     const rows = alts.map((a) => {
-      const content = rowContent(a.seq, a.range, a.opt);
+      const content = rowContent(a, d);
       return { content, w: content.w + M.rowPadX * 2, h: content.h + M.rowPadY * 2, cy: content.cy + M.rowPadY, range: trim(a.range) };
     });
     const chips: Block[] = [];
-    if (isAny) chips.push(chip('anyorder', 'any order', { range: node.range, node }));
+    if (isAny) {
+      const n = node.items.length;
+      const big = n > 7;
+      const label = `${big ? '\u26A0 ' : ''}any order \u00B7 ${n}! = ${fact(n).toLocaleString('en-US')}`;
+      const extra: Partial<Box> = { range: node.range, node };
+      if (big) {
+        extra.warn = true;
+        extra.note = `${n} items give ${fact(n).toLocaleString('en-US')} orderings. Consider fewer items.`;
+      }
+      chips.push(chip('anyorder', label, extra));
+    }
     if (node.delimiter !== undefined) chips.push(chip('delimiter', delimLabel(node.delimiter), { range: node.range, node }));
     const chipsW = chips.reduce((a, c, i) => a + c.w + (i ? M.chipGap : 0), 0);
     const rowsW = rows.reduce((a, r) => Math.max(a, r.w), 0);
@@ -370,7 +460,18 @@ export function layout(input: LayoutInput): Layout {
           edges.push({ id: nid('e'), kind: 'flow', from: p.last, to: id, points: [{ x: rx + M.rowPadX + r.content.w, y: sy }, { x: x + w, y: sy }] });
         });
         if (rows.length > 1) {
-          edges.push({ id: nid('e'), kind: 'rail', from: id, to: id, points: [{ x, y: y + firstCy }, { x, y: y + lastCy }] });
+          if (isAny && d !== undefined) {
+            // The delimiter joins the items: label each stretch of the left rail between two rows.
+            rows.forEach((r, i) => {
+              if (i === 0) return;
+              const prev = rows[i - 1] as (typeof rows)[number];
+              const y0 = y + (offsets[i - 1] as number) + prev.cy;
+              const y1 = y + (offsets[i] as number) + r.cy;
+              edges.push({ id: nid('e'), kind: 'rail', from: id, to: id, points: [{ x, y: y0 }, { x, y: y1 }], label: edgeText(d) });
+            });
+          } else {
+            edges.push({ id: nid('e'), kind: 'rail', from: id, to: id, points: [{ x, y: y + firstCy }, { x, y: y + lastCy }] });
+          }
           edges.push({ id: nid('e'), kind: 'rail', from: id, to: id, points: [{ x: x + w, y: y + firstCy }, { x: x + w, y: y + lastCy }] });
         }
         return { first: id, last: id };
@@ -390,7 +491,7 @@ export function layout(input: LayoutInput): Layout {
   const defBlock = (def: LDef, label: string): DefBlock => {
     const body = nodeBlock(def.body);
     const title = leaf('defLabel', label, { name: def.name, range: def.range });
-    const w = Math.max(title.w, body.w) + M.defPad * 2;
+    const w = Math.max(title.w + 24 + M.defControlsW, body.w) + M.defPad * 2;
     const h = M.defPad + title.h + 10 + body.h + M.defPad;
     return {
       name: def.name,
@@ -398,7 +499,7 @@ export function layout(input: LayoutInput): Layout {
       h,
       place(x, y) {
         const id = nid('d');
-        boxes.push({ id, kind: 'def', x, y, w, h, label, full: label, name: def.name, range: def.range });
+        boxes.push({ id, kind: 'def', x, y, w, h, label, full: label, name: def.name, range: def.range, ...(def.form ? { form: def.form } : {}) });
         title.place(x + M.defPad, y + M.defPad);
         body.place(x + M.defPad, y + M.defPad + title.h + 10);
         return id;

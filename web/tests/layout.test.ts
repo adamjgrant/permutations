@@ -7,7 +7,7 @@ const overlap = (a: Box, b: Box): boolean => a.x < b.x + b.w && b.x < a.x + a.w 
 
 function build(src: string, collapsed: string[] = []) {
   const a = analyze(src);
-  return { a, l: layout({ main: a.main, others: a.others, source: src, collapsed: new Set(collapsed) }) };
+  return { a, l: layout({ main: a.main, others: a.others, source: src, collapsed: new Set(collapsed), defaultDelimiter: a.delimiter, knownTags: a.knownTags }) };
 }
 
 const find = (boxes: Box[], pred: (b: Box) => boolean): Box => {
@@ -169,4 +169,75 @@ test('long text is shortened, never wider than the cap', () => {
 test('share links round trip unicode', () => {
   const s = 'main = [héllo|日本語] $x\nx = ✓';
   assert.equal(decodeShare(encodeShare(s)), s);
+});
+
+test('a range is one box labelled with its source text, not one row per value', () => {
+  const { l } = build('main = #[0..9|A..F]{6}');
+  const ranges = l.boxes.filter((b) => b.kind === 'range');
+  assert.deepEqual(ranges.map((b) => b.label), ['0..9', 'A..F']);
+  assert.deepEqual(ranges.map((b) => b.values), [10, 6]);
+  assert.equal(l.boxes.filter((b) => b.kind === 'row').length, 2);
+  assert.ok(!l.boxes.some((b) => b.kind === 'text' && /^[0-9A-F]$/.test(b.label)));
+  assert.equal(ranges[0]!.range![1] - ranges[0]!.range![0], 4);
+  assertNoOverlap(l.boxes);
+});
+
+test('any order shows n! and warns above seven items', () => {
+  const small = build('main = [a & b & c]').l.boxes.find((b) => b.kind === 'anyorder')!;
+  assert.match(small.label, /any order . 3! = 6/);
+  assert.ok(!small.warn);
+  const eight = build('main = [a & b & c & d & e & f & g & h]').l.boxes.find((b) => b.kind === 'anyorder')!;
+  assert.match(eight.label, /8! = 40,320/);
+  assert.equal(eight.warn, true);
+  const seven = build('main = [a & b & c & d & e & f & g]').l.boxes.find((b) => b.kind === 'anyorder')!;
+  assert.ok(!seven.warn);
+});
+
+test('a non-default delimiter is labelled on the edges inside the group', () => {
+  const { l } = build('main = [$a $b $c; delimiter="-"] x\na = 1\nb = 2\nc = 3');
+  const labelled = l.edges.filter((e) => e.label !== undefined);
+  assert.equal(labelled.length, 2, 'two joins inside the group, none outside it');
+  assert.ok(labelled.every((e) => e.label === '"-"'));
+  assert.ok(l.boxes.some((b) => b.kind === 'delimiter'), 'the header chip stays');
+  const plain = build('main = [$a $b $c] x\na = 1\nb = 2\nc = 3').l;
+  assert.ok(plain.edges.every((e) => e.label === undefined));
+  const any = build('main = [p & q & r; delimiter=", "]').l;
+  assert.equal(any.edges.filter((e) => e.label === '", "').length, 2, 'between the three rows');
+  const same = build('main = [$a $b; delimiter=" "]\na = 1\nb = 2').l;
+  assert.ok(same.edges.every((e) => e.label === undefined), 'the default delimiter needs no label');
+});
+
+test('long-form programs lay out like short ones, with forms recorded on the cards', () => {
+  const src = 'branch main\n  Excuse me,\n  one of\n    sequence\n      what\n      tag q\n    that\n  one of\n    when q\n      ?\n    otherwise\n      .\n\nshort = [a|b]\n';
+  const { l } = build(src);
+  assert.equal(l.boxes.find((b) => b.kind === 'def' && b.name === 'main')!.form, 'long');
+  assert.equal(l.boxes.find((b) => b.kind === 'def' && b.name === 'short')!.form, 'short');
+  const tag = l.boxes.find((b) => b.kind === 'tag')!;
+  assert.equal(src.slice(...tag.range!), 'tag q');
+  const guard = l.boxes.find((b) => b.kind === 'guard' && b.label === '@q:')!;
+  assert.equal(src.slice(...guard.range!), 'when q');
+  assert.ok(l.boxes.some((b) => b.kind === 'guard' && b.label === '@else:'));
+  assertNoOverlap(l.boxes);
+});
+
+test('tag and guard chips cover exactly their own source text', () => {
+  const src = 'main = [what @q|that] is [@q: ? | @else: .]';
+  const { l } = build(src);
+  assert.equal(src.slice(...l.boxes.find((b) => b.kind === 'tag')!.range!), '@q');
+  assert.equal(src.slice(...l.boxes.find((b) => b.kind === 'guard' && b.label === '@q:')!.range!), '@q:');
+});
+
+test('a guard on a tag nobody sets is flagged', () => {
+  const { l } = build('main = [@zz: a|b] [x @q|y] [@q: c|d]');
+  const zz = l.boxes.find((b) => b.kind === 'guard' && b.label === '@zz:')!;
+  assert.equal(zz.warn, true);
+  assert.match(zz.note!, /zz/);
+  assert.ok(!l.boxes.find((b) => b.kind === 'guard' && b.label === '@q:')!.warn);
+});
+
+test('definition cards leave room for their controls', () => {
+  const { l } = build('main = $s\ns = [one|two]');
+  const d = l.boxes.find((b) => b.kind === 'def' && b.name === 's')!;
+  const label = l.boxes.find((b) => b.kind === 'defLabel' && b.name === 's')!;
+  assert.ok(d.x + d.w - (label.x + label.w) >= 150);
 });
