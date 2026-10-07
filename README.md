@@ -18,7 +18,7 @@ Hello friend!
 |---|---|
 | Parser (short form), engine, counting, uniform sampling, CLI | working, tested |
 | Long form, `perm fmt` | working, tested (round trips checked) |
-| Web app and editable flow chart | not started |
+| Web app: three panes, live flow chart, chart edits as text patches | working (`web/`), see below |
 
 ## Use
 
@@ -28,6 +28,16 @@ npm run build
 node dist/cli.js 'Hello [world|friend]!' -n 5
 node dist/cli.js file.perm --count
 ```
+
+Web app:
+
+```bash
+cd web && npm install && npm run dev   # http://localhost:5173
+npm test                               # layout and patch tests
+```
+
+Not built yet in the web app: renaming or creating definitions from the chart, editing tag
+and guard chips, and the Expand and Collapse buttons (they appear once wired to `formatSource`).
 
 As a library:
 

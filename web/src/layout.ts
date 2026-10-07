@@ -251,7 +251,7 @@ export function layout(input: LayoutInput): Layout {
       case 'text':
         return leaf('text', node.value, { range: node.range, node });
       case 'ref': {
-        const label = (node.splat ? '*$' : '$') + node.path;
+        const label = '$' + node.path;
         if (node.target?.kind === 'def') return leaf('ref', label, { range: node.range, node, target: node.target.def.name });
         return leaf('value', label, { range: node.range, node });
       }
