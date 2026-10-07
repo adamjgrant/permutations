@@ -128,11 +128,11 @@ test('reorder works with an empty alternative', () => {
   assert.equal(out, 'main = [|a|b]');
 });
 
-test('range-expanded groups are read-only', () => {
+test('range-expanded groups edit as one alternative per range', () => {
   const src = 'main = [1..4]';
   const g = groups(src)[0]!;
-  assert.equal(addAlternative(src, g), undefined);
-  assert.equal(deleteAlternative(src, g, 0), undefined);
+  assert.equal(run(src, addAlternative(src, g)), 'main = [1..4|new]');
+  assert.equal(deleteAlternative(src, g, 0), undefined, 'a range alone cannot be deleted');
   assert.equal(moveAlternative(src, g, 0, 1), undefined);
 });
 

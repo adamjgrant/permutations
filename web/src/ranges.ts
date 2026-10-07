@@ -40,3 +40,44 @@ export function isAtLineStart(src: string, offset: number): boolean {
   }
   return true;
 }
+
+/** Offset of the first character of the line containing `offset`. */
+export function lineStart(src: string, offset: number): number {
+  const i = src.lastIndexOf('\n', offset - 1);
+  return i === -1 ? 0 : i + 1;
+}
+
+/** Offset of the newline that ends the line containing `offset` (or the end of the source). */
+export function lineEnd(src: string, offset: number): number {
+  const i = src.indexOf('\n', offset);
+  return i === -1 ? src.length : i;
+}
+
+/** Leading whitespace of the line containing `offset`. */
+export function indentOf(src: string, offset: number): string {
+  const s = lineStart(src, offset);
+  const m = /^[ \t]*/.exec(src.slice(s, lineEnd(src, s))) as RegExpExecArray;
+  return m[0];
+}
+
+/** True when nothing but whitespace follows `offset` on its line. */
+export function isAtLineEnd(src: string, offset: number): boolean {
+  return src.slice(offset, lineEnd(src, offset)).trim() === '';
+}
+
+/**
+ * The indentation unit this file uses for long-form blocks: the extra indent of the first
+ * indented line under a `branch` header. Falls back to two spaces.
+ */
+export function indentUnit(src: string): string {
+  const lines = src.split('\n');
+  for (let i = 0; i < lines.length - 1; i++) {
+    const head = /^([ \t]*)branch[ \t]+\S/.exec(lines[i] as string);
+    if (!head) continue;
+    const next = lines[i + 1] as string;
+    if (next.trim() === '') continue;
+    const lead = (/^[ \t]*/.exec(next) as RegExpExecArray)[0];
+    if (lead.length > (head[1] as string).length && lead.startsWith(head[1] as string)) return lead.slice((head[1] as string).length);
+  }
+  return '  ';
+}

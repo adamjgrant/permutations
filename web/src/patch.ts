@@ -3,11 +3,14 @@
 // characters it needs to. Patch offsets all index into the same original source, so a
 // list of patches is non-overlapping and can be handed straight to CodeMirror.
 //
-// A later "Expand" / "Collapse" button can call a formatter and feed the result through
-// `replaceAll`, which is expressed as a single patch too.
+// Both syntaxes are handled. Short form edits work inside `[a|b]` and `a = x | y`; long form
+// edits work on whole lines under `one of` and `any order`, copying the file's own indentation.
+// Whole-file conversion (`replaceAll`, and `convertForms` in defs.ts) is one patch too.
 
-import type { AnyOrderNode, GroupNode, TextNode } from '../../src/core/types';
-import { escapeText, isAtLineStart, Range, trimRange } from './ranges';
+import { isReservedLine } from '../../src/core/longform';
+import { parseModule } from '../../src/core/parser';
+import type { AnyOrderNode, GroupNode, Option, SeqNode, Tag, TextNode, Guard } from '../../src/core/types';
+import { escapeText, indentOf, indentUnit, isAtLineEnd, isAtLineStart, lineEnd, lineStart, Range, trimRange } from './ranges';
 
 export interface Patch {
   from: number;
@@ -39,43 +42,152 @@ export function mapOffset(patches: Patch[], pos: number): number {
   return pos + delta;
 }
 
-/** Replace the whole document (for a future formatter button). */
+/** Replace the whole document. */
 export function replaceAll(src: string, next: string): EditResult {
   if (src === next) return { patches: [] };
   return { patches: [{ from: 0, to: src.length, insert: next }] };
 }
 
-// --- choices ---------------------------------------------------------------
-
-/** Ranges of alternatives. Anyorder items and group options both expose seq + range. */
-function alternativeRanges(node: ChoiceNode): Range[] {
-  return node.kind === 'group' ? node.options.map((o) => o.range) : node.items.map((s) => s.range);
+/** One patch covering only the span that differs (common prefix and suffix are kept). */
+export function diffPatch(src: string, next: string): Patch | undefined {
+  if (src === next) return undefined;
+  let a = 0;
+  const max = Math.min(src.length, next.length);
+  while (a < max && src[a] === next[a]) a++;
+  let b = 0;
+  while (b < max - a && src[src.length - 1 - b] === next[next.length - 1 - b]) b++;
+  return { from: a, to: src.length - b, insert: next.slice(a, next.length - b) };
 }
 
+/** Merge deletions that touch or overlap so the list stays non-overlapping. */
+function normalizeDeletes(patches: Patch[]): Patch[] {
+  const sorted = [...patches].sort((a, b) => a.from - b.from || a.to - b.to);
+  const out: Patch[] = [];
+  for (const p of sorted) {
+    const last = out[out.length - 1];
+    if (last && p.insert === '' && last.insert === '' && p.from <= last.to) last.to = Math.max(last.to, p.to);
+    else out.push({ ...p });
+  }
+  return out;
+}
+
+// --- which form is this written in ---------------------------------------------
+
+let formCache: { src: string; defs: { range: Range; form: 'short' | 'long' }[] } | undefined;
+
+/** The syntax (short or long) of the definition that holds `offset`. */
+export function formAt(src: string, offset: number): 'short' | 'long' {
+  if (formCache?.src !== src) {
+    try {
+      const { module } = parseModule(src, '<patch>');
+      const defs = [...module.defs.values()].map((d) => ({ range: d.range, form: d.form }));
+      if (module.anonymous) defs.push({ range: module.anonymous.range, form: 'short' });
+      formCache = { src, defs };
+    } catch {
+      formCache = { src, defs: [] };
+    }
+  }
+  const d = formCache.defs.find((x) => offset >= x.range[0] && offset <= x.range[1]);
+  return d?.form ?? 'short';
+}
+
+export type ChoiceForm = 'short' | 'long' | 'opaque';
+
 /**
- * Structural edits need one distinct source range per alternative. Range expansion
- * (`[1..6]`) makes many alternatives share one range, so those are read-only.
+ * `long` for `one of` / `any order` blocks, `short` for bracket groups and bare `a | b`,
+ * `opaque` for the implicit choice a long definition gets when it carries tags.
  */
-export function isStructurallyEditable(node: ChoiceNode): boolean {
+export function choiceForm(src: string, node: ChoiceNode): ChoiceForm {
+  const s = node.range[0];
+  if (formAt(src, s) === 'long' && isAtLineStart(src, s)) {
+    const first = src.slice(s, lineEnd(src, s)).trim();
+    if (node.kind === 'anyorder' && first === 'any order') return 'long';
+    if (node.kind === 'group' && first === 'one of') return 'long';
+    if (node.kind === 'group' && node.bare) return 'opaque';
+  }
+  return 'short';
+}
+
+// --- alternatives ----------------------------------------------------------------
+
+/** One alternative of a choice. A range like `0..9` is a single alternative here. */
+export interface Alt {
+  range: Range;
+  /** Number of options the core expanded this alternative into (1 unless it is a range). */
+  count: number;
+  seq: SeqNode;
+  option?: Option | undefined;
+  /** Every option behind this alternative (more than one for a range). */
+  options: Option[];
+}
+
+export function alternatives(node: ChoiceNode): Alt[] {
+  const out: Alt[] = [];
+  if (node.kind === 'anyorder') {
+    for (const s of node.items) out.push({ range: s.range, count: 1, seq: s, options: [] });
+    return out;
+  }
+  for (const o of node.options) {
+    const prev = out[out.length - 1];
+    if (prev && prev.range[0] === o.range[0] && prev.range[1] === o.range[1]) {
+      prev.count++;
+      prev.options.push(o);
+      continue;
+    }
+    out.push({ range: o.range, count: 1, seq: o.seq, option: o, options: [o] });
+  }
+  return out;
+}
+
+/** True when the alternatives can be added to, removed and reordered by patching text. */
+export function isStructurallyEditable(node: ChoiceNode, src?: string): boolean {
+  if (src !== undefined && choiceForm(src, node) === 'opaque') return false;
   const seen = new Set<string>();
-  for (const r of alternativeRanges(node)) {
-    const key = r[0] + ':' + r[1];
+  for (const a of alternatives(node)) {
+    const key = a.range[0] + ':' + a.range[1];
     if (seen.has(key)) return false;
     seen.add(key);
   }
-  return true;
+  return seen.size > 0;
 }
 
-function sepChar(node: ChoiceNode): string {
-  return node.kind === 'anyorder' ? '&' : '|';
+const sepChar = (node: ChoiceNode): string => (node.kind === 'anyorder' ? '&' : '|');
+
+/** The text of a plain long-form line for `text`, quoted only when a bare line would be misread. */
+export function longLine(text: string): string {
+  const flat = text.replace(/\r?\n/g, ' ').replace(/\t/g, ' ');
+  const esc = escapeText(flat, true);
+  if (flat !== flat.trim() || flat === '' || isReservedLine(esc) || /^".*"$/.test(esc) || /^&$/.test(esc)) return quoteLong(flat);
+  return esc;
+}
+
+export function quoteLong(text: string): string {
+  return '"' + text.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
+}
+
+/** Delete whole lines [lineStart(range[0]) .. lineEnd(range[1])] including one line break. */
+function deleteLines(src: string, range: Range): Patch {
+  const from = lineStart(src, range[0]);
+  const end = lineEnd(src, range[1]);
+  if (end >= src.length) return { from: from > 0 ? from - 1 : from, to: src.length, insert: '' };
+  return { from, to: end + 1, insert: '' };
 }
 
 export function addAlternative(src: string, node: ChoiceNode, text = 'new'): EditResult | undefined {
-  if (!isStructurallyEditable(node)) return undefined;
-  const ranges = alternativeRanges(node);
-  const last = ranges[ranges.length - 1];
-  if (!last) return undefined;
-  const at = trimRange(src, last)[1];
+  if (!isStructurallyEditable(node, src)) return undefined;
+  const alts = alternatives(node);
+  const last = alts[alts.length - 1];
+  const first = alts[0];
+  if (!last || !first) return undefined;
+  const form = choiceForm(src, node);
+  if (form === 'long') {
+    const indent = indentOf(src, first.range[0]);
+    const at = last.range[1];
+    const line = longLine(text);
+    const insert = '\n' + indent + line;
+    return { patches: [{ from: at, to: at, insert }], select: [at + 1 + indent.length, at + insert.length] };
+  }
+  const at = trimRange(src, last.range)[1];
   const sep = sepChar(node);
   const spaced = / [|&] /.test(src.slice(node.range[0], node.range[1])) || node.kind === 'anyorder' || (node.kind === 'group' && node.bare);
   const lead = spaced ? ` ${sep} ` : sep;
@@ -86,33 +198,59 @@ export function addAlternative(src: string, node: ChoiceNode, text = 'new'): Edi
   };
 }
 
-export function deleteAlternative(src: string, node: ChoiceNode, index: number): EditResult | undefined {
-  if (!isStructurallyEditable(node)) return undefined;
-  const ranges = alternativeRanges(node);
-  if (ranges.length < 2 || index < 0 || index >= ranges.length) return undefined;
-  const sep = sepChar(node);
-  const cur = ranges[index] as Range;
-  if (index < ranges.length - 1) {
-    // Remove the alternative and the separator that follows it.
-    if (src[cur[1]] !== sep) return undefined;
-    let to = cur[1] + 1;
-    if (index === 0) while (to < src.length && (src[to] === ' ' || src[to] === '\t')) to++;
-    const from = index === 0 ? trimRange(src, cur)[0] : cur[0];
-    return { patches: [{ from, to, insert: '' }] };
+/** Patches that remove several alternatives at once (at least one must remain). */
+export function removeAlternatives(src: string, node: ChoiceNode, indices: number[]): Patch[] | undefined {
+  if (!isStructurallyEditable(node, src)) return undefined;
+  const alts = alternatives(node);
+  const drop = new Set(indices.filter((i) => i >= 0 && i < alts.length));
+  if (drop.size === 0 || drop.size >= alts.length) return undefined;
+  if (choiceForm(src, node) === 'long') {
+    return normalizeDeletes([...drop].map((i) => deleteLines(src, (alts[i] as Alt).range)));
   }
-  // Last alternative: remove the separator before it and the alternative itself.
-  const prev = ranges[index - 1] as Range;
-  if (src[prev[1]] !== sep) return undefined;
-  return { patches: [{ from: trimRange(src, prev)[1], to: trimRange(src, cur)[1], insert: '' }] };
+  const sep = sepChar(node);
+  const patches: Patch[] = [];
+  let i = 0;
+  while (i < alts.length) {
+    if (!drop.has(i)) {
+      i++;
+      continue;
+    }
+    let j = i;
+    while (j + 1 < alts.length && drop.has(j + 1)) j++;
+    if (j < alts.length - 1) {
+      // Remove the run and the separator that follows it.
+      const cur = (alts[j] as Alt).range;
+      if (src[cur[1]] !== sep) return undefined;
+      let to = cur[1] + 1;
+      if (i === 0) while (to < src.length && (src[to] === ' ' || src[to] === '\t')) to++;
+      const from = i === 0 ? trimRange(src, (alts[0] as Alt).range)[0] : (alts[i] as Alt).range[0];
+      patches.push({ from, to, insert: '' });
+    } else {
+      // The run reaches the end: remove the separator before it and the run itself.
+      const prev = (alts[i - 1] as Alt).range;
+      if (src[prev[1]] !== sep) return undefined;
+      patches.push({ from: trimRange(src, prev)[1], to: trimRange(src, (alts[j] as Alt).range)[1], insert: '' });
+    }
+    i = j + 1;
+  }
+  return patches;
+}
+
+export function deleteAlternative(src: string, node: ChoiceNode, index: number): EditResult | undefined {
+  const patches = removeAlternatives(src, node, [index]);
+  return patches ? { patches } : undefined;
 }
 
 /** Move an alternative up (delta -1) or down (+1) by swapping the text of two neighbours. */
 export function moveAlternative(src: string, node: ChoiceNode, index: number, delta: -1 | 1): EditResult | undefined {
-  if (node.kind !== 'group' || !isStructurallyEditable(node)) return undefined;
+  if (!isStructurallyEditable(node, src)) return undefined;
+  const alts = alternatives(node);
   const j = index + delta;
-  if (index < 0 || j < 0 || index >= node.options.length || j >= node.options.length) return undefined;
-  const a = trimRange(src, (node.options[index] as { range: Range }).range);
-  const b = trimRange(src, (node.options[j] as { range: Range }).range);
+  if (index < 0 || j < 0 || index >= alts.length || j >= alts.length) return undefined;
+  const long = choiceForm(src, node) === 'long';
+  const region = (r: Range): Range => (long ? [lineStart(src, r[0]), r[1]] : trimRange(src, r));
+  const a = region((alts[index] as Alt).range);
+  const b = region((alts[j] as Alt).range);
   const ta = src.slice(a[0], a[1]);
   const tb = src.slice(b[0], b[1]);
   return {
@@ -123,11 +261,35 @@ export function moveAlternative(src: string, node: ChoiceNode, index: number, de
   };
 }
 
-// --- text ------------------------------------------------------------------
+// --- text ------------------------------------------------------------------------
+
+const RANGE_RE = /^(?:\d+\.\.\d+|[^\s.]\.\.[^\s.])$/u;
+
+/** True when `text` is a range such as `0..9` or `A..F`. */
+export function isRangeText(text: string): boolean {
+  return RANGE_RE.test(text);
+}
 
 export function editText(src: string, node: TextNode, value: string): EditResult {
-  const insert = escapeText(value, isAtLineStart(src, node.range[0]));
-  return { patches: [{ from: node.range[0], to: node.range[1], insert }], select: [node.range[0], node.range[0] + insert.length] };
+  const [from, to] = node.range;
+  const long = formAt(src, from) === 'long';
+  const raw = src.slice(from, to);
+  let insert: string;
+  if (long && isAtLineStart(src, from) && isAtLineEnd(src, to)) {
+    // The text is a whole long-form line: keep quotes if it had them, quote when a bare line would be misread.
+    insert = /^".*"$/.test(raw) && raw !== '"' ? quoteLong(value.replace(/\r?\n/g, ' ')) : longLine(value);
+  } else {
+    insert = escapeText(value, isAtLineStart(src, from));
+  }
+  return { patches: [{ from, to, insert }], select: [from, from + insert.length] };
+}
+
+/** Edit the source text of a range choice (`0..9`). Text that is not a range is escaped as plain text. */
+export function editRange(src: string, range: Range, value: string): EditResult {
+  const r = trimRange(src, range);
+  const v = value.trim();
+  const insert = isRangeText(v) ? v : escapeText(v, isAtLineStart(src, r[0]));
+  return { patches: [{ from: r[0], to: r[1], insert }], select: [r[0], r[0] + insert.length] };
 }
 
 /**
@@ -136,8 +298,199 @@ export function editText(src: string, node: TextNode, value: string): EditResult
  */
 export function fillEmpty(src: string, optionRange: Range, value: string): EditResult {
   const r = trimRange(src, optionRange);
+  if (formAt(src, r[0]) === 'long' && src.slice(r[0], r[1]) === 'nothing') {
+    const insert = longLine(value);
+    return { patches: [{ from: r[0], to: r[1], insert }], select: [r[0], r[0] + insert.length] };
+  }
   const hasContent = r[1] > r[0];
   const lead = hasContent ? ' ' : '';
   const insert = lead + escapeText(value, !hasContent && isAtLineStart(src, r[1]));
   return { patches: [{ from: r[1], to: r[1], insert }], select: [r[1] + lead.length, r[1] + insert.length] };
+}
+
+// --- tags and guards -------------------------------------------------------------
+
+export interface TagSpec {
+  name: string;
+  value?: string | undefined;
+}
+export type GuardSpec = { kind: 'else' } | { kind: 'tag'; name: string; negate: boolean; value?: string | undefined };
+
+const NAME_RE = /^[A-Za-z_]\w*$/;
+
+export function parseTagInput(input: string): { spec: TagSpec } | { error: string } {
+  const t = input.trim().replace(/^@/, '');
+  const m = /^([^=\s]*)(?:\s*=\s*(.*))?$/.exec(t);
+  const name = m?.[1] ?? '';
+  const value = m?.[2]?.trim();
+  if (!NAME_RE.test(name)) return { error: 'A tag name starts with a letter or underscore and uses letters, digits and underscores. Example: q or severity=5' };
+  if (value !== undefined && value !== '' && !/^[^\s|\]&;]+$/.test(value)) return { error: 'A tag value cannot contain spaces or the characters | ] & ;' };
+  return value ? { spec: { name, value } } : { spec: { name } };
+}
+
+export function parseGuardInput(input: string): { spec: GuardSpec } | { error: string } {
+  const t = input.trim().replace(/^@/, '').replace(/:$/, '').trim();
+  if (t === 'else' || t === 'otherwise') return { spec: { kind: 'else' } };
+  const m = /^(!|not\s+)?\s*([^=\s]*)(?:\s*=\s*(.*))?$/.exec(t);
+  const name = m?.[2] ?? '';
+  const value = m?.[3]?.trim();
+  if (!NAME_RE.test(name)) return { error: 'A guard is a tag name, optionally with ! in front or =value after it. Example: q, !q, severity=5 or else' };
+  if (value !== undefined && value !== '' && !/^[^\s:|\]&;]+$/.test(value)) return { error: 'A guard value cannot contain spaces or the characters : | ] & ;' };
+  const base = { kind: 'tag' as const, name, negate: !!m?.[1] };
+  return value ? { spec: { ...base, value } } : { spec: base };
+}
+
+export function tagInputOf(t: TagSpec | Tag): string {
+  return t.name + (t.value !== undefined && t.value !== '' ? '=' + t.value : '');
+}
+
+export function guardInputOf(g: Guard | GuardSpec): string {
+  if (g.kind === 'else') return 'else';
+  return (g.negate ? '!' : '') + g.name + (g.value !== undefined && g.value !== '' ? '=' + g.value : '');
+}
+
+export function tagSource(spec: TagSpec, long: boolean): string {
+  const v = spec.value !== undefined && spec.value !== '';
+  return long ? `tag ${spec.name}${v ? ' = ' + spec.value : ''}` : `@${spec.name}${v ? '=' + spec.value : ''}`;
+}
+
+export function guardSource(spec: GuardSpec, long: boolean): string {
+  if (spec.kind === 'else') return long ? 'otherwise' : '@else:';
+  const v = spec.value !== undefined && spec.value !== '';
+  if (long) return `when ${spec.negate ? 'not ' : ''}${spec.name}${v ? ' = ' + spec.value : ''}`;
+  return `@${spec.negate ? '!' : ''}${spec.name}${v ? '=' + spec.value : ''}:`;
+}
+
+/** Remove an inline `@tag` or `@guard:` together with one run of the whitespace around it. */
+function removeInline(src: string, range: Range): Patch {
+  let [from, to] = range;
+  if (from > 0 && /[ \t]/.test(src[from - 1] as string)) {
+    while (from > 0 && /[ \t]/.test(src[from - 1] as string)) from--;
+  } else {
+    while (to < src.length && /[ \t]/.test(src[to] as string)) to++;
+  }
+  return { from, to, insert: '' };
+}
+
+const isInline = (src: string, range: Range): boolean => src[range[0]] === '@';
+
+/** Rewrite a tag chip. `spec` of null removes it. */
+export function editTag(src: string, tag: Tag, spec: TagSpec | null): EditResult | undefined {
+  const range = tag.range;
+  if (!range) return undefined;
+  if (isInline(src, range)) {
+    if (spec === null) return { patches: [removeInline(src, range)] };
+    const insert = tagSource(spec, false);
+    return { patches: [{ from: range[0], to: range[1], insert }], select: [range[0], range[0] + insert.length] };
+  }
+  if (spec === null) return { patches: [deleteLines(src, range)] };
+  const insert = tagSource(spec, true);
+  return { patches: [{ from: range[0], to: range[1], insert }] };
+}
+
+/** Rewrite a guard chip. `spec` of null removes it (a `when` block becomes a `sequence`). */
+export function editGuard(src: string, guard: Guard, spec: GuardSpec | null): EditResult | undefined {
+  const range = guard.range;
+  if (!range) return undefined;
+  if (isInline(src, range)) {
+    if (spec === null) {
+      let to = range[1];
+      while (to < src.length && /[ \t]/.test(src[to] as string)) to++;
+      return { patches: [{ from: range[0], to, insert: '' }] };
+    }
+    const insert = guardSource(spec, false);
+    return { patches: [{ from: range[0], to: range[1], insert }], select: [range[0], range[0] + insert.length] };
+  }
+  const insert = spec === null ? 'sequence' : guardSource(spec, true);
+  return { patches: [{ from: range[0], to: range[1], insert }] };
+}
+
+function altAt(src: string, node: ChoiceNode, index: number): { alt: Alt; form: ChoiceForm } | undefined {
+  if (node.kind !== 'group' || !isStructurallyEditable(node, src)) return undefined;
+  const alt = alternatives(node)[index];
+  if (!alt || !alt.option || alt.count !== 1) return undefined;
+  return { alt, form: choiceForm(src, node) };
+}
+
+const blockText = (src: string, range: Range): string => src.slice(lineStart(src, range[0]), range[1]);
+const reindent = (block: string, prefix: string): string =>
+  block
+    .split('\n')
+    .map((l) => (l.trim() === '' ? l : prefix + l))
+    .join('\n');
+const isSingleLine = (src: string, range: Range): boolean => !src.slice(range[0], range[1]).includes('\n');
+
+/** True for an option that is one plain short-form line, which can carry inline `@tag` and `@guard:`. */
+function isPlainLine(src: string, range: Range): boolean {
+  return isSingleLine(src, range) && !isReservedLine(src.slice(range[0], range[1]).trim());
+}
+
+/** Add a tag to alternative `index` of a choice. Long form picks the least intrusive shape. */
+export function addTag(src: string, node: ChoiceNode, index: number, spec: TagSpec): EditResult | undefined {
+  const at = altAt(src, node, index);
+  if (!at) return undefined;
+  const r = at.alt.range;
+  if (at.form === 'short') {
+    const t = trimRange(src, r);
+    const hasContent = t[1] > t[0];
+    const insert = (hasContent ? ' ' : '') + tagSource(spec, false);
+    const pos = hasContent ? t[1] : r[0];
+    return { patches: [{ from: pos, to: pos, insert }], select: [pos + (hasContent ? 1 : 0), pos + insert.length] };
+  }
+  if (isPlainLine(src, r)) {
+    const insert = ' ' + tagSource(spec, false);
+    return { patches: [{ from: r[1], to: r[1], insert }], select: [r[1] + 1, r[1] + insert.length] };
+  }
+  const header = src.slice(r[0], lineEnd(src, r[0])).trim();
+  if (/^(sequence|tight|when\b.*|otherwise)$/.test(header) && !isSingleLine(src, r)) {
+    if (header === 'tight') return wrapWith(src, r, 'sequence', tagSource(spec, true));
+    const child = indentOf(src, lineEnd(src, r[0]) + 1);
+    const insert = '\n' + child + tagSource(spec, true);
+    return { patches: [{ from: r[1], to: r[1], insert }] };
+  }
+  return wrapWith(src, r, 'sequence', tagSource(spec, true));
+}
+
+/** Put the block under a new header line and optionally add a trailing line inside it. */
+function wrapWith(src: string, r: Range, header: string, trailer?: string): EditResult {
+  const indent = indentOf(src, r[0]);
+  const step = indentUnit(src);
+  let text = indent + header + '\n' + reindent(blockText(src, r), step);
+  if (trailer) text += '\n' + indent + step + trailer;
+  return { patches: [{ from: lineStart(src, r[0]), to: r[1], insert: text }] };
+}
+
+/** Add a guard to alternative `index`. Refused when it already has one (edit the chip instead). */
+export function addGuard(src: string, node: ChoiceNode, index: number, spec: GuardSpec): EditResult | undefined {
+  const at = altAt(src, node, index);
+  if (!at || at.alt.option?.guard) return undefined;
+  const r = at.alt.range;
+  if (at.form === 'short') {
+    const t = trimRange(src, r);
+    const hasContent = t[1] > t[0];
+    const insert = guardSource(spec, false) + (hasContent ? ' ' : '');
+    return { patches: [{ from: hasContent ? t[0] : r[0], to: hasContent ? t[0] : r[0], insert }], select: [r[0], r[0] + insert.length] };
+  }
+  if (isPlainLine(src, r)) {
+    const insert = guardSource(spec, false) + ' ';
+    return { patches: [{ from: r[0], to: r[0], insert }] };
+  }
+  const header = src.slice(r[0], lineEnd(src, r[0])).trim();
+  if (header === 'sequence' && !isSingleLine(src, r)) {
+    return { patches: [{ from: r[0], to: r[0] + 'sequence'.length, insert: guardSource(spec, true) }] };
+  }
+  return wrapWith(src, r, guardSource(spec, true));
+}
+
+/**
+ * Where an offset ends up after `moveAlternative`, which swaps the text of two regions.
+ * Offsets inside a swapped region travel with their text; others shift as usual.
+ */
+export function mapAfterMove(patches: Patch[], pos: number): number {
+  if (patches.length !== 2) return mapOffset(patches, pos);
+  const [a, b] = patches as [Patch, Patch];
+  const newStart = (p: Patch, other: Patch): number => p.from + (other.from < p.from ? other.insert.length - (other.to - other.from) : 0);
+  if (pos >= a.from && pos <= a.to) return newStart(b, a) + (pos - a.from);
+  if (pos >= b.from && pos <= b.to) return newStart(a, b) + (pos - b.from);
+  return mapOffset(patches, pos);
 }

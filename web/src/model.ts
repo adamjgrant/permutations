@@ -1,6 +1,6 @@
 // Compile the source for the browser and collect every definition the chart needs.
 
-import { compile, PermError, Program } from '../../src/index';
+import { compile, PermError, Program, visit } from '../../src/index';
 import type { LDef } from './layout';
 
 export interface Analysis {
@@ -8,6 +8,10 @@ export interface Analysis {
   program: Program;
   main: LDef;
   others: LDef[];
+  /** Names of every tag that some option sets. */
+  knownTags: Set<string>;
+  /** The delimiter the program joins with by default. */
+  delimiter: string;
 }
 
 export function analyze(source: string): Analysis {
@@ -18,17 +22,24 @@ export function analyze(source: string): Analysis {
   const others: LDef[] = [];
   for (const def of entry.module.defs.values()) {
     if (def === entry) continue;
-    others.push({ name: def.name, body: def.body, range: def.range });
+    others.push({ name: def.name, body: def.body, range: def.range, form: def.form });
   }
-  const main: LDef = { name: entry.name, body: entry.body, range: entry.range };
-  return { source, program, main, others };
+  const main: LDef = { name: entry.name, body: entry.body, range: entry.range, form: entry.form };
+  const knownTags = new Set<string>();
+  for (const d of [main, ...others]) {
+    visit(d.body, (n) => {
+      if (n.kind === 'group') for (const o of n.options) for (const t of o.tags) knownTags.add(t.name);
+    });
+  }
+  return { source, program, main, others, knownTags, delimiter: program.delimiter };
 }
 
 export function describeError(e: unknown): { message: string; offset?: number } {
   if (e instanceof PermError) {
     return e.offset === undefined ? { message: e.message } : { message: e.message, offset: e.offset };
   }
-  return { message: e instanceof Error ? e.message : String(e) };
+  if (e instanceof Error) return { message: `${e.name}: ${e.message}` };
+  return { message: String(e) };
 }
 
 export function formatCount(n: bigint): string {
