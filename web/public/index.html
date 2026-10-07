@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Permutations</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="app">
+  <section class="pane chart-pane" aria-labelledby="chart-title">
+    <header class="pane-head">
+      <h2 id="chart-title">Flow chart</h2>
+      <span id="stale" class="badge warn" hidden>Last valid chart</span>
+      <div class="tools" role="toolbar" aria-label="Chart tools">
+        <button id="t-add" type="button" title="Add an alternative to the selected choice" disabled>Add alternative</button>
+        <button id="t-up" type="button" title="Move the selected alternative up" disabled>Move up</button>
+        <button id="t-down" type="button" title="Move the selected alternative down" disabled>Move down</button>
+        <button id="t-del" type="button" title="Delete the selected alternative" disabled>Delete</button>
+        <span class="sep" aria-hidden="true"></span>
+        <button id="z-out" type="button" aria-label="Zoom out">&minus;</button>
+        <button id="z-fit" type="button" title="Fit the chart to the pane">Fit</button>
+        <button id="z-in" type="button" aria-label="Zoom in">+</button>
+      </div>
+    </header>
+    <div id="chart" class="chart-scroll" tabindex="-1"></div>
+    <p class="hint">Double-click text to edit it. Hover a choice to add, move or delete alternatives. Click a box to find it in the code.</p>
+  </section>
+
+  <section class="pane code-pane" aria-labelledby="code-title">
+    <header class="pane-head">
+      <h2 id="code-title">Code</h2>
+      <div class="tools">
+        <button id="b-expand" type="button" hidden>Expand</button>
+        <button id="b-collapse" type="button" hidden>Collapse</button>
+        <button id="b-reset" type="button">Example</button>
+        <button id="b-share" type="button" class="primary">Share</button>
+      </div>
+    </header>
+    <div id="editor" class="editor"></div>
+    <div id="error" class="error" role="alert" hidden></div>
+  </section>
+
+  <section class="pane ex-pane" aria-labelledby="ex-title">
+    <header class="pane-head">
+      <h2 id="ex-title">Examples</h2>
+      <div class="tabs" role="tablist" aria-label="Example view">
+        <button id="tab-random" type="button" role="tab" aria-selected="true">Random 5</button>
+        <button id="tab-all" type="button" role="tab" aria-selected="false">All</button>
+      </div>
+      <p class="count" aria-live="polite"><strong id="count">0</strong> <span id="count-unit">permutations</span></p>
+    </header>
+    <div id="view-random" class="ex-body">
+      <ol id="samples" class="samples"></ol>
+      <div class="ex-foot"><button id="b-new" type="button" class="primary">Make a new 5</button><span id="sample-note" class="note"></span></div>
+    </div>
+    <div id="view-all" class="ex-body" hidden>
+      <div id="all-intro" class="all-intro"></div>
+      <ol id="all-list" class="samples all"></ol>
+      <p id="all-note" class="note"></p>
+    </div>
+  </section>
+</main>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<script src="app.js"></script>
+</body>
+</html>

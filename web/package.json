@@ -1,0 +1,22 @@
+{
+  "name": "permutations-web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Web app for Permutations v3: flow chart, code editor and examples.",
+  "scripts": {
+    "build": "node build.mjs",
+    "dev": "node build.mjs --serve",
+    "test": "node build.mjs --test",
+    "shots": "node scripts/shots.mjs",
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "devDependencies": {
+    "@codemirror/commands": "^6.11.1",
+    "@codemirror/state": "^6.7.6",
+    "@codemirror/view": "^6.43.14",
+    "@types/node": "^26.6.4",
+    "esbuild": "^0.28.2",
+    "playwright-core": "^1.63.0",
+    "typescript": "^7.0.2"
+  }
+}
