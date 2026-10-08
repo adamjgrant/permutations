@@ -1,4 +1,4 @@
-import type { Node, RefNode, TextNode } from '../../src/core/types';
+import type { GroupNode, Node, RefNode, TextNode } from '../../src/core/types';
 import { Analysis, analyze, DEFAULT_PROGRAM, decodeShare, describeError, encodeShare, formatCount, isBlank, tagLabel } from './model';
 import { Box, layout, Layout } from './layout';
 import { canvasMeasure, ChartActions, ChartView, DefAction, FocusKey } from './chart';
@@ -287,7 +287,11 @@ function applyEdit(
                 // Take the placeholder back out, then make the whole change again with your text.
                 samplesHeld = false;
                 editor.revert(inverse);
-                const err = applyEdit(fresh(value));
+                const made = fresh(value);
+                // The examples show the new alternative at least once.
+                if (made && !failed(made) && made.select) showAt = made.select[0];
+                const err = applyEdit(made);
+                showAt = undefined;
                 if (err) editor.patch(result.patches, undefined, { history: false });
                 return err;
               },
@@ -1894,7 +1898,8 @@ function renderSamples(): void {
     clearTrace();
     // Steady examples: each choice picks by the seed and its own place in the program, so an
     // edit changes only what it touches. Make a new 5 moves to the next seed.
-    const outs = p.sampleSteady(5, sampleSeed);
+    const show = showAt !== undefined ? alternativeAt(showAt) : undefined;
+    const outs = p.sampleSteady(5, sampleSeed, show ? { show } : {});
     sampleTraces = outs;
     list.innerHTML = outs.map((o, i) => item(i + 1, o.text, o.tags, BigInt(i))).join('');
     // After an edit, mark the examples it changed, so its effect is easy to see.
@@ -1986,6 +1991,23 @@ let lastSamples: string[] = [];
 let flashChanges = false;
 /** True while a placeholder (+ Alternative) waits for its name. */
 let samplesHeld = false;
+/** Where an alternative was just added: the examples show it at least once. */
+let showAt: number | undefined;
+
+/** The innermost alternative of a choice whose text holds `offset`. */
+function alternativeAt(offset: number): { group: GroupNode; option: number } | undefined {
+  if (!analysis) return undefined;
+  let best: { group: GroupNode; option: number; size: number } | undefined;
+  for (const d of [analysis.main, ...analysis.others]) {
+    visit(d.body, (n) => {
+      if (n.kind !== 'group' || n.inline) return;
+      n.options.forEach((o, i) => {
+        if (o.range[0] <= offset && offset <= o.range[1] && (!best || o.range[1] - o.range[0] < best.size)) best = { group: n, option: i, size: o.range[1] - o.range[0] };
+      });
+    });
+  }
+  return best ? { group: best.group, option: best.option } : undefined;
+}
 on('b-new', () => {
   sampleSeed = (sampleSeed + 1) % 2 ** 31;
   flashChanges = false;

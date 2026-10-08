@@ -1,3 +1,4 @@
+import type { GroupNode } from "../src/core/types";
 import { compile, CompileOptions, PermError, seededRandom, formatSource } from '../src';
 
 const texts = (src: string, opts?: CompileOptions): string[] =>
@@ -582,5 +583,30 @@ describe('the delimiter of an any-order group', () => {
     expect(texts('[cat [1|2]]{2; delimiter=", "}')).toContain('cat 1, cat 2');
     // A choice's delimiter still reaches everything inside it.
     expect(texts('[[x [1|2] & y]; delimiter="-"]')).toContain('x-1-y');
+  });
+});
+
+describe('steady examples can show one alternative', () => {
+  test('when no row goes through it, the last row does', () => {
+    const p = compile('main = Dear [Sam|Alex|Jordan|Robin|Kim|Lee|Max|Ana|Bo|Cy|Di|Ed], thanks for [writing|calling].');
+    const group = p.ast.kind === 'seq' ? (p.ast.pieces.find((x) => x.node.kind === 'group')?.node as GroupNode) : undefined;
+    expect(group).toBeDefined();
+    for (let seed = 0; seed < 20; seed++) {
+      const rows = p.sampleSteady(5, seed, { show: { group: group!, option: 11 } });
+      expect(rows).toHaveLength(5);
+      expect(rows.some((r) => r.text.startsWith('Dear Ed,'))).toBe(true);
+      // The other rows are the usual ones.
+      expect(rows.slice(0, 4).map((r) => r.text)).toEqual(p.sampleSteady(5, seed).slice(0, 4).map((r) => r.text));
+    }
+  });
+
+  test('it finds its way through references to the alternative', () => {
+    const p = compile('main = [$a|$b] end\na = [x|y]\nb = [u|v|w|NEW]');
+    const b = p.definitions.find((d) => d.name === 'b')!;
+    const body = b.body;
+    const g = (body.kind === 'seq' ? body.pieces[0]!.node : body) as GroupNode;
+    for (let seed = 0; seed < 10; seed++) {
+      expect(p.sampleSteady(5, seed, { show: { group: g, option: 3 } }).some((r) => r.text === 'NEW end')).toBe(true);
+    }
   });
 });

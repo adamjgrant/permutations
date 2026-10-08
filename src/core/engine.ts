@@ -287,6 +287,9 @@ export class Evaluator {
     return eligibleOptions(group, s);
   }
 
+  /** During one steady walk: choices (by group id) that must take the given option, where they can. */
+  forced: Map<number, number> | undefined;
+
   /** Run a transform. One from the host that throws, or gives back something other than text, is reported as such. */
   private applyFn(name: string, text: string): string {
     const fn = this.fns[name];
@@ -500,7 +503,10 @@ export class Evaluator {
           const k = keys[node.options.indexOf(o)] as string;
           for (const [sMid, c] of this.seqFrom(o.seq, 0, sIn)) if (applyTags(sMid, o.tags) === sOut) cands.push({ o, k, id: `${k}|${sMid}`, s: sMid, w: c });
         }
-        const pick = cands[pickRendezvous(cands, (id) => draw(`${key}/g/${id}`))];
+        const want = this.forced?.get(node.id);
+        const pool = want === undefined ? cands : cands.filter((c) => node.options.indexOf(c.o) === want);
+        const from = pool.length ? pool : cands;
+        const pick = from[pickRendezvous(from, (id) => draw(`${key}/g/${id}`))];
         if (!pick) throw new PermError('Internal error: no way through a choice');
         const index = node.options.indexOf(pick.o);
         tr?.picks.push({ group: node, option: index });
@@ -720,7 +726,73 @@ export class Program {
    * choice draws its own number from the seed and its place in the program, so an edit in one
    * place leaves the picks everywhere else alone. Each comes with its trace.
    */
-  sampleSteady(n: number, seed: number): (Output & Trace)[] {
+  sampleSteady(n: number, seed: number, opts: { show?: { group: GroupNode; option: number } } = {}): (Output & Trace)[] {
+    const rows = this.steadyRows(n, seed);
+    // With `show`, one row (the last) goes through that alternative, so a new one can be seen.
+    const show = opts.show;
+    if (!show || rows.some((r) => r.picks.some((p) => p.group === show.group && p.option === show.option))) return rows;
+    const route = this.routeTo(show.group, show.option);
+    if (!route) return rows;
+    const seen = new Set(rows.slice(0, -1).map((r) => r.text));
+    const entries = [...this.ev.table(this.entry.body, '')].map(([s, w]) => ({ id: s, s, w }));
+    this.ev.forced = route;
+    try {
+      for (let attempt = 0; attempt < 40; attempt++) {
+        const draw = (key: string): number => hashUnit(`${seed}|show|${attempt}|${key}`);
+        const end = entries[pickRendezvous(entries, (id) => draw(`end/${id}`))] as { s: string };
+        const tr: Trace = { picks: [], nodes: [] };
+        const text = this.ev.walkKeyed(this.entry.body, '', end.s, this.opts.delimiter, 'main', draw, new Map(), tr);
+        if (seen.has(text) || !tr.picks.some((p) => p.group === show.group && p.option === show.option)) continue;
+        const row = { text, tags: tagsOf(end.s), ...tr };
+        return rows.length < n ? [...rows, row] : [...rows.slice(0, -1), row];
+      }
+    } finally {
+      this.ev.forced = undefined;
+    }
+    return rows;
+  }
+
+  /** The choices a walk must make to reach one alternative of a choice: group id to option. */
+  private routeTo(target: GroupNode, option: number): Map<number, number> | undefined {
+    const route = new Map<number, number>();
+    const entered = new Set<Def>();
+    const find = (node: Node): boolean => {
+      if (node === target) {
+        route.set(node.id, option);
+        return true;
+      }
+      switch (node.kind) {
+        case 'text':
+          return false;
+        case 'ref': {
+          const t = node.target;
+          if (t?.kind !== 'def' || entered.has(t.def)) return false;
+          entered.add(t.def);
+          const found = find(t.def.body);
+          entered.delete(t.def);
+          return found;
+        }
+        case 'seq':
+          return node.pieces.some((p) => find(p.node));
+        case 'group':
+          for (let i = 0; i < node.options.length; i++) {
+            if (find((node.options[i] as GroupNode['options'][number]).seq)) {
+              route.set(node.id, i);
+              return true;
+            }
+          }
+          return false;
+        case 'anyorder':
+          return node.items.some(find);
+        case 'repeat':
+        case 'transform':
+          return find(node.inner);
+      }
+    };
+    return find(this.entry.body) ? route : undefined;
+  }
+
+  private steadyRows(n: number, seed: number): (Output & Trace)[] {
     this.requireAny();
     const out: (Output & Trace)[] = [];
     const seen = new Set<string>();

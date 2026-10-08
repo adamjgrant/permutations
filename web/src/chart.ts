@@ -318,8 +318,15 @@ export class ChartView {
     const rect = (rx: number): SVGRectElement => el('rect', { x: b.x, y: b.y, width: b.w, height: b.h, rx }, g);
     const text = (cls = ''): void => {
       const t = el('text', { x: b.x + b.w / 2, y: b.y + b.h / 2 + 0.5, class: cls, 'text-anchor': 'middle', 'dominant-baseline': 'central' }, g);
-      t.textContent = b.label;
-      if (b.full !== b.label) el('title', {}, g).textContent = b.full;
+      if (b.lines) {
+        // Centred as a block: the first line goes up by half the extra height.
+        const first = -((b.lines.length - 1) * 16) / 2;
+        b.lines.forEach((line, i) => {
+          const span = el('tspan', { x: b.x + b.w / 2, dy: i === 0 ? first : 16 }, t);
+          span.textContent = line;
+        });
+      } else t.textContent = b.label;
+      if (b.full !== b.label || b.lines) el('title', {}, g).textContent = b.full;
     };
     switch (b.kind) {
       case 'def':

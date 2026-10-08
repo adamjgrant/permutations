@@ -75,6 +75,8 @@ export interface Box {
   warn?: boolean;
   /** Explains `warn`. */
   note?: string;
+  /** Text drawn on more than one line (long text wraps onto up to three). */
+  lines?: string[];
   /** For the pieces of a branch's sentence that wraps onto more lines: which line (0, 1, 2...). */
   wrapLine?: number;
   /** Range boxes: how many values the range stands for. */
@@ -157,6 +159,8 @@ export const M = {
   frameTopHeader: 32,
   frameBottom: 14,
   textH: 34,
+  /** Each extra line of a text box that wraps. */
+  lineH: 16,
   pillH: 30,
   chipH: 20,
   defPad: 16,
@@ -224,19 +228,43 @@ export function layout(input: LayoutInput): Layout {
     return s + '…';
   };
 
+  /** Long text in up to three lines, broken between words; the last one ends in … if cut. */
+  const wrapLines = (text: string, kind: BoxKind): string[] => {
+    const words = text.split(' ');
+    const lines: string[] = [];
+    let cur = '';
+    for (const w of words) {
+      const next = cur ? cur + ' ' + w : w;
+      if (cur && measure(next, kind) > M.maxTextW) {
+        lines.push(cur);
+        cur = w;
+        if (lines.length === 3) break;
+      } else cur = next;
+    }
+    if (lines.length < 3) lines.push(cur);
+    else lines[2] = truncate((lines[2] as string) + ' ' + cur, kind);
+    const used = lines.join(' ').length;
+    if (used < text.length && !(lines[lines.length - 1] as string).endsWith('…')) lines[lines.length - 1] = truncate((lines[lines.length - 1] as string) + '…', kind);
+    return lines.map((l) => truncate(l, kind));
+  };
+
   const leaf = (kind: BoxKind, label: string, extra: Partial<Box> = {}): Block => {
     // Line breaks and tabs are drawn as ↵ and →; `full` keeps the text itself.
-    const shown = truncate(kind === 'text' ? visible(label) : label, kind);
+    const text = kind === 'text' ? visible(label) : label;
+    const shown = truncate(text, kind);
+    // Text too long for one line wraps onto up to three, instead of being cut short.
+    const lines = kind === 'text' && shown !== text ? wrapLines(text, kind) : undefined;
     const padX = PAD_X[kind] ?? 8;
-    const h = HEIGHT[kind] ?? M.chipH;
-    const w = Math.max(kind === 'text' ? 36 : kind === 'empty' ? 56 : 24, Math.ceil(measure(shown, kind)) + padX * 2);
+    const h = (HEIGHT[kind] ?? M.chipH) + (lines ? (lines.length - 1) * M.lineH : 0);
+    const widest = lines ? Math.max(...lines.map((l) => measure(l, kind))) : measure(shown, kind);
+    const w = Math.max(kind === 'text' ? 36 : kind === 'empty' ? 56 : 24, Math.ceil(widest) + padX * 2);
     return {
       w,
       h,
       cy: h / 2,
       place(x, y) {
         const id = nid('b');
-        boxes.push({ id, kind, x, y, w, h, label: shown, full: label, ...extra });
+        boxes.push({ id, kind, x, y, w, h, label: shown, full: label, ...(lines && lines.length > 1 ? { lines } : {}), ...extra });
         if (kind === 'ref' && extra.target !== undefined) pills.push({ id, target: extra.target });
         return { first: id, last: id };
       },
