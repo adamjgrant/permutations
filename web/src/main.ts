@@ -1360,26 +1360,34 @@ function resetAll(): void {
   }
   const label = c > BigInt(ALL_LIMIT) ? `List the first ${formatCount(BigInt(ALL_LIMIT))}` : `List all ${formatCount(c)}`;
   intro.innerHTML = `<span>This program has <strong>${formatCount(c)}</strong> ${c === 1n ? 'permutation' : 'permutations'}.</span><button id="b-list" type="button" class="primary">${label}</button>`;
-  $('b-list').addEventListener('click', safe(listAll));
+  $('b-list').addEventListener('click', safe(() => listAll()));
   // A short list needs no extra click.
   if (c <= 200n) listAll();
 }
 
-function listAll(): void {
+/** List results in the All tab: in order, or (for big programs) a random sample of them. */
+function listAll(random = false): void {
   if (!analysis) return;
   const p = analysis.program;
-  const rows: string[] = [];
-  let i = 0;
-  for (const o of p.all({ limit: ALL_LIMIT })) {
-    rows.push(item(i + 1, o.text, o.tags, BigInt(i)));
-    i++;
-  }
-  $('all-list').innerHTML = rows.join('');
+  const big = p.count > BigInt(ALL_LIMIT);
+  const indices: bigint[] = random ? p.sampleIndices(ALL_LIMIT, seededRandom(sampleSeed + 7)) : [];
+  if (!random) for (let i = 0n; i < p.count && i < BigInt(ALL_LIMIT); i++) indices.push(i);
+  if (random) indices.sort((x, y) => (x < y ? -1 : x > y ? 1 : 0));
+  $('all-list').innerHTML = indices.map((ix, i) => {
+    const o = p.at(ix);
+    return item(i + 1, o.text, o.tags, ix);
+  }).join('');
+  const n = indices.length;
   const intro = $('all-intro');
-  const shown = p.count > BigInt(ALL_LIMIT) ? `Showing the first ${formatCount(BigInt(ALL_LIMIT))} of ${formatCount(p.count)} permutations.` : `Showing all ${formatCount(p.count)}.`;
-  intro.innerHTML = `<span>${shown}</span><button id="b-copy-all" type="button">Copy ${formatCount(BigInt(i))}</button>`;
+  const shown = !big
+    ? `Showing all ${formatCount(p.count)}.`
+    : random
+      ? `Showing ${formatCount(BigInt(n))} at random of ${formatCount(p.count)} permutations.`
+      : `Showing the first ${formatCount(BigInt(n))} of ${formatCount(p.count)} permutations.`;
+  intro.innerHTML = `<span>${shown}</span>${big ? `<button id="b-list-other" type="button">${random ? `The first ${formatCount(BigInt(ALL_LIMIT))}` : `${formatCount(BigInt(ALL_LIMIT))} at random`}</button>` : ''}<button id="b-copy-all" type="button">Copy ${formatCount(BigInt(n))}</button>`;
   $('b-copy-all').addEventListener('click', safe(() => copyTexts('#all-list')));
-  $('all-note').textContent = p.count > BigInt(ALL_LIMIT) ? 'The rest are not listed. The command line tool can write them all: perm file.perm --all' : '';
+  if (big) $('b-list-other').addEventListener('click', safe(() => listAll(!random)));
+  $('all-note').textContent = big ? 'The rest are not listed. The command line tool can write them all: perm file.perm --all' : '';
 }
 
 function showTab(which: 'random' | 'all'): void {
