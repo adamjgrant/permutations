@@ -16,12 +16,13 @@ function quote(s: string): string {
 }
 
 function escapeText(v: string): string {
-  if (v.includes('\n')) throw new Unprintable('contains a line break in text');
   let out = '';
   for (let i = 0; i < v.length; i++) {
     const c = v[i] as string;
     const n = v[i + 1];
-    if ('\\[]|$@&'.includes(c)) out += '\\' + c;
+    if (c === '\n') out += '\\n';
+    else if (c === '\t') out += '\\t';
+    else if ('\\[]|$@&'.includes(c)) out += '\\' + c;
     else if (c === '{' && n !== undefined && /[0-9]/.test(n)) out += '\\{';
     else if (c === ':' && i === 0 && (isIdentStart(n) || n === '[')) out += '\\:';
     else if (c === ';' && /^;\s*delimiter/.test(v.slice(i))) out += '\\;';
@@ -38,6 +39,16 @@ function guardPrefix(g: Guard): string {
 
 function tagText(t: Tag): string {
   return `@${t.name}${t.value !== undefined && t.value !== '' ? '=' + t.value : ''}`;
+}
+
+/** `; delimiter=", " last=" and "` with whichever of the two are set. */
+function settingsClause(d: string | undefined, last: string | undefined): string {
+  const parts = [d !== undefined ? `delimiter=${quote(d)}` : '', last !== undefined ? `last=${quote(last)}` : ''].filter(Boolean);
+  return parts.length ? `; ${parts.join(' ')}` : '';
+}
+
+function lastLeaf(last: string | undefined): string[] {
+  return last === undefined ? [] : [`last ${quote(last)}`];
 }
 
 function delimiterClause(d: string): string {
@@ -180,10 +191,10 @@ function shortNode(n: Node): string {
     case 'group':
       return shortGroup(n, true);
     case 'anyorder':
-      return '[' + n.items.map(shortSeq).join(' & ') + (n.delimiter !== undefined ? delimiterClause(n.delimiter) : '') + ']';
+      return '[' + n.items.map(shortSeq).join(' & ') + settingsClause(n.delimiter, n.last) + ']';
     case 'repeat': {
       const count = n.min === n.max ? `${n.min}` : `${n.min}..${n.max}`;
-      const clause = n.delimiter !== undefined ? delimiterClause(n.delimiter) : '';
+      const clause = settingsClause(n.delimiter, n.last);
       return `${asSuffixTarget(n.inner)}{${count}${clause}}`;
     }
     case 'transform': {
@@ -289,10 +300,10 @@ function longNode(n: Node): string[] {
       return ['one of', ...indent([...delimLeaf(n.delimiter), ...opts.flatMap((o) => (typeof o === 'string' ? [`[${o}]`] : longOption(o)))])];
     }
     case 'anyorder':
-      return ['any order', ...indent([...delimLeaf(n.delimiter), ...n.items.flatMap(longSeqAsItem)])];
+      return ['any order', ...indent([...delimLeaf(n.delimiter), ...lastLeaf(n.last), ...n.items.flatMap(longSeqAsItem)])];
     case 'repeat': {
       const count = n.min === n.max ? `${n.min}` : `${n.min}..${n.max}`;
-      return [`repeat ${count}`, ...indent([...delimLeaf(n.delimiter), ...longNode(n.inner)])];
+      return [`repeat ${count}`, ...indent([...delimLeaf(n.delimiter), ...lastLeaf(n.last), ...longNode(n.inner)])];
     }
     case 'transform':
       return [`transform ${n.fns.join(' | ')}`, ...indent(longNode(n.inner))];

@@ -651,8 +651,28 @@ function relayout(keepTrace = false): void {
   }
   if (doubled) notes.push(`${doubled === 1 ? 'a choice has' : `${doubled} choices have`} more than one empty alternative, so leaving it out is more likely than any other alternative.`);
   const hints = $('chart-hints');
-  hints.hidden = notes.length === 0;
-  hints.textContent = notes.length ? `Hint: ${notes.join(' Also, ')}` : '';
+  hints.textContent = '';
+  if (notes.length) {
+    const p = document.createElement('span');
+    p.textContent = `Hint: ${notes.join(' Also, ')} `;
+    hints.appendChild(p);
+  }
+  // The compiler's warnings: code that parses but probably does not do what it looks like.
+  const warnings = analysis.program.warnings.filter((w) => !w.path);
+  for (const w of warnings.slice(0, 3)) {
+    const row = document.createElement('span');
+    row.className = 'warning-item';
+    const go = document.createElement('button');
+    go.type = 'button';
+    go.className = 'linkish';
+    go.textContent = `Line ${w.line}`;
+    go.title = 'Show it in the code';
+    go.addEventListener('click', safe(() => editor.focusAt(w.offset)));
+    row.append(go, `: ${w.message}. `);
+    hints.appendChild(row);
+  }
+  if (warnings.length > 3) hints.append(`And ${warnings.length - 3} more.`);
+  hints.hidden = notes.length === 0 && warnings.length === 0;
   selectedId = undefined;
   multi.clear();
   barOn = false;

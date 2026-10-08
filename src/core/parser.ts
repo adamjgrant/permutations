@@ -32,8 +32,17 @@ const DEF_RE = /^[ \t]*([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)[ \t]*=/;
 // Sticky regexes, matched at a given offset.
 const GUARD_RE = /@(?:(else)|(!)?([A-Za-z_]\w*)(?:=([^\s:|\]&;]+))?):/y;
 const TAG_RE = /@([A-Za-z_]\w*)(?:=([^\s|\]&;]+))?(?=[\s|\];]|$)/y;
-const GROUP_SETTINGS_RE = /;\s*delimiter\s*=\s*"((?:[^"\\]|\\.)*)"\s*(?=\])/y;
-const REPEAT_RE = /\{(\d+)(?:\.\.(\d+))?\s*(?:;\s*delimiter\s*=\s*"((?:[^"\\]|\\.)*)"\s*)?\}/y;
+// `; delimiter=", " last=" and "` inside brackets or repeat braces.
+const SETTING_PAIR = String.raw`(?:delimiter|last)\s*=\s*"(?:[^"\\]|\\.)*"\s*`;
+const GROUP_SETTINGS_RE = new RegExp(String.raw`;\s*((?:${SETTING_PAIR})+)(?=\])`, 'y');
+const REPEAT_RE = new RegExp(String.raw`\{(\d+)(?:\.\.(\d+))?\s*(?:;\s*((?:${SETTING_PAIR})+))?\}`, 'y');
+
+/** The settings in a clause: `delimiter=", " last=" and "`. */
+function parseSettings(text: string): { delimiter?: string; last?: string } {
+  const out: { delimiter?: string; last?: string } = {};
+  for (const m of text.matchAll(/(delimiter|last)\s*=\s*"((?:[^"\\]|\\.)*)"/g)) out[m[1] as 'delimiter' | 'last'] = unescapeString(m[2] as string);
+  return out;
+}
 
 export interface ImportRequest {
   spec: string;
@@ -296,7 +305,8 @@ export class Parser {
       const c = src[i] as string;
       const next = src[i + 1];
       if (c === '\\' && i + 1 < this.end) {
-        out += next;
+        // \n and \t are a line break and a tab, as in quoted strings; anything else is itself.
+        out += next === 'n' ? '\n' : next === 't' ? '\t' : next;
         i += 2;
         keep = out.length;
         contentEnd = i;
@@ -352,6 +362,8 @@ export class Parser {
     const options: Option[] = [];
     let sep: '|' | '&' | undefined;
     let delimiter: string | undefined;
+    let last: string | undefined;
+    let lastAt = 0;
     for (;;) {
       const { opt, term } = this.parseOption(true, true);
       options.push(opt);
@@ -363,7 +375,10 @@ export class Parser {
       }
       if (term === ';') {
         const m = this.matchAt(GROUP_SETTINGS_RE, this.pos) as RegExpExecArray;
-        delimiter = unescapeString(m[1] as string);
+        const set = parseSettings(m[1] as string);
+        delimiter = set.delimiter;
+        last = set.last;
+        lastAt = this.pos;
         this.pos += m[0].length;
         this.skipWs();
         break;
@@ -377,17 +392,19 @@ export class Parser {
 
     if (sep === '&') {
       for (const o of options) {
-        if (o.tags.length || o.guard) this.err('Tags and guards are not allowed in any-order items', o.range[0]);
+        if (o.tags.length || o.guard) this.err('An any-order item cannot carry a tag or guard itself. Wrap it in brackets, as in [[a @t] & b]', o.range[0]);
       }
       const node: AnyOrderNode = {
         kind: 'anyorder',
         id: newId(),
         items: options.map((o) => o.seq),
         delimiter,
+        last,
         range,
       };
       return node;
     }
+    if (last !== undefined) this.err('last joins the final two items of an any-order group (with &) or a repeat, not the alternatives of a choice', lastAt);
     const group: GroupNode = {
       kind: 'group',
       id: newId(),
@@ -410,9 +427,9 @@ export class Parser {
         const max = m[2] !== undefined ? parseInt(m[2], 10) : min;
         if (max < min) this.err(`Repeat range {${min}..${max}} is backwards`);
         if (max > 1000) this.err('Repeat count is too large (max 1000)');
-        const delimiter = m[3] !== undefined ? unescapeString(m[3]) : undefined;
+        const set = m[3] !== undefined ? parseSettings(m[3]) : {};
         this.pos += m[0].length;
-        node = buildRepeat(node, min, max, delimiter, [start, this.pos]);
+        node = buildRepeat(node, min, max, set.delimiter, [start, this.pos], set.last);
       } else if (c === ':' && (isIdentStart(this.src[this.pos + 1]) || this.src[this.pos + 1] === '[')) {
         this.pos++;
         let fns: string[];
@@ -438,14 +455,16 @@ export class Parser {
   }
 }
 
-export function buildRepeat(inner: Node, min: number, max: number, delimiter: string | undefined, range: [number, number]): RepeatNode {
+export function buildRepeat(inner: Node, min: number, max: number, delimiter: string | undefined, range: [number, number], last?: string): RepeatNode {
   const expanded: SeqNode[] = [];
+  // With only `last`, the other copies stay glued (an empty delimiter) and only the last join shows.
+  const joined = delimiter !== undefined || last !== undefined;
   for (let n = min; n <= max; n++) {
     const pieces: Piece[] = [];
-    for (let i = 0; i < n; i++) pieces.push({ node: inner, join: delimiter !== undefined && i > 0 });
-    expanded.push({ kind: 'seq', id: newId(), pieces, joinDelim: delimiter, range });
+    for (let i = 0; i < n; i++) pieces.push({ node: inner, join: joined && i > 0 });
+    expanded.push({ kind: 'seq', id: newId(), pieces, joinDelim: delimiter ?? (last !== undefined ? '' : undefined), lastDelim: last, range });
   }
-  return { kind: 'repeat', id: newId(), inner, min, max, delimiter, expanded, range };
+  return { kind: 'repeat', id: newId(), inner, min, max, delimiter, last, expanded, range };
 }
 
 function textOption(value: string, range: [number, number]): Option {

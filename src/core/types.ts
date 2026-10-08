@@ -45,6 +45,8 @@ export interface SeqNode {
   pieces: Piece[];
   /** Delimiter used for this sequence's own join points (defaults to the scope's). */
   joinDelim?: string | undefined;
+  /** Used instead of the delimiter for the last join between non-empty pieces (a, b and c). */
+  lastDelim?: string | undefined;
   /** Delimiter pushed down to children (defaults to the scope's). */
   scopeDelim?: string | undefined;
   range: Range;
@@ -75,6 +77,8 @@ export interface AnyOrderNode {
   id: number;
   items: SeqNode[];
   delimiter?: string | undefined;
+  /** Joins the last two items instead of the delimiter: `a, b and c`. */
+  last?: string | undefined;
   range: Range;
   /** Lazily built, one sequence per ordering (only needed when tags exist). */
   orderings?: SeqNode[] | undefined;
@@ -87,6 +91,8 @@ export interface RepeatNode {
   min: number;
   max: number;
   delimiter?: string | undefined;
+  /** Joins the last two copies instead of the delimiter. */
+  last?: string | undefined;
   /** One sequence per repeat count, min to max. */
   expanded: SeqNode[];
   range: Range;

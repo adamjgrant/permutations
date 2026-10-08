@@ -427,3 +427,6 @@ kbd { font: 11.5px ui-monospace, "SF Mono", Menlo, monospace; padding: 1px 5px; 
 .chart-svg .order-badge circle { fill: var(--accent); }
 .chart-svg .order-badge text { fill: #fff; font-size: 10px; font-weight: 700; }
 @media (prefers-color-scheme: dark) { .chart-svg .order-badge text { fill: #0a0a0c; } }
+
+.warn-hint .warning-item { display: block; margin-top: 2px; }
+.warn-hint .warning-item:first-child { margin-top: 0; }

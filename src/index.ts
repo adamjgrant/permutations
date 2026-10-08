@@ -6,6 +6,7 @@ export { builtinTransforms } from './core/transforms';
 export { seededRandom } from './core/random';
 export type { TransformFn } from './core/transforms';
 export { PermError } from './core/types';
+export type { Warning } from './core/warnings';
 export type { Node, Output, Module, Def, Tag, Guard, Option, Piece, Range } from './core/types';
 export { formatSource, printShortDef, printLongDef } from './core/format';
 export type { FormatMode, FormatResult } from './core/format';

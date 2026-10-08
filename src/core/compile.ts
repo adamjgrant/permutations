@@ -1,4 +1,5 @@
 import { Program } from './engine';
+import { findWarnings } from './warnings';
 import { fail, ImportRequest, lineCol, parseModule } from './parser';
 import { builtinTransforms, TransformFn } from './transforms';
 import { Def, Module, Node, PermError, RefNode } from './types';
@@ -93,7 +94,15 @@ export function compile(source: string, opts: CompileOptions = {}): Program {
         if (n.kind === 'ref') linkRef(module, n, opts.values ?? {});
         if (n.kind === 'transform') {
           for (const f of n.fns) {
-            if (!fns[f]) fail(module.source, `Unknown transform '${f}'`, n.range[0]);
+            if (!fns[f]) {
+              const { line, col } = lineCol(module.source, n.range[0]);
+              throw new PermError(
+                `Unknown transform '${f}' (line ${line}, column ${col}). Transforms: ${Object.keys(fns).join(', ')}. To write a colon as text, use \\:`,
+                n.range[0],
+                line,
+                col,
+              );
+            }
           }
         }
       });
@@ -117,18 +126,22 @@ export function compile(source: string, opts: CompileOptions = {}): Program {
   const entryName = opts.entry ?? 'main';
   const entry = root.defs.get(entryName) ?? (opts.entry === undefined ? root.anonymous : undefined);
   if (!entry) {
+    const names = [...root.defs.keys()];
+    const list = names.length ? ` Its branches: ${names.slice(0, 8).join(', ')}${names.length > 8 ? ', ...' : ''}.` : '';
     throw new PermError(
       opts.entry === undefined
-        ? "No entry point: define 'main' or write a single unnamed expression"
-        : `Entry point '${opts.entry}' is not defined`,
+        ? `No entry point: define main, or write a single unnamed expression, or start from another branch with --entry NAME.${list}`
+        : `Entry point '${opts.entry}' is not defined.${list}`,
     );
   }
 
-  return new Program(entry, all, {
+  const program = new Program(entry, all, {
     delimiter: opts.delimiter ?? root.delimiter ?? ' ',
     fns: opts.fns ?? {},
     rng: opts.rng,
   });
+  program.warnings = findWarnings(all, root);
+  return program;
 }
 
 function linkRef(module: Module, ref: RefNode, values: Record<string, string>): void {
@@ -156,11 +169,20 @@ function linkRef(module: Module, ref: RefNode, values: Record<string, string>): 
     ref.target = { kind: 'value', value: values[path] as string };
     return;
   }
-  if (path.includes('.')) fail(module.source, `Unknown reference $${path}`, ref.range[0]);
   const { line, col } = lineCol(module.source, ref.range[0]);
+  const where = `Unknown reference $${path} (line ${line}, column ${col}).`;
+  const names = [...module.defs.keys(), ...module.named.keys()];
+  // A namespace on its own: list its members.
+  const members = names.filter((n) => n.startsWith(path + '.'));
+  if (members.length) throw new PermError(`${where} ${path} is a group of branches, so pick one: ${members.map((m) => '$' + m).slice(0, 6).join(', ')}`, ref.range[0], line, col);
+  // Letters run on after a real name: $names when there is a branch called name.
+  const prefix = names.filter((n) => path.startsWith(n) && /^[A-Za-z0-9_]+$/.test(path.slice(n.length))).sort((a, b) => b.length - a.length)[0];
+  if (prefix) throw new PermError(`${where} To put letters right after $${prefix}, use brackets: [$${prefix}]${path.slice(prefix.length)}`, ref.range[0], line, col);
+  const near = names.find((n) => editDistance(n, path) <= 2);
+  if (near) throw new PermError(`${where} Did you mean $${near}?`, ref.range[0], line, col);
+  if (path.includes('.')) fail(module.source, `Unknown reference $${path}`, ref.range[0]);
   throw new PermError(
-    `Unknown reference $${path} (line ${line}, column ${col}). ` +
-      `If it is a host value, pass --set ${path}=... on the command line, or the 'values' option when compiling`,
+    `${where} If it is a host value, pass --set ${path}=... on the command line, or the 'values' option when compiling`,
     ref.range[0],
     line,
     col,
@@ -191,4 +213,13 @@ function checkCycles(modules: Module[]): void {
     for (const def of m.defs.values()) dfs(def);
     if (m.anonymous) dfs(m.anonymous);
   }
+}
+
+function editDistance(a: string, b: string): number {
+  const d = Array.from({ length: a.length + 1 }, (_v, i) => [i, ...Array(b.length).fill(0)] as number[]);
+  for (let j = 1; j <= b.length; j++) (d[0] as number[])[j] = j;
+  for (let i = 1; i <= a.length; i++)
+    for (let j = 1; j <= b.length; j++)
+      (d[i] as number[])[j] = Math.min((d[i - 1] as number[])[j]! + 1, (d[i] as number[])[j - 1]! + 1, (d[i - 1] as number[])[j - 1]! + (a[i - 1] === b[j - 1] ? 0 : 1));
+  return (d[a.length] as number[])[b.length]!;
 }

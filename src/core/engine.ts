@@ -157,14 +157,17 @@ export function randBelow(n: bigint, rng: () => number): bigint {
   }
 }
 
-function joinOutputs(outs: string[], joins: boolean[], delim: string): string {
+function joinOutputs(outs: string[], joins: boolean[], delim: string, last?: string): string {
   let res = '';
   let pending = false;
+  // `last` joins the final non-empty piece instead of the delimiter: a, b and c.
+  let lastIndex = -1;
+  if (last !== undefined) for (let i = outs.length - 1; i >= 0; i--) if (outs[i] !== '') { lastIndex = i; break; }
   for (let i = 0; i < outs.length; i++) {
     const out = outs[i] as string;
     if (i > 0 && joins[i]) pending = true;
     if (out === '') continue;
-    if (res !== '' && pending && !CLOSING.test(out) && !OPENING.test(res)) res += delim;
+    if (res !== '' && pending && !CLOSING.test(out) && !OPENING.test(res)) res += i === lastIndex ? (last as string) : delim;
     res += out;
     pending = false;
   }
@@ -243,6 +246,7 @@ export class Evaluator {
         pieces: perm.map((idx, j) => ({ node: node.items[idx] as SeqNode, join: j > 0 })),
         joinDelim: node.delimiter,
         scopeDelim: node.delimiter,
+        lastDelim: node.last,
         range: node.range,
       }));
     }
@@ -305,7 +309,7 @@ export class Evaluator {
       case 'seq': {
         const outs: string[] = [];
         this.walkSeq(node, 0, sIn, sOut, k, node.scopeDelim ?? delim, outs, tr);
-        return joinOutputs(outs, node.pieces.map((p) => p.join), node.joinDelim ?? delim);
+        return joinOutputs(outs, node.pieces.map((p) => p.join), node.joinDelim ?? delim, node.lastDelim);
       }
       case 'group': {
         const d = node.delimiter ?? delim;
@@ -335,7 +339,7 @@ export class Evaluator {
             return ki;
           });
           const outs = perm.map((i) => this.walk(node.items[i] as SeqNode, sIn, sOut, ks[i] as bigint, d, tr));
-          return joinOutputs(outs, outs.map(() => true), d);
+          return joinOutputs(outs, outs.map(() => true), d, node.last);
         }
         for (const seq of this.orderings(node)) {
           const c = this.table(seq, sIn).get(sOut) ?? 0n;
@@ -401,7 +405,7 @@ export class Evaluator {
           outs[i] = this.walkKeyed(piece.node, s, pick.s, scope, `${key}/${i}`, draw, visits, tr);
           s = pick.s;
         }
-        return joinOutputs(outs, node.pieces.map((p) => p.join), node.joinDelim ?? delim);
+        return joinOutputs(outs, node.pieces.map((p) => p.join), node.joinDelim ?? delim, node.lastDelim);
       }
       case 'group': {
         const d = node.delimiter ?? delim;
@@ -423,7 +427,7 @@ export class Evaluator {
           const perm = unrankPermutation(n, scaled(draw(`${key}/perm`), perms));
           // Each item keeps the key of its place in the source, so its own picks stay put.
           const outs = perm.map((i) => this.walkKeyed(node.items[i] as SeqNode, sIn, sOut, d, `${key}/${i}`, draw, visits, tr));
-          return joinOutputs(outs, outs.map(() => true), d);
+          return joinOutputs(outs, outs.map(() => true), d, node.last);
         }
         const seqs = this.orderings(node);
         const cands = seqs.map((seq, i) => ({ i, w: this.table(seq, sIn).get(sOut) ?? 0n })).filter((c) => c.w > 0n);
@@ -475,6 +479,8 @@ export interface ProgramOptions {
 }
 
 export class Program {
+  /** Code that parses but probably does not do what it looks like (see warnings.ts). */
+  warnings: import('./warnings').Warning[] = [];
   private ev: Evaluator;
   private total?: bigint;
   private rng: () => number;

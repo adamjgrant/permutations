@@ -177,6 +177,8 @@ greeting = [How [are you|'s [it|everything]]|What [is new|is going on]]`,
   'main = [@!x: no|@x: yes]',
   'main = one [two|three; delimiter=", "] four',
   'main = [a|b] [c|d] [e|f]',
+  'main = Pack [tent & stove & map; delimiter=", " last=" and "].',
+  'main = [very]{2..3; delimiter=", " last=" and "}',
 ];
 
 describe('formatter round trips', () => {
@@ -258,11 +260,12 @@ main = $x $y
     expect(output).toContain('# keep me');
   });
 
-  test('text that cannot be written in short form is skipped with a reason', () => {
+  test('a line break in text converts to short form as \\n', () => {
     const src = 'branch main\n  "line one\\nline two"\n';
     const { output, skipped } = formatSource(src, 'short');
-    expect(output).toBe(src);
-    expect(skipped[0]?.reason).toMatch(/line break/);
+    expect(skipped).toEqual([]);
+    expect(output.trim()).toBe('main = line one\\nline two');
+    expect([...compile(output).all()][0]!.text).toBe('line one\nline two');
   });
 });
 

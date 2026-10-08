@@ -17,6 +17,7 @@ const USAGE = `Usage: perm <file | program> [options]
   --set key=value      host value, available as $key (repeatable)
   --fn FILE            JS module exporting custom transforms
   --seed N             make the random choices repeatable (same N, same results)
+  -q, --quiet          do not print warnings
   -h, --help           show this help
 
 If the first argument is not an existing file, it is treated as a program.
@@ -39,11 +40,12 @@ interface Args {
   values: Record<string, string>;
   fnFiles: string[];
   seed?: number;
+  quiet: boolean;
   help: boolean;
 }
 
 function parseArgs(argv: string[]): Args {
-  const a: Args = { all: false, count: false, json: false, values: {}, fnFiles: [], help: false };
+  const a: Args = { all: false, count: false, json: false, values: {}, fnFiles: [], quiet: false, help: false };
   const need = (i: number, flag: string): string => {
     const v = argv[i];
     if (v === undefined) throw new Error(`${flag} needs a value`);
@@ -69,6 +71,10 @@ function parseArgs(argv: string[]): Args {
         break;
       case '--count':
         a.count = true;
+        break;
+      case '-q':
+      case '--quiet':
+        a.quiet = true;
         break;
       case '--json':
         a.json = true;
@@ -167,7 +173,7 @@ function main(): void {
   const fromStdin = args.target === '-';
   const isFile = !fromStdin && fs.existsSync(args.target) && fs.statSync(args.target).isFile();
   // A mistyped file name would otherwise run as a one-line program and print its own name.
-  if (!fromStdin && !isFile && /^[^\s\[\]|$@]+(\.perm|\/[^\s]*)$/.test(args.target)) {
+  if (!fromStdin && !isFile && /^[^\s\[\]|$@]+(\.[A-Za-z][A-Za-z0-9]{1,5}|\/[^\s]*)$/.test(args.target)) {
     console.error(`Error: File not found: ${args.target}`);
     process.exit(1);
   }
@@ -190,6 +196,10 @@ function main(): void {
       ...(args.delimiter !== undefined ? { delimiter: args.delimiter } : {}),
       ...(args.seed !== undefined ? { rng: seededRandom(args.seed) } : {}),
     });
+
+    if (!args.quiet) {
+      for (const w of prog.warnings) console.error(`warning: ${w.message} (${w.path ? w.path + ', ' : ''}line ${w.line}, column ${w.col})`);
+    }
 
     if (args.count) {
       console.log(prog.count.toString());

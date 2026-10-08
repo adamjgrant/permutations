@@ -35,6 +35,7 @@ const RE = {
   when: new RegExp(`^when[ \\t]+(not[ \\t]+)?(${NAME})(?:[ \\t]*=[ \\t]*(\\S+))?$`),
   otherwise: /^otherwise$/,
   delimiter: /^delimiter[ \t]+"((?:[^"\\]|\\.)*)"$/,
+  last: /^last[ \t]+"((?:[^"\\]|\\.)*)"$/,
   quoted: /^"((?:[^"\\]|\\.)*)"$/,
   branch: new RegExp(`^branch[ \\t]+${PATH}$`),
 };
@@ -56,7 +57,8 @@ type Item =
   | { t: 'when'; guard: Guard; seq: SeqNode; tags: Tag[]; line: Line }
   | { t: 'empty'; line: Line }
   | { t: 'tag'; tag: Tag; line: Line }
-  | { t: 'delim'; value: string; line: Line };
+  | { t: 'delim'; value: string; line: Line }
+  | { t: 'last'; value: string; line: Line };
 
 class LongParser {
   constructor(
@@ -105,18 +107,22 @@ class LongParser {
     return [first.start, last.end];
   }
 
-  split(items: Item[]): { content: Item[]; tags: Tag[]; delim: string | undefined } {
+  split(items: Item[], lastAllowed = false): { content: Item[]; tags: Tag[]; delim: string | undefined; last: string | undefined } {
     const content: Item[] = [];
     const tags: Tag[] = [];
     let delim: string | undefined;
+    let last: string | undefined;
     for (const it of items) {
       if (it.t === 'tag') tags.push(it.tag);
       else if (it.t === 'delim') {
         if (delim !== undefined) this.err('Only one delimiter per block', it.line);
         delim = it.value;
+      } else if (it.t === 'last') {
+        if (!lastAllowed) this.err("'last' joins the final two items of an 'any order' or 'repeat' block, so it belongs there", it.line);
+        last = it.value;
       } else content.push(it);
     }
-    return { content, tags, delim };
+    return { content, tags, delim, last };
   }
 
   private emptyText(range: [number, number]): TextNode {
@@ -190,17 +196,18 @@ class LongParser {
     }
     if (RE.anyOrder.test(text)) {
       const { items, next } = this.needChildren(index, 'any order');
-      const { content, tags, delim } = this.split(items);
+      const { content, tags, delim, last } = this.split(items, true);
       if (tags.length) this.err('Tags are not allowed in any-order items', line);
       const node: AnyOrderNode = {
         kind: 'anyorder',
         id: newId(),
         items: content.map((c) => {
           const o = this.toOption(c);
-          if (o.tags.length || o.guard) this.err('Tags and guards are not allowed in any-order items', c.line);
+          if (o.tags.length || o.guard) this.err("An any-order item cannot carry a tag or guard itself. Put it inside a 'one of' or a 'sequence' block", c.line);
           return o.seq;
         }),
         delimiter: delim,
+        last,
         range: this.rangeOf(index, next),
       };
       return here(node, next);
@@ -222,10 +229,10 @@ class LongParser {
       if (max < min) this.err(`Repeat range ${min}..${max} is backwards`, line);
       if (max > 1000) this.err('Repeat count is too large (max 1000)', line);
       const { items, next } = this.needChildren(index, 'repeat');
-      const { content, tags, delim } = this.split(items);
+      const { content, tags, delim, last } = this.split(items, true);
       if (tags.length) this.err("Tags are not allowed directly inside 'repeat'", line);
       const inner = this.single(content, line, 'repeat');
-      return here(buildRepeat(inner, min, max, delim, this.rangeOf(index, next)), next);
+      return here(buildRepeat(inner, min, max, delim, this.rangeOf(index, next), last), next);
     }
     if ((m = RE.transform.exec(text))) {
       const fns = (m[1] as string).split('|').map((f) => f.trim());
@@ -239,6 +246,9 @@ class LongParser {
     if ((m = RE.tag.exec(text))) {
       this.module.hasTags = true;
       return { item: { t: 'tag', tag: { name: m[1] as string, value: m[2], range: [line.start, line.end] }, line }, next: this.noChildren(index, 'tag') };
+    }
+    if ((m = RE.last.exec(text))) {
+      return { item: { t: 'last', value: unescapeString(m[1] as string), line }, next: this.noChildren(index, 'last') };
     }
     if ((m = RE.delimiter.exec(text))) {
       return { item: { t: 'delim', value: unescapeString(m[1] as string), line }, next: this.noChildren(index, 'delimiter') };

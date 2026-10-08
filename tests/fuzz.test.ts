@@ -21,13 +21,14 @@ function permutations<T>(xs: T[]): T[][] {
   return out;
 }
 
-function joinAll(outs: string[], joins: boolean[], delim: string): string {
+function joinAll(outs: string[], joins: boolean[], delim: string, last?: string): string {
   let res = '';
   let pending = false;
+  const lastIndex = last === undefined ? -1 : outs.map((o, i) => (o === '' ? -1 : i)).reduce((a, b) => Math.max(a, b), -1);
   outs.forEach((o, i) => {
     if (i > 0 && joins[i]) pending = true;
     if (o === '') return;
-    if (res !== '' && pending && !CLOSING.test(o) && !OPENING.test(res)) res += delim;
+    if (res !== '' && pending && !CLOSING.test(o) && !OPENING.test(res)) res += i === lastIndex ? (last as string) : delim;
     res += o;
     pending = false;
   });
@@ -55,7 +56,7 @@ function enumNode(n: Node, st: State, delim: string): Path[] {
         for (const a of acc) for (const r of enumNode(p.node, a.st, d)) next.push({ outs: [...a.outs, r.text], st: r.st });
         acc = next;
       }
-      return acc.map((a) => ({ text: joinAll(a.outs, n.pieces.map((p) => p.join), j), st: a.st }));
+      return acc.map((a) => ({ text: joinAll(a.outs, n.pieces.map((p) => p.join), j, n.lastDelim), st: a.st }));
     }
     case 'group': {
       const d = n.delimiter ?? delim;
@@ -92,7 +93,7 @@ function enumNode(n: Node, st: State, delim: string): Path[] {
           for (const a of acc) for (const r of enumNode(item, a.st, d)) next.push({ outs: [...a.outs, r.text], st: r.st });
           acc = next;
         }
-        for (const a of acc) out.push({ text: joinAll(a.outs, a.outs.map(() => true), d), st: a.st });
+        for (const a of acc) out.push({ text: joinAll(a.outs, a.outs.map(() => true), d, n.last), st: a.st });
       }
       return out;
     }
@@ -151,7 +152,7 @@ function generate(rand: () => number): string {
     const n = 2 + Math.floor(rand() * 2);
     const items: string[] = [];
     for (let i = 0; i < n; i++) items.push(rand() < 0.3 ? group(Math.max(0, depth - 1), false) : text());
-    const d = rand() < 0.3 ? `; delimiter="${pick(['', '+', ', '])}"` : '';
+    const d = rand() < 0.3 ? `; delimiter="${pick(['', '+', ', '])}"${rand() < 0.5 ? ' last=" and "' : ''}` : '';
     return '[' + items.join(' & ') + d + ']';
   };
 

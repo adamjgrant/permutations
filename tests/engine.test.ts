@@ -59,6 +59,11 @@ main = I feel $mood.`;
     expect(texts(src)).toEqual(['Buy now #sale']);
   });
 
+  test('\\n and \\t are a line break and a tab in short form too', () => {
+    expect(texts('Dear Sam,\\nThanks.')).toEqual(['Dear Sam,\nThanks.']);
+    expect(texts('a\\tb')).toEqual(['a\tb']);
+  });
+
   test('escapes and dollar amounts', () => {
     expect(texts('Price: \\$5 \\[approx\\]')).toEqual(['Price: $5 [approx]']);
     expect(texts('costs $5')).toEqual(['costs $5']);
@@ -166,6 +171,15 @@ describe('any order', () => {
       'Example DNA Sequence TACG',
       'Example DNA Sequence TAGC',
     ]);
+  });
+
+  test('last joins the final two items: a, b and c', () => {
+    expect(texts('Pack [tent & stove & map; delimiter=", " last=" and "]')).toContain('Pack stove, map and tent');
+    expect(texts('[a & b; delimiter=", " last=" and "]')).toEqual(['a and b', 'b and a']);
+    expect(texts('[a & [b|] & c; delimiter=", " last=" and "]')).toContain('a and c');
+    expect(texts('[very]{3; delimiter=", " last=" and "}')).toEqual(['very, very and very']);
+    expect(texts('[ho]{3; last="!"}')).toEqual(['hoho!ho']);
+    expect(() => compile('[a|b; last=" and "]')).toThrow(/last joins the final two items/);
   });
 
   test('items can be choices', () => {
