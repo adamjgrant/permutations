@@ -175,4 +175,17 @@ export default async (t) => {
   await page.reload();
   await t.settle(500);
   check((await line1()) === 'main = edited after sharing', 'a reload keeps the latest edit');
+
+  // Delete removes exactly the selected piece.
+  await t.setCode('main = Hello [big|small] world $tail\ntail = and more\n');
+  await txt('world').click();
+  await page.keyboard.press('Delete');
+  await t.settle();
+  check((await line1()) === 'main = Hello [big|small] $tail', 'the Delete key removes just the selected word');
+  await t.setCode("main = [How [are you|'s it]|What]\n");
+  await txt('How').click();
+  check(await act('delete').isVisible() && (await act('delete').textContent()) === 'Delete alternative', 'a piece among others offers Delete alternative separately');
+  await act('delete-piece').click();
+  await t.settle();
+  check((await line1()) === "main = [[are you|'s it]|What]", 'Delete on one word keeps the rest of its alternative');
 };

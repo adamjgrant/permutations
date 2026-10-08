@@ -1,4 +1,4 @@
-import type { RefNode, TextNode } from '../../src/core/types';
+import type { Node, RefNode, TextNode } from '../../src/core/types';
 import { Analysis, analyze, DEFAULT_PROGRAM, decodeShare, describeError, encodeShare, formatCount, isBlank, tagLabel } from './model';
 import { Box, layout, Layout } from './layout';
 import { canvasMeasure, ChartActions, ChartView, DefAction, FocusKey } from './chart';
@@ -16,6 +16,7 @@ import { HELP_ITEMS, insertionFor, SHORTCUTS } from './help';
 import { ActionBar, ActionId, barActions } from './actionbar';
 import { insertReference, pieceRange, WrapNode, wrapInChoice } from './insert';
 import { pathBoxes } from './trace';
+import { deletePiece, isSolePiece, locatePiece } from './remove';
 import { setDelimiter } from './delim';
 type DelimTarget = Parameters<typeof setDelimiter>[1];
 import { inside } from './nav';
@@ -332,6 +333,30 @@ const actions: ChartActions = {
     return applyEdit(result, { focus: box });
   },
   editChip: (box) => editChip(box),
+  deleteBox(box) {
+    if (!analysis || !canEdit()) return;
+    if (box.kind === 'tag' || box.kind === 'guard') return actions.removeChip(box);
+    const ctx = chart.contextFor(box.id);
+    const info = pieceInfo(box);
+    if (info && info.deletable && !info.sole) {
+      const err = removePiece(box);
+      if (err) notify(err, 'warn');
+      return;
+    }
+    if (ctx.row && ctx.frame && actions.canRestructure(ctx.frame) && box.kind !== 'frame') {
+      if ((ctx.row.count ?? 1) < 2) notify('The only alternative of a choice cannot be deleted. Delete the choice, or change its text.', 'warn');
+      else actions.deleteAlternative(ctx.row);
+      return;
+    }
+    notify(
+      box.kind === 'defLabel' || box.kind === 'def'
+        ? 'To delete a branch, use Delete branch… in the strip.'
+        : info?.sole
+          ? 'This is all its branch holds, so it cannot be deleted on its own. Delete the branch instead.'
+          : 'This cannot be deleted from the chart. Delete it in the code.',
+      'warn',
+    );
+  },
   removeChip(box) {
     if (!analysis || !canEdit()) return;
     let err: string | undefined = 'none';
@@ -695,6 +720,7 @@ function updateBar(): void {
     canExtract: ok && !!currentExtraction(),
     branches: branchNames().length,
     delimFrame: delimFrameFor(box),
+    piece: pieceInfo(box),
   });
   bar.show(specs, selectionLabel(box));
 }
@@ -734,6 +760,11 @@ function runAction(id: ActionId): void {
     case 'delete':
       if (ctx.row) actions.deleteAlternative(ctx.row);
       return;
+    case 'delete-piece': {
+      const err = removePiece(box);
+      if (err) notify(err, 'warn');
+      return;
+    }
     case 'tag':
       if (ctx.row) actions.addTag(ctx.row);
       return;
@@ -820,6 +851,31 @@ function delimiterDialog(frame: Box, anchor: Box): void {
       { label: 'Cancel', run: () => undefined },
     ],
   });
+}
+
+function bodies(): Node[] {
+  return analysis ? [analysis.main.body, ...analysis.others.map((o) => o.body)] : [];
+}
+
+/** Where a selected piece sits, for the strip's Delete buttons. */
+function pieceInfo(box: Box): { sole: boolean; deletable: boolean } | undefined {
+  const node = box.kind === 'frame' ? box.node : box.kind === 'text' || box.kind === 'ref' || box.kind === 'value' ? box.node : undefined;
+  if (!node || !analysis) return undefined;
+  const loc = locatePiece(bodies(), node);
+  if (!loc) return undefined;
+  return { sole: isSolePiece(loc), deletable: !failed(deletePiece(analysis.source, loc)) };
+}
+
+/** Delete one piece of a sequence (Delete in the strip, or the Delete key). */
+function removePiece(box: Box): string | undefined {
+  if (!analysis || !box.node) return 'Nothing to delete.';
+  const loc = locatePiece(bodies(), box.node);
+  if (!loc) return 'This cannot be deleted from the chart. Delete it in the code.';
+  const r = deletePiece(analysis.source, loc);
+  if (failed(r)) return r.error;
+  const err = applyEdit(r);
+  if (!err) toast(`Deleted “${box.full.length > 30 ? box.full.slice(0, 29) + '…' : box.full}”.`, UNDO);
+  return err;
 }
 
 function deleteUnused(name: string): void {

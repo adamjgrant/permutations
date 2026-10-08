@@ -26,7 +26,8 @@ export type ActionId =
   | 'optional'
   | 'insert-ref'
   | 'inline'
-  | 'delimiter';
+  | 'delimiter'
+  | 'delete-piece';
 
 export interface ActionSpec {
   id: ActionId;
@@ -56,6 +57,8 @@ export interface BarInput {
   branches?: number;
   /** A choice whose delimiter this selection can set (the choice itself, or its chips). */
   delimFrame?: Box | undefined;
+  /** The selected piece in its sequence: is it all its alternative (or branch) holds, can it go? */
+  piece?: { sole: boolean; deletable: boolean } | undefined;
 }
 
 const TEXTUAL = new Set(['text', 'empty', 'range']);
@@ -101,7 +104,14 @@ export function barActions(s: BarInput): ActionSpec[] {
     out.push({ id: 'up', label: '↑', title: 'Move this alternative up (Alt+Up)', group: 1, disabled: !s.caps.move || idx <= 0 });
     out.push({ id: 'down', label: '↓', title: 'Move this alternative down (Alt+Down)', group: 1, disabled: !s.caps.move || idx >= count - 1 });
     if (b.kind !== 'tag' && b.kind !== 'guard') {
-      out.push({ id: 'delete', label: 'Delete', title: count < 2 ? 'The only alternative cannot be deleted' : 'Delete this alternative (Delete)', group: 1, danger: true, disabled: count < 2 });
+      const own = b.kind === 'text' || b.kind === 'ref' || b.kind === 'value';
+      if (own && s.piece && !s.piece.sole && s.piece.deletable) {
+        // The alternative holds more than this piece: say which one Delete removes.
+        out.push({ id: 'delete-piece', label: 'Delete', title: `Delete “${b.full}” only (Delete)`, group: 1, danger: true });
+        out.push({ id: 'delete', label: 'Delete alternative', title: count < 2 ? 'The only alternative cannot be deleted' : 'Delete the whole alternative, everything in it', group: 1, danger: true, disabled: count < 2 });
+      } else {
+        out.push({ id: 'delete', label: 'Delete', title: count < 2 ? 'The only alternative cannot be deleted' : 'Delete this alternative (Delete)', group: 1, danger: true, disabled: count < 2 });
+      }
     }
     if (s.frame?.frameOf === 'group') {
       if (s.caps.tag) out.push({ id: 'tag', label: '+ Tag', title: 'Set a tag when this alternative is chosen (t)', group: 2 });
@@ -113,6 +123,10 @@ export function barActions(s: BarInput): ActionSpec[] {
     // Not in a choice yet: offer to make one.
     out.push({ id: 'wrap', label: '+ Alternative', title: 'Turn this into a choice with another alternative (+)', group: 1 });
     out.push({ id: 'optional', label: 'Make optional', title: 'Allow this to be left out: adds an empty alternative', group: 1 });
+    if (s.piece?.deletable && !s.piece.sole) out.push({ id: 'delete-piece', label: 'Delete', title: `Delete “${b.full}” (Delete)`, group: 1, danger: true });
+  }
+  if (b.kind === 'frame' && s.piece?.deletable && !s.piece.sole) {
+    out.push({ id: 'delete-piece', label: 'Delete choice', title: 'Delete this whole choice (Delete)', group: 1, danger: true });
   }
   if ((b.kind === 'text' || b.kind === 'ref') && (s.branches ?? 1) > 0) {
     out.push({ id: 'insert-ref', label: 'Insert reference…', title: 'Insert $name of a branch right after this', group: 3 });

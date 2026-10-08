@@ -48,6 +48,8 @@ export interface ChartActions {
   addAlternative(frame: Box, after?: number): void;
   deleteAlternative(row: Box): void;
   moveAlternative(row: Box, delta: -1 | 1): void;
+  /** Delete key: remove the selected piece, alternative or chip, or say why it cannot go. */
+  deleteBox(box: Box): void;
   addTag(row: Box): void;
   addGuard(row: Box): void;
   toggleNamespace(ns: string): void;
@@ -560,8 +562,7 @@ export class ChartView {
       case 'Backspace':
         ev.preventDefault();
         if (!editable) return;
-        if (b.kind === 'tag' || b.kind === 'guard') this.actions.removeChip(b);
-        else if (ctx.row) this.actions.deleteAlternative(ctx.row);
+        this.actions.deleteBox(b);
         return;
       case '+':
       case '=':

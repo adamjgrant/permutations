@@ -109,3 +109,16 @@ test('a choice frame or its any-order chip offers Delimiter when a frame can car
   assert.ok(ids({ ...i, delimFrame: frame }).includes('delimiter'));
   assert.ok(!ids({ ...i, delimFrame: undefined }).includes('delimiter'));
 });
+
+test('Delete names its scope: the piece alone, or the whole alternative', () => {
+  const src = "main = [How [are you|'s it]|What]";
+  const how = input(src, (b) => b.kind === 'text' && b.full === 'How', { piece: { sole: false, deletable: true } });
+  const a = barActions(how);
+  assert.equal(a.find((x) => x.id === 'delete-piece')?.label, 'Delete');
+  assert.equal(a.find((x) => x.id === 'delete')?.label, 'Delete alternative');
+  const what = barActions(input(src, (b) => b.kind === 'text' && b.full === 'What', { piece: { sole: true, deletable: false } }));
+  assert.ok(!what.some((x) => x.id === 'delete-piece'));
+  assert.equal(what.find((x) => x.id === 'delete')?.label, 'Delete');
+  const free = barActions(input('main = Say [a|b] now', (b) => b.kind === 'text' && b.full === 'now', { piece: { sole: false, deletable: true } }));
+  assert.ok(free.some((x) => x.id === 'delete-piece'));
+});
