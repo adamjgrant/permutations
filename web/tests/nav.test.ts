@@ -38,3 +38,11 @@ test('every focusable box can be reached by reading order, and rows know their f
   assert.ok(ctx.row && ctx.frame);
   assert.equal(ctx.row!.index, 0);
 });
+
+test('moving right into a nested choice lands on one of its own alternatives', () => {
+  const boxes = build("main = [How [are you|'s [it|everything]]|What]");
+  const next = navigate(boxes, text(boxes, 'How'), 'right')!;
+  assert.ok(next.full === 'are you' || next.full === "'s", `landed on ${next.full}`);
+  const back = navigate(boxes, text(boxes, "'s"), 'left')!;
+  assert.equal(back.full, 'How');
+});

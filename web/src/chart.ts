@@ -1,10 +1,15 @@
-// SVG view of a Layout. Draws boxes and edges, tracks selection, focus and hover, and turns
-// pointer and keyboard gestures into callbacks. It knows nothing about patches.
+// SVG view of a Layout. Draws boxes and edges, tracks selection and focus, and turns pointer
+// and keyboard gestures into callbacks. It knows nothing about patches.
 //
-// Keyboard model: the chart is one tab stop (roving tabindex). Arrow keys move between boxes,
-// Enter edits, Delete removes an alternative (or a tag or guard chip), Alt+Up/Down reorders,
-// `+` adds an alternative, `t` and `g` add a tag or guard, Space adds the row to the selection.
-// The hover controls are real buttons too: they appear while a box in the row has focus.
+// Pointer model: click a box to select it (the action bar appears next to it), click a selected
+// text box again or double-click it to edit, double-click a reference to go to its branch, click
+// empty space to clear the selection. Nothing depends on hover.
+//
+// Keyboard model: the chart is one tab stop (roving tabindex), and selection follows focus.
+// Arrow keys move between boxes, Enter runs the box's main action, Delete removes an alternative
+// (or a tag or guard chip), Alt+Up/Down reorders, `+` adds an alternative, `t` and `g` add a tag
+// or guard, Space adds the alternative to a multi-selection, Escape clears the selection, and Tab
+// moves into the action bar.
 
 import { Box, BoxKind, Edge, Layout, LEAF_KINDS, Measure } from './layout';
 import { Dir, focusable, navigate, readingOrder, rowContext } from './nav';
@@ -26,12 +31,21 @@ export interface ChartActions {
   /** False for choices that cannot be edited structurally. */
   canRestructure(frame: Box): boolean;
   rowCaps(row: Box): RowCaps;
-  select(box: Box, extend: boolean): void;
+  /** Select a box. `bar` is false when the click opens something else (a chip's popover). */
+  select(box: Box, extend: boolean, bar?: boolean): void;
+  /** A box got keyboard focus: selection follows focus. */
+  focused(box: Box): void;
+  clearSelection(): void;
+  /** Show the branch a reference points at. */
+  gotoRef(box: Box): void;
+  /** Inline editing started: hide anything floating over the chart. */
+  editStarted(): void;
   /** Commit inline text for text, empty, range and reference boxes. Return a message to keep the field open. */
   commitText(box: Box, value: string): string | void;
   editChip(box: Box): void;
   removeChip(box: Box): void;
-  addAlternative(frame: Box): void;
+  /** Add an alternative to a choice, after alternative `after` (at the end when omitted). */
+  addAlternative(frame: Box, after?: number): void;
   deleteAlternative(row: Box): void;
   moveAlternative(row: Box, delta: -1 | 1): void;
   addTag(row: Box): void;
@@ -85,8 +99,6 @@ export function canvasMeasure(): Measure {
   };
 }
 
-const area = (b: Box): number => b.w * b.h;
-const hits = (b: Box, x: number, y: number): boolean => x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h;
 
 const CHIP_TITLES: Partial<Record<BoxKind, string>> = {
   tag: 'Sets a tag when this alternative is chosen. Click to edit or remove it.',
@@ -129,12 +141,13 @@ export class ChartView {
   private layout: Layout | undefined;
   private elements = new Map<string, SVGElement>();
   private selected = new Set<string>();
-  private overlay: SVGGElement | undefined;
   private ring: SVGRectElement | undefined;
   private input: HTMLInputElement | undefined;
   private focusId: string | undefined;
-  private overlayFor: string | undefined;
   private lastFocused: FocusKey | undefined;
+  private context = new Set<string>();
+  /** Set while focus moves for a reason other than the user moving it (no selection change). */
+  private quiet = false;
   scale = 1;
   fit = true;
 
@@ -142,9 +155,15 @@ export class ChartView {
     private host: HTMLElement,
     private actions: ChartActions,
   ) {
-    host.addEventListener('mouseleave', () => {
-      if (!this.overlay?.contains(document.activeElement) && !this.focusedBox()) this.clearOverlay();
+    // A click on the pane outside the drawing clears the selection.
+    host.addEventListener('click', (ev) => {
+      if (ev.target === host) this.actions.clearSelection();
     });
+  }
+
+  /** The element the chart draws into (the action bar and inline editor live here too). */
+  get element(): HTMLElement {
+    return this.host;
   }
 
   get boxes(): Box[] {
@@ -186,7 +205,6 @@ export class ChartView {
     const edgeLayer = el('g', { class: 'edges' }, svg);
     const refLayer = el('g', { class: 'refs' }, svg);
     const fore = el('g', { class: 'fore' }, svg);
-    this.overlay = el('g', { class: 'overlay' }, svg);
     const controls = el('g', { class: 'controls' }, svg);
     this.ring = el('rect', { class: 'focus-ring', rx: 8, visibility: 'hidden', 'pointer-events': 'none' }, svg);
 
@@ -201,7 +219,6 @@ export class ChartView {
     this.initRoving();
     svg.addEventListener('click', (ev) => this.onClick(ev));
     svg.addEventListener('dblclick', (ev) => this.onDblClick(ev));
-    svg.addEventListener('mousemove', (ev) => this.onMove(ev));
     svg.addEventListener('keydown', (ev) => this.onKey(ev));
     svg.addEventListener('focusin', (ev) => this.onFocusIn(ev));
     svg.addEventListener('focusout', (ev) => this.onFocusOut(ev));
@@ -319,7 +336,8 @@ export class ChartView {
       const w = widths[i] as number;
       x -= w;
       const y = def.y + 12;
-      const g = el('g', { class: 'ctl defctl' + (ok ? '' : ' disabled'), role: 'button', tabindex: 0, 'aria-label': aria, 'aria-disabled': String(!ok), 'data-def': def.name ?? '', 'data-action': action }, parent);
+      // Out of the tab order: selecting the branch name offers the same actions in the strip.
+      const g = el('g', { class: 'ctl defctl' + (ok ? '' : ' disabled'), role: 'button', tabindex: -1, 'aria-label': aria, 'aria-disabled': String(!ok), 'data-def': def.name ?? '', 'data-action': action }, parent);
       el('rect', { x, y, width: w, height: 22, rx: 11 }, g);
       el('text', { x: x + w / 2, y: y + 11.5, 'text-anchor': 'middle', 'dominant-baseline': 'central' }, g).textContent = label;
       el('title', {}, g).textContent = aria;
@@ -345,11 +363,34 @@ export class ChartView {
 
   setSelected(ids: string[]): void {
     this.selected = new Set(ids);
+    this.context = new Set();
+    // Show what the selection acts on: its alternative and choice, or a reference's target.
+    if (ids.length === 1) {
+      const b = this.byId(ids[0]);
+      const ctx = rowContext(this.boxes, b);
+      if (ctx.row && ctx.row.id !== b?.id) this.context.add(ctx.row.id);
+      if (ctx.frame && ctx.frame.id !== b?.id) this.context.add(ctx.frame.id);
+      if (b?.kind === 'ref' && b.target) {
+        const def = this.boxes.find((x) => x.kind === 'def' && x.name === b.target);
+        if (def) this.context.add(def.id);
+      }
+    }
     this.applySelection();
   }
 
+  isSelected(id: string): boolean {
+    return this.selected.has(id);
+  }
+
   private applySelection(): void {
-    for (const [id, e] of this.elements) e.classList.toggle('sel', this.selected.has(id));
+    for (const [id, e] of this.elements) {
+      e.classList.toggle('sel', this.selected.has(id));
+      e.classList.toggle('ctx', this.context.has(id));
+    }
+    const one = this.selected.size === 1 ? this.byId([...this.selected][0]) : undefined;
+    this.svg?.querySelectorAll<SVGPathElement>('.edge.ref').forEach((p) => {
+      p.classList.toggle('active', !!one && p.dataset['from'] === one.id);
+    });
   }
 
   /** Make exactly one box the tab stop. */
@@ -360,12 +401,17 @@ export class ChartView {
     if (keep) this.focusId = keep.id;
   }
 
-  focusBox(id: string, scroll = true): void {
+  focusBox(id: string, scroll = true, quiet = false): void {
     const e = this.elements.get(id);
     if (!e) return;
     for (const [bid, g] of this.elements) if (g.hasAttribute('tabindex')) g.setAttribute('tabindex', bid === id ? '0' : '-1');
     this.focusId = id;
-    (e as unknown as HTMLElement).focus({ preventScroll: true });
+    this.quiet = quiet;
+    try {
+      (e as unknown as HTMLElement).focus({ preventScroll: true });
+    } finally {
+      this.quiet = false;
+    }
     if (scroll) this.scrollTo(id);
   }
 
@@ -380,15 +426,14 @@ export class ChartView {
     for (const [bid, e] of this.elements) if (e.hasAttribute('tabindex')) e.setAttribute('tabindex', bid === b.id ? '0' : '-1');
     const visible = (g as unknown as Element).matches(':focus-visible');
     this.showRing(visible ? b : undefined);
-    const ctx = rowContext(this.boxes, b);
-    if (this.actions.canEdit()) this.showOverlay(ctx.row && ctx.frame && this.isEditableFrame(ctx.frame) ? ctx.row : undefined, ctx.frame);
+    // Pointer clicks select on their own; keyboard focus moves the selection with it.
+    if (visible && !this.quiet && !this.selected.has(b.id)) this.actions.focused(b);
   }
 
   private onFocusOut(ev: FocusEvent): void {
     const next = ev.relatedTarget as Element | null;
     if (next && this.svg?.contains(next)) return;
     this.showRing(undefined);
-    if (!next || !this.host.contains(next)) this.clearOverlay();
   }
 
   private showRing(b: Box | undefined): void {
@@ -454,103 +499,42 @@ export class ChartView {
 
   private onClick(ev: MouseEvent): void {
     const target = ev.target as Element;
-    if (target.closest('.overlay') || target.closest('.defctl')) return;
+    if (target.closest('.defctl')) return;
     const b = this.boxFromEvent(ev);
-    if (!b) return;
+    if (!b) {
+      this.actions.clearSelection();
+      return;
+    }
     if (b.kind === 'nsHeader' && b.ns !== undefined) {
       this.actions.toggleNamespace(b.ns);
       return;
     }
+    const extend = ev.shiftKey || ev.metaKey || ev.ctrlKey;
+    const wasOnlySelection = this.selected.size === 1 && this.selected.has(b.id);
     if (focusable(b)) this.focusBox(b.id, false);
-    this.actions.select(b, ev.shiftKey || ev.metaKey || ev.ctrlKey);
-    if ((b.kind === 'tag' || b.kind === 'guard') && this.actions.canEdit()) this.actions.editChip(b);
+    const chip = (b.kind === 'tag' || b.kind === 'guard') && this.actions.canEdit();
+    this.actions.select(b, extend, !chip);
+    if (chip && !extend) this.actions.editChip(b);
+    // A second, separate click on a selected text box edits it, like renaming a file.
+    else if (!extend && wasOnlySelection && ev.detail === 1 && isEditableText(b)) this.beginEdit(b);
   }
 
   private onDblClick(ev: MouseEvent): void {
     const b = this.boxFromEvent(ev);
-    if (!b || !isTextual(b)) return;
+    if (!b) return;
+    if (b.kind === 'ref') {
+      ev.preventDefault();
+      this.actions.gotoRef(b);
+      return;
+    }
+    if (b.kind === 'defLabel') {
+      const def = this.boxes.find((x) => x.kind === 'def' && x.name === b.name);
+      if (def && this.actions.canEdit()) this.actions.defAction(def, 'rename');
+      return;
+    }
+    if (!isEditableText(b)) return;
     ev.preventDefault();
     this.beginEdit(b);
-  }
-
-  private point(ev: MouseEvent): { x: number; y: number } {
-    const r = (this.svg as SVGSVGElement).getBoundingClientRect();
-    return { x: (ev.clientX - r.left) / this.scale, y: (ev.clientY - r.top) / this.scale };
-  }
-
-  private onMove(ev: MouseEvent): void {
-    if (!this.actions.canEdit() || this.input) return;
-    if ((ev.target as Element).closest('.overlay')) return;
-    if (this.overlay?.contains(document.activeElement)) return;
-    const { x, y } = this.point(ev);
-    const rows = this.boxes.filter((b) => b.kind === 'row' && hits(b, x, y)).sort((a, b) => area(a) - area(b));
-    const frames = this.boxes.filter((b) => b.kind === 'frame' && (b.frameOf === 'group' || b.frameOf === 'anyorder') && hits(b, x, y)).sort((a, b) => area(a) - area(b));
-    const row = rows[0];
-    const frame = frames[0];
-    // Only show a row's tools while the row belongs to the innermost frame under the pointer.
-    this.showOverlay(row && frame && row.frameId === frame.id ? row : undefined, frame);
-  }
-
-  clearOverlay(): void {
-    if (this.overlay) this.overlay.textContent = '';
-    this.overlayFor = undefined;
-  }
-
-  private showOverlay(row: Box | undefined, frame: Box | undefined): void {
-    const o = this.overlay;
-    if (!o) return;
-    const key = `${row?.id ?? ''}|${frame?.id ?? ''}`;
-    if (key === this.overlayFor) return;
-    o.textContent = '';
-    this.overlayFor = key;
-    if (!frame || !this.isEditableFrame(frame)) return;
-    const btn = (x: number, y: number, w: number, glyph: string, label: string, onClick: () => void, disabled = false): void => {
-      const g = el('g', { class: 'ctl' + (disabled ? ' disabled' : ''), role: 'button', tabindex: 0, 'aria-label': label, 'aria-disabled': String(disabled) }, o);
-      el('rect', { x, y, width: w, height: 18, rx: 9 }, g);
-      const t = el('text', { x: x + w / 2, y: y + 9.5, 'text-anchor': 'middle', 'dominant-baseline': 'central' }, g);
-      t.textContent = glyph;
-      el('title', {}, g).textContent = label;
-      const run = (): void => {
-        if (!disabled) onClick();
-      };
-      g.addEventListener('click', (e) => {
-        e.stopPropagation();
-        run();
-      });
-      g.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          e.stopPropagation();
-          run();
-        }
-      });
-    };
-    btn(frame.x + frame.w / 2 - 11, frame.y + frame.h - 15, 22, '+', 'Add an alternative', () => this.actions.addAlternative(frame));
-    if (row) {
-      const caps = this.actions.rowCaps(row);
-      const count = row.count ?? 1;
-      const idx = row.index ?? 0;
-      const y = row.y - 15;
-      const isGroup = frame.frameOf === 'group';
-      const total = 22 + 26 + 26 + (isGroup ? 30 + 26 : 0);
-      // Right-aligned to the row, but never off the left edge of the drawing.
-      let x = Math.max(2, row.x + row.w - total) + total - 22;
-      btn(x, y, 22, '×', 'Delete this alternative', () => this.actions.deleteAlternative(row), count < 2);
-      x -= 26;
-      btn(x, y, 22, '↓', 'Move this alternative down', () => this.actions.moveAlternative(row, 1), !caps.move || idx >= count - 1);
-      x -= 26;
-      btn(x, y, 22, '↑', 'Move this alternative up', () => this.actions.moveAlternative(row, -1), !caps.move || idx <= 0);
-      if (isGroup) {
-        x -= 30;
-        btn(x, y, 26, '@:', caps.guard ? 'Add a guard to this alternative' : 'This alternative already has a guard. Click the guard chip to edit it.', () => this.actions.addGuard(row), !caps.guard);
-        x -= 26;
-        btn(x, y, 22, '@', caps.tag ? 'Add a tag to this alternative' : 'Tags cannot be added to this alternative', () => this.actions.addTag(row), !caps.tag);
-      }
-    }
-  }
-
-  private isEditableFrame(frame: Box): boolean {
-    return this.actions.canRestructure(frame);
   }
 
   // --- keyboard ------------------------------------------------------------
@@ -588,9 +572,13 @@ export class ChartView {
         return;
       }
       case 'Enter':
-      case 'F2':
         ev.preventDefault();
         this.activate(b);
+        return;
+      case 'F2':
+        ev.preventDefault();
+        if (isTextual(b)) this.beginEdit(b);
+        else this.activate(b);
         return;
       case ' ':
         ev.preventDefault();
@@ -607,7 +595,7 @@ export class ChartView {
       case '=':
         if (editable && ctx.frame) {
           ev.preventDefault();
-          this.actions.addAlternative(ctx.frame);
+          this.actions.addAlternative(ctx.frame, ctx.row?.index);
         }
         return;
       case 't':
@@ -619,7 +607,7 @@ export class ChartView {
         }
         return;
       case 'Escape':
-        this.clearOverlay();
+        this.actions.clearSelection();
         return;
       default:
     }
@@ -627,7 +615,8 @@ export class ChartView {
 
   /** Enter on a box: edit text, retarget a pill, edit a chip, rename a definition, toggle a namespace. */
   private activate(b: Box): void {
-    if (isTextual(b)) this.beginEdit(b);
+    if (b.kind === 'ref') this.actions.gotoRef(b);
+    else if (isTextual(b)) this.beginEdit(b);
     else if (b.kind === 'tag' || b.kind === 'guard') {
       if (this.actions.canEdit()) this.actions.editChip(b);
     } else if (b.kind === 'nsHeader' && b.ns !== undefined) this.actions.toggleNamespace(b.ns);
@@ -645,7 +634,7 @@ export class ChartView {
       return;
     }
     this.cancelEdit();
-    this.clearOverlay();
+    this.actions.editStarted();
     const initial = b.kind === 'empty' ? '' : b.kind === 'ref' ? (b.target ?? b.full.replace(/^\$/, '')) : b.full;
     const label = b.kind === 'ref' ? 'Name of the branch this points at' : b.kind === 'range' ? 'Range, for example 0..9' : 'Edit text';
     const input = document.createElement('input');
@@ -701,6 +690,10 @@ export class ChartView {
     if (e && this.layout && this.byId(b.id)) (e as unknown as HTMLElement).focus({ preventScroll: true });
   }
 
+  isEditing(): boolean {
+    return !!this.input;
+  }
+
   cancelEdit(): void {
     if (this.input) {
       const i = this.input;
@@ -726,7 +719,7 @@ export class ChartView {
   }
 
   /** Re-focus the box nearest the key, after a re-render. */
-  restoreKey(key: FocusKey, mapStart: (n: number) => number): void {
+  restoreKey(key: FocusKey, mapStart: (n: number) => number): Box | undefined {
     const want = key.start < 0 ? -1 : mapStart(key.start);
     let best: Box | undefined;
     let bestD = Infinity;
@@ -741,11 +734,44 @@ export class ChartView {
     }
     if (!best) best = readingOrder(this.boxes)[0];
     if (best) this.focusBox(best.id, false);
+    return best;
+  }
+
+  /** The box a key stands for, after a re-render, without moving focus. */
+  boxForKey(key: FocusKey, mapStart: (n: number) => number): Box | undefined {
+    const want = key.start < 0 ? -1 : mapStart(key.start);
+    let best: Box | undefined;
+    let bestD = Infinity;
+    for (const b of this.boxes) {
+      if (b.kind !== key.kind) continue;
+      if (key.name !== undefined && b.name !== key.name) continue;
+      const d = Math.abs((b.range?.[0] ?? -1) - want);
+      if (d < bestD) {
+        best = b;
+        bestD = d;
+      }
+    }
+    return best;
+  }
+
+  /** Briefly outline a box, to show where a jump landed. */
+  flash(id: string): void {
+    const e = this.elements.get(id);
+    if (!e) return;
+    e.classList.remove('flash');
+    void (e as unknown as HTMLElement).getBoundingClientRect();
+    e.classList.add('flash');
+    window.setTimeout(() => e.classList.remove('flash'), 1300);
   }
 }
 
 function isTextual(b: Box): boolean {
   return b.kind === 'text' || b.kind === 'empty' || b.kind === 'range' || b.kind === 'ref';
+}
+
+/** Boxes whose label is their text, so editing in place is the natural action. */
+function isEditableText(b: Box): boolean {
+  return b.kind === 'text' || b.kind === 'empty' || b.kind === 'range';
 }
 
 function rank(b: Box): number {

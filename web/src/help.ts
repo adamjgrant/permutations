@@ -34,3 +34,20 @@ export function insertionFor(item: HelpItem, doc: string, selFrom: number, selTo
   }
   return { from: selFrom, to: selTo, insert: item.snippet, cursor: selFrom + item.snippet.length };
 }
+
+export const SHORTCUTS: [string, string][] = [
+  ['Click', 'Select a box. Its action bar appears next to it.'],
+  ['Click again', 'Edit the selected text.'],
+  ['Double-click', 'Edit text, or go to the branch a reference points at.'],
+  ['Shift-click', 'Select several alternatives of one choice, to extract them together.'],
+  ['Arrow keys', 'Move between boxes. The selection follows.'],
+  ['Enter', 'Edit text, go to a reference, edit a tag or guard.'],
+  ['F2', 'Edit text, or point a reference at another branch.'],
+  ['Tab', 'Move from the chart into the action bar.'],
+  ['+', 'Add an alternative after the selected one.'],
+  ['Alt+Up / Alt+Down', 'Move the selected alternative.'],
+  ['Delete', 'Delete the selected alternative, tag or guard.'],
+  ['t / g', 'Add a tag or a guard to the selected alternative.'],
+  ['Space', 'Add the alternative to a multi-selection.'],
+  ['Escape', 'Clear the selection, or close a dialog.'],
+];

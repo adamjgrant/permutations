@@ -33,6 +33,23 @@ export function rowContext(boxes: Box[], b: Box | undefined): RowContext {
 const cx = (b: Box): number => b.x + b.w / 2;
 const cy = (b: Box): number => b.y + b.h / 2;
 
+/**
+ * Moving sideways into a choice lands on one of ITS alternatives (the one nearest the line we
+ * came along), never on a box nested deeper that happens to sit on that line.
+ */
+function enterChoice(boxes: Box[], from: Box, hit: Box, dir: Dir): Box {
+  const outer = boxes
+    .filter((f) => f.kind === 'frame' && (f.frameOf === 'group' || f.frameOf === 'anyorder') && inside(hit, f) && !inside(from, f))
+    .sort((p, q) => area(q) - area(p))[0];
+  if (!outer) return hit;
+  const rows = boxes.filter((r) => r.kind === 'row' && r.frameId === outer.id);
+  const row = rows.sort((p, q) => Math.abs(cy(p) - cy(from)) - Math.abs(cy(q) - cy(from)))[0];
+  if (!row) return hit;
+  const inRow = boxes.filter((b) => focusable(b) && inside(b, row));
+  const pick = inRow.sort((p, q) => (dir === 'right' ? p.x - q.x : q.x + q.w - (p.x + p.w)) || Math.abs(cy(p) - cy(row)) - Math.abs(cy(q) - cy(row)))[0];
+  return pick ?? hit;
+}
+
 export function navigate(boxes: Box[], from: Box, dir: Dir): Box | undefined {
   const leaves = boxes.filter((b) => focusable(b) && b.id !== from.id);
   if (dir === 'left' || dir === 'right') {
@@ -51,12 +68,13 @@ export function navigate(boxes: Box[], from: Box, dir: Dir): Box | undefined {
       return best;
     };
     const direct = along(from, Math.max(from.h, 34) / 2 + 2);
-    if (direct) return direct;
+    if (direct) return enterChoice(boxes, from, direct, dir);
     // Nothing in this alternative's line: leave the choice and continue from its connector.
     const frames = boxes.filter((f) => f.kind === 'frame' && inside(from, f)).sort((p, q) => area(p) - area(q));
     for (const f of frames) {
-      const hit = along(f, 19);
-      if (hit && !inside(hit, f)) return hit;
+      // The line enters and leaves a choice somewhere along its side, not always at its middle.
+      const hit = along(f, f.h / 2);
+      if (hit && !inside(hit, f)) return enterChoice(boxes, from, hit, dir);
     }
     return undefined;
   }

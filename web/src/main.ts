@@ -12,7 +12,8 @@ import {
   retargetReference, skippedNotice, uniqueName,
 } from './defs';
 import { closePopover, openPopover } from './popover';
-import { HELP_ITEMS, insertionFor } from './help';
+import { HELP_ITEMS, insertionFor, SHORTCUTS } from './help';
+import { ActionBar, ActionId, barActions } from './actionbar';
 
 const STORAGE_KEY = 'permutations.v3.source';
 const ALL_LIMIT = 1000;
@@ -61,6 +62,8 @@ let lastLayout: Layout | undefined;
 const collapsed = new Set<string>();
 let selectedId: string | undefined;
 const multi = new Set<string>();
+/** True when the selection came from the chart, so its action bar should show. */
+let barOn = false;
 let timer: number | undefined;
 let hlActive = false;
 let noticeTimer: number | undefined;
@@ -127,30 +130,80 @@ function applyEdit(result: EditOrError | EditResult | undefined, opts: { startEd
     return m;
   }
   clearNotice();
-  const key: FocusKey | undefined = opts.focus ? chart.focusKey(opts.focus) : chart.hasFocus() ? chart.focusKey() : document.activeElement?.closest('.popover') ? chart.lastKey() : undefined;
+  const barFocus = bar.contains(document.activeElement) ? (document.activeElement as HTMLElement).dataset['action'] : undefined;
+  const keepBar = barOn;
+  const selected = chart.boxes.find((b) => b.id === selectedId);
+  const key: FocusKey | undefined = opts.focus
+    ? chart.focusKey(opts.focus)
+    : chart.hasFocus()
+      ? chart.focusKey()
+      : document.activeElement?.closest('.popover')
+        ? chart.lastKey()
+        : selected
+          ? chart.focusKey(selected)
+          : undefined;
   editor.patch(result.patches);
   refresh();
-  if (key) chart.restoreKey(key, (n) => (opts.map ?? mapOffset)(result.patches, n));
+  const map = (n: number): number => (opts.map ?? mapOffset)(result.patches, n);
+  let landed: Box | undefined;
+  if (key) landed = barFocus ? chart.boxForKey(key, map) : chart.restoreKey(key, map);
+  if (landed && keepBar) {
+    selectBox(landed, { bar: true });
+    if (barFocus) bar.focusAction(barFocus);
+  }
   opts.then?.(result.patches);
   const sel = result.select;
   if (sel && opts.startEdit) {
     const box = chart.findByRange('text', sel);
     if (box) {
-      selectBox(box, false);
+      selectBox(box, { reveal: false, bar: true });
       chart.beginEdit(box);
     }
   }
   return undefined;
 }
 
-function selectBox(box: Box, reveal = true): void {
+function selectBox(box: Box, opts: { reveal?: boolean; bar?: boolean } = {}): void {
   selectedId = box.id;
+  barOn = opts.bar ?? true;
   chart.setSelected([box.id]);
-  if (reveal && box.range && canEdit()) {
+  if ((opts.reveal ?? true) && box.range && canEdit()) {
     editor.reveal(box.range);
     hlActive = true;
   }
   updateTools();
+}
+
+function clearSelection(): void {
+  const hadBarFocus = bar.contains(document.activeElement);
+  const prev = selectedId;
+  selectedId = undefined;
+  multi.clear();
+  barOn = false;
+  chart.setSelected([]);
+  editor.highlight(null);
+  hlActive = false;
+  updateTools();
+  if (hadBarFocus && prev) chart.focusBox(prev, false, true);
+}
+
+/** Scroll to a branch, select its name and outline its card. */
+function gotoBranch(name: string): void {
+  let label = chart.boxes.find((b) => b.kind === 'defLabel' && b.name === name);
+  const ns = name.includes('.') ? name.slice(0, name.indexOf('.')) : undefined;
+  if (!label && ns && collapsed.has(ns)) {
+    collapsed.delete(ns);
+    relayout();
+    label = chart.boxes.find((b) => b.kind === 'defLabel' && b.name === name);
+  }
+  if (!label) {
+    notify(`There is no branch named ${name}.`, 'warn');
+    return;
+  }
+  chart.focusBox(label.id, true, true);
+  selectBox(label, { bar: true });
+  const def = chart.boxes.find((b) => b.kind === 'def' && b.name === name);
+  if (def) chart.flash(def.id);
 }
 
 function toggleRow(box: Box): void {
@@ -165,6 +218,7 @@ function toggleRow(box: Box): void {
   if (multi.has(row.id)) multi.delete(row.id);
   else multi.add(row.id);
   selectedId = row.id;
+  barOn = true;
   chart.setSelected([...multi]);
   notify(`${multi.size} ${multi.size === 1 ? 'alternative' : 'alternatives'} selected. Use Extract to branch to move them into a new branch.`);
   updateTools();
@@ -175,11 +229,6 @@ function toggleRow(box: Box): void {
 function anchorOf(box: Box | undefined): { left: number; top: number; right: number; bottom: number } {
   const r = box ? chart.rectOf(box) : $('chart').getBoundingClientRect();
   return { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
-}
-
-function focusDef(name: string): void {
-  const label = chart.boxes.find((b) => b.kind === 'defLabel' && b.name === name);
-  if (label) chart.focusBox(label.id);
 }
 
 function nameDialog(title: string, label: string, value: string, hint: string, anchor: Box | undefined, run: (name: string) => string | void, okLabel: string): void {
@@ -214,12 +263,23 @@ const actions: ChartActions = {
     const group = a.node.kind === 'group';
     return { move: true, tag: group && !!alt?.option && alt.count === 1, guard: group && !!alt?.option && alt.count === 1 && !alt.option.guard };
   },
-  select(b, extend) {
+  select(b, extend, withBar = true) {
     if (extend) toggleRow(b);
     else {
       multi.clear();
-      selectBox(b);
+      selectBox(b, { bar: withBar });
     }
+  },
+  focused(b) {
+    multi.clear();
+    selectBox(b, { bar: true });
+  },
+  clearSelection,
+  gotoRef(b) {
+    if (b.target) gotoBranch(b.target);
+  },
+  editStarted() {
+    /* the strip stays: it never covers the editor */
   },
   commitText(box, value) {
     if (!analysis || !canEdit()) return 'The code has an error, so the chart cannot edit it right now.';
@@ -237,9 +297,9 @@ const actions: ChartActions = {
     if (box.kind === 'tag' && box.tag) applyEdit(editTag(analysis.source, box.tag, null), { focus: box });
     else if (box.kind === 'guard' && box.guard) applyEdit(editGuard(analysis.source, box.guard, null), { focus: box });
   },
-  addAlternative(frame) {
+  addAlternative(frame, after) {
     if (!analysis || !canEdit()) return;
-    applyEdit(addAlternative(analysis.source, frame.node as ChoiceNode), { startEdit: true });
+    applyEdit(addAlternative(analysis.source, frame.node as ChoiceNode, 'new', after), { startEdit: true });
   },
   deleteAlternative(row) {
     if (!analysis || !canEdit()) return;
@@ -374,7 +434,7 @@ function defAction(def: Box, action: DefAction): void {
     nameDialog(`Rename ${name}`, 'New name', name, `The definition and ${refs} ${refs === 1 ? 'reference' : 'references'} will change together.`, def, (v) => {
       const r = renameDefinition(src, name, v);
       if (failed(r)) return r.error;
-      const err = applyEdit(r, { then: () => focusDef(v) });
+      const err = applyEdit(r, { then: () => gotoBranch(v) });
       if (!err && r.patches.length) notify(`Renamed ${name} to ${v}, ${refs} ${refs === 1 ? 'reference' : 'references'} updated.`);
       return err;
     }, 'Rename');
@@ -445,7 +505,16 @@ function relayout(): void {
     : '';
   selectedId = undefined;
   multi.clear();
+  barOn = false;
   syncFromCursor();
+  updateTools();
+}
+
+/** Draw the same layout again (zoom, resize) and keep the selection. */
+function rerender(): void {
+  if (!lastLayout) return;
+  chart.render(lastLayout);
+  chart.setSelected(multi.size ? [...multi] : selectedId ? [selectedId] : []);
   updateTools();
 }
 
@@ -454,6 +523,7 @@ function syncFromCursor(scroll = false): void {
   const pos = editor.view.state.selection.main.head;
   const box = chart.boxAtOffset(pos);
   selectedId = box?.id;
+  barOn = false;
   chart.setSelected(box ? [box.id] : []);
   if (box && scroll) chart.scrollTo(box.id);
   updateTools();
@@ -481,57 +551,57 @@ function currentExtraction(): ExtractSelection | undefined {
 }
 
 function updateTools(): void {
-  const ctx = chart.contextFor(selectedId);
-  const ok = canEdit();
-  const restructure = ok && !!ctx.frame && actions.canRestructure(ctx.frame);
-  const row = ctx.row;
-  const caps = row ? actions.rowCaps(row) : { tag: false, guard: false, move: false };
-  $<HTMLButtonElement>('t-add').disabled = !restructure;
-  $<HTMLButtonElement>('t-del').disabled = !(restructure && row && (row.count ?? 1) > 1);
-  $<HTMLButtonElement>('t-up').disabled = !(restructure && row && (row.index ?? 0) > 0);
-  $<HTMLButtonElement>('t-down').disabled = !(restructure && row && (row.index ?? 0) < (row.count ?? 1) - 1);
-  $<HTMLButtonElement>('t-tag').disabled = !(restructure && caps.tag);
-  $<HTMLButtonElement>('t-guard').disabled = !(restructure && caps.guard);
-  $<HTMLButtonElement>('t-extract').disabled = !(ok && currentExtraction());
-  $<HTMLButtonElement>('t-new').disabled = !ok;
+  $<HTMLButtonElement>('t-new').disabled = !canEdit();
+  updateBar();
 }
 
-const on = (id: string, fn: () => void): void => $(id).addEventListener('click', safe(fn));
+function selectionLabel(b: Box): string {
+  if (multi.size > 1) return `${multi.size} alternatives`;
+  if (b.kind === 'def' || b.kind === 'defLabel') return `Branch ${b.name === '<main>' ? 'main' : b.name}`;
+  const ctx = chart.contextFor(b.id);
+  const short = (t: string): string => (t.length > 28 ? t.slice(0, 27) + '…' : t);
+  const what =
+    b.kind === 'row'
+      ? 'Alternative'
+      : b.kind === 'frame'
+        ? 'Choice'
+        : b.kind === 'ref'
+          ? `Reference ${b.full}`
+          : b.kind === 'empty'
+            ? 'Empty alternative'
+            : b.kind === 'tag' || b.kind === 'guard'
+              ? `${b.kind === 'tag' ? 'Tag' : 'Guard'} ${b.label}`
+              : `“${short(b.full)}”`;
+  return ctx.row && b.kind !== 'row' ? `${what} · alternative ${(ctx.row.index ?? 0) + 1} of ${ctx.row.count ?? 1}` : ctx.row ? `${what} ${(ctx.row.index ?? 0) + 1} of ${ctx.row.count ?? 1}` : what;
+}
 
-on('t-add', () => {
-  const f = chart.contextFor(selectedId).frame;
-  if (f) actions.addAlternative(f);
-});
-on('t-del', () => {
-  const r = chart.contextFor(selectedId).row;
-  if (r) actions.deleteAlternative(r);
-});
-on('t-up', () => {
-  const r = chart.contextFor(selectedId).row;
-  if (r) actions.moveAlternative(r, -1);
-});
-on('t-down', () => {
-  const r = chart.contextFor(selectedId).row;
-  if (r) actions.moveAlternative(r, 1);
-});
-on('t-tag', () => {
-  const r = chart.contextFor(selectedId).row;
-  if (r) actions.addTag(r);
-});
-on('t-guard', () => {
-  const r = chart.contextFor(selectedId).row;
-  if (r) actions.addGuard(r);
-});
-on('t-new', () => {
-  if (!analysis || !canEdit()) return;
-  const src = analysis.source;
-  nameDialog('New branch', 'Name', uniqueName(src, 'branch'), 'Letters, digits and underscores. It is added at the end of the code in the same style as the rest.', undefined, (v) => {
-    const r = createDefinition(src, v);
-    if (failed(r)) return r.error;
-    return applyEdit(r, { then: () => focusDef(v) });
-  }, 'Create');
-});
-on('t-extract', () => {
+function updateBar(): void {
+  const box = chart.boxes.find((b) => b.id === selectedId);
+  if (!barOn || !box) {
+    bar.hide();
+    return;
+  }
+  const ok = canEdit();
+  if (!ok) {
+    bar.hide('Fix the error in the code to edit from the chart.');
+    return;
+  }
+  const ctx = chart.contextFor(box.id);
+  const restructure = ok && !!ctx.frame && actions.canRestructure(ctx.frame);
+  const specs = barActions({
+    box,
+    row: ctx.row,
+    frame: ctx.frame,
+    multi: multi.size,
+    canEdit: ok,
+    restructure,
+    caps: ctx.row ? actions.rowCaps(ctx.row) : { tag: false, guard: false, move: false },
+    canExtract: ok && !!currentExtraction(),
+  });
+  bar.show(specs, selectionLabel(box));
+}
+
+function extractSelection(): void {
   if (!analysis || !canEdit()) return;
   const sel = currentExtraction();
   if (!sel) return;
@@ -540,32 +610,91 @@ on('t-extract', () => {
   nameDialog('Extract to branch', 'Name for the new branch', uniqueName(src, 'part'), 'The selection is replaced by a reference, and the new branch is added at the end of the code.', anchor, (v) => {
     const r = extractToBranch(src, sel, v);
     if (failed(r)) return r.error;
-    return applyEdit(r, { then: () => focusDef(v) });
+    return applyEdit(r, { then: () => gotoBranch(v) });
   }, 'Extract');
+}
+
+function runAction(id: ActionId): void {
+  const box = chart.boxes.find((b) => b.id === selectedId);
+  if (!box) return;
+  const ctx = chart.contextFor(box.id);
+  switch (id) {
+    case 'edit':
+    case 'retarget':
+      chart.beginEdit(box);
+      return;
+    case 'goto':
+      if (box.target) gotoBranch(box.target);
+      return;
+    case 'add':
+      if (ctx.frame) actions.addAlternative(ctx.frame, box.kind === 'frame' ? undefined : ctx.row?.index);
+      return;
+    case 'up':
+    case 'down':
+      if (ctx.row) actions.moveAlternative(ctx.row, id === 'up' ? -1 : 1);
+      return;
+    case 'delete':
+      if (ctx.row) actions.deleteAlternative(ctx.row);
+      return;
+    case 'tag':
+      if (ctx.row) actions.addTag(ctx.row);
+      return;
+    case 'guard':
+      if (ctx.row) actions.addGuard(ctx.row);
+      return;
+    case 'chip-edit':
+      editChip(box);
+      return;
+    case 'chip-remove':
+      actions.removeChip(box);
+      return;
+    case 'extract':
+      extractSelection();
+      return;
+    case 'clear':
+      clearSelection();
+      return;
+    case 'rename':
+    case 'convert':
+    case 'delete-def': {
+      const def = chart.boxes.find((b) => b.kind === 'def' && b.name === box.name);
+      if (def) defAction(def, id === 'rename' ? 'rename' : id === 'convert' ? 'convert' : 'delete');
+      return;
+    }
+  }
+}
+
+const bar = new ActionBar($('selbar'), (id) => safe(runAction)(id));
+
+const on = (id: string, fn: () => void): void => $(id).addEventListener('click', safe(fn));
+
+on('t-new', () => {
+  if (!analysis || !canEdit()) return;
+  const src = analysis.source;
+  nameDialog('New branch', 'Name', uniqueName(src, 'branch'), 'Letters, digits and underscores. It is added at the end of the code in the same style as the rest.', undefined, (v) => {
+    const r = createDefinition(src, v);
+    if (failed(r)) return r.error;
+    return applyEdit(r, { then: () => gotoBranch(v) });
+  }, 'Create');
 });
 
 function zoom(factor: number): void {
   chart.fit = false;
   chart.scale = Math.max(0.3, Math.min(2.5, chart.scale * factor));
-  if (lastLayout) chart.render(lastLayout);
-  syncFromCursor();
+  rerender();
 }
 on('z-in', () => zoom(1.2));
 on('z-out', () => zoom(1 / 1.2));
 on('z-fit', () => {
   chart.fit = true;
-  if (lastLayout) chart.render(lastLayout);
-  syncFromCursor();
+  rerender();
 });
 let resizeTimer: number | undefined;
 window.addEventListener('resize', () => {
   window.clearTimeout(resizeTimer);
   resizeTimer = window.setTimeout(
     safe(() => {
-      if (chart.fit && lastLayout) {
-        chart.render(lastLayout);
-        syncFromCursor();
-      }
+      if (chart.fit && lastLayout) rerender();
     }),
     120,
   );
@@ -772,6 +901,23 @@ function buildHelp(): void {
     li.append(title, text, code, btn);
     list.appendChild(li);
   }
+  const keys = $('help-keys');
+  keys.textContent = '';
+  for (const [k, what] of SHORTCUTS) {
+    const tr = document.createElement('tr');
+    const th = document.createElement('th');
+    th.scope = 'row';
+    for (const [i, part] of k.split(' / ').entries()) {
+      if (i) th.append(' / ');
+      const kbd = document.createElement('kbd');
+      kbd.textContent = part;
+      th.appendChild(kbd);
+    }
+    const td = document.createElement('td');
+    td.textContent = what;
+    tr.append(th, td);
+    keys.appendChild(tr);
+  }
 }
 buildHelp();
 
@@ -782,6 +928,10 @@ function setHelp(open: boolean): void {
   else $('b-help').focus();
 }
 on('b-help', () => setHelp($('help').hidden !== false));
+on('b-keys', () => {
+  setHelp(true);
+  $('help-keys-title').scrollIntoView({ block: 'start' });
+});
 on('help-close', () => setHelp(false));
 $('help').addEventListener('keydown', (e) => {
   if (e.key === 'Escape') setHelp(false);

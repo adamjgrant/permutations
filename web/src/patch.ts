@@ -173,10 +173,11 @@ function deleteLines(src: string, range: Range): Patch {
   return { from, to: end + 1, insert: '' };
 }
 
-export function addAlternative(src: string, node: ChoiceNode, text = 'new'): EditResult | undefined {
+/** Add an alternative after alternative `after` (the last one when omitted). */
+export function addAlternative(src: string, node: ChoiceNode, text = 'new', after?: number): EditResult | undefined {
   if (!isStructurallyEditable(node, src)) return undefined;
   const alts = alternatives(node);
-  const last = alts[alts.length - 1];
+  const last = alts[after === undefined ? alts.length - 1 : Math.max(0, Math.min(after, alts.length - 1))];
   const first = alts[0];
   if (!last || !first) return undefined;
   const form = choiceForm(src, node);

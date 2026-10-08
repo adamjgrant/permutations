@@ -32,6 +32,7 @@
   --sel: #ff9f0a;
   --hl: rgba(255, 159, 10, 0.28);
   --focus: #0a64d8;
+  --ctx: rgba(0, 102, 204, 0.09);
   --space: 8px;
 }
 @media (prefers-color-scheme: dark) {
@@ -64,6 +65,7 @@
     --chip-misc-bg: #333a44;
     --hl: rgba(255, 159, 10, 0.35);
     --focus: #6cb6ff;
+    --ctx: rgba(77, 163, 255, 0.13);
     --warn-stroke: #ffb454;
     --warn-fill: #4a3412;
   }
@@ -121,8 +123,7 @@ button.primary:hover:not(:disabled) { background: var(--accent-strong); }
 .k-row rect { fill: transparent; stroke: none; }
 .k-row:hover rect { fill: rgba(127, 127, 127, 0.08); }
 .k-text rect, .k-empty rect { fill: var(--node-fill); stroke: var(--node-stroke); stroke-width: 1.25; }
-.k-text { cursor: text; }
-.k-empty { cursor: text; }
+.k-text, .k-empty { cursor: pointer; }
 .k-empty rect { stroke-dasharray: 4 3; }
 .k-empty text { fill: var(--text-2); font-style: italic; font-size: 12px; }
 .k-ref rect { fill: var(--accent-tint); stroke: var(--accent); stroke-width: 1.25; }
@@ -207,7 +208,7 @@ button.primary:hover:not(:disabled) { background: var(--accent-strong); }
 /* range boxes, markers that need attention, delimiter labels */
 .k-range rect { fill: var(--accent-tint); stroke: var(--accent); stroke-width: 1.25; stroke-dasharray: 5 3; }
 .k-range text { fill: var(--accent-strong); font-weight: 500; }
-.k-range { cursor: text; }
+.k-range { cursor: pointer; }
 .k-anyorder.warn rect, .k-guard.warn rect { fill: var(--warn-fill); stroke: var(--warn-stroke); stroke-dasharray: 4 2; }
 .k-anyorder.warn text, .k-guard.warn text { fill: var(--warn); }
 .k-tag, .k-guard { cursor: pointer; }
@@ -280,3 +281,33 @@ button.danger:hover:not(:disabled) { background: var(--danger-bg); }
 
 .warn-hint { background: var(--warn-bg); color: var(--warn); }
 .warn-hint[hidden] { display: none; }
+
+/* selection strip at the bottom of the chart pane: names the selection and offers its actions */
+.selbar {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; min-height: 46px; padding: 6px 12px;
+  border-top: 1px solid var(--border); background: var(--surface); font-size: 13px;
+}
+.selbar-hint { margin: 0; color: var(--text-2); font-size: 12.5px; }
+.selbar-hint[hidden], .selbar-caption[hidden], .selbar-actions[hidden] { display: none; }
+.selbar-caption { font-weight: 600; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.selbar-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.selbar-actions button { padding: 2px 10px; min-height: 30px; font-size: 13px; white-space: nowrap; }
+.selbar-actions button.danger { color: var(--danger); }
+.selbar-actions .sep { width: 1px; height: 20px; margin: 0 4px; background: var(--border); }
+.chart-svg .k-row.ctx > rect { fill: var(--ctx); stroke: var(--accent); stroke-width: 1; stroke-dasharray: 4 3; }
+.k-def.ctx > rect { stroke: var(--accent); stroke-width: 2; }
+.chart-svg .edge.ref.active { opacity: 1; stroke-width: 2.2; }
+.k-text:hover > rect, .k-empty:hover > rect, .k-range:hover > rect, .k-ref:hover > rect, .k-value:hover > rect { stroke: var(--accent); }
+.k-def.flash > rect { stroke: var(--sel); stroke-width: 3; }
+@media (prefers-reduced-motion: no-preference) {
+  .k-def.flash > rect { animation: land 1.2s ease-out forwards; }
+  @keyframes land { from { stroke: var(--sel); stroke-width: 4; } to { stroke: var(--border); stroke-width: 1.25; } }
+}
+button.linkish { border: 0; background: none; padding: 0; min-height: 0; min-width: 0; color: var(--accent); text-decoration: underline; font-size: inherit; }
+button.linkish:hover:not(:disabled) { background: none; color: var(--accent-strong); }
+.help h4 { margin: 16px 0 6px; font-size: 13px; }
+.keys { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.keys th { text-align: left; font-weight: 500; white-space: nowrap; padding: 5px 12px 5px 0; vertical-align: top; }
+.keys td { color: var(--text-2); padding: 5px 0; }
+.keys tr + tr th, .keys tr + tr td { border-top: 1px solid var(--border); }
+kbd { font: 11.5px ui-monospace, "SF Mono", Menlo, monospace; padding: 1px 5px; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 5px; background: var(--surface); color: var(--text); }

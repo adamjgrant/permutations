@@ -490,7 +490,7 @@ export function layout(input: LayoutInput): Layout {
 
   const defBlock = (def: LDef, label: string): DefBlock => {
     const body = nodeBlock(def.body);
-    const title = leaf('defLabel', label, { name: def.name, range: def.range });
+    const title = leaf('defLabel', label, { name: def.name, range: def.range, ...(def.form ? { form: def.form } : {}) });
     const w = Math.max(title.w + 24 + M.defControlsW, body.w) + M.defPad * 2;
     const h = M.defPad + title.h + 10 + body.h + M.defPad;
     return {
