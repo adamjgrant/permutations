@@ -6,6 +6,7 @@ import { Def, GroupNode, Module, Node } from './types';
 
 export interface Warning {
   message: string;
+  /** -1, with line and col 0, when the warning is not about a place in the code (an unused host value). */
   offset: number;
   line: number;
   col: number;
@@ -39,11 +40,15 @@ const TEXT_TRAPS: { re: RegExp; message: (m: RegExpExecArray) => string }[] = [
     message: (m) => `"${m[0]}" is printed as written: a repeat needs brackets or a reference before it, as in [${m[1]}]{${m[2]}}`,
   },
   {
+    re: /(?:^|\s)(\{\d+(?:\.\.\d+)?(?:;[^}]*)?\})/,
+    message: (m) => `"${m[1]}" is printed as written: a repeat goes right after the piece it repeats, with no space, as in [word]${m[1]}`,
+  },
+  {
     re: /([\p{L}\p{N}]+):(lower|upper|capitalize|title|trim)\b/u,
     message: (m) => `"${m[0]}" is printed as written: a transform needs brackets or a reference before it, as in [${m[1]}]:${m[2]}`,
   },
   {
-    re: /\$\{/,
+    re: /(?<!\\)\$\{/,
     message: () => '"${" is printed as written: Permutations has no inline code. Use ranges, transforms, tags, or host values ($name with --set)',
   },
   {
@@ -90,8 +95,12 @@ export function findWarnings(modules: Module[], root: Module): Warning[] {
     for (const def of defs) {
       each(def.body, (n) => {
         if (n.kind === 'text') {
+          // Look at the text as written, so an escape such as \{ means the writer meant it. A
+          // quoted long-form line is literal on purpose.
+          const raw = module.source.slice(n.range[0], n.range[1]);
+          if (raw.trimStart().startsWith('"')) return;
           for (const trap of TEXT_TRAPS) {
-            const m = trap.re.exec(n.value);
+            const m = trap.re.exec(raw);
             if (m) {
               add(trap.message(m), n.range[0]);
               break;

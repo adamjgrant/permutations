@@ -31,6 +31,8 @@ export interface RefNode {
   path: string;
   range: Range;
   target?: Target | undefined;
+  /** The delimiter setting of the file the target is defined in, when that is another file that has one. */
+  delimiter?: string | undefined;
 }
 
 export interface Piece {
@@ -141,7 +143,7 @@ export interface Module {
 
 export interface Output {
   text: string;
-  tags: Record<string, string | number | true>;
+  tags: Record<string, string | number | boolean>;
 }
 
 export class PermError extends Error {

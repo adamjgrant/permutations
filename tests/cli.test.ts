@@ -18,6 +18,38 @@ beforeAll(() => {
 afterAll(() => fs.rmSync(dir, { recursive: true, force: true }));
 
 describe('perm CLI', () => {
+  test('--set replaces a branch of the same name, and an unused value is a warning', () => {
+    fs.writeFileSync(path.join(dir, 'default.perm'), 'name = friend\nmain = Hi $name\n');
+    expect(run(['default.perm'], dir).out).toBe('Hi friend\n');
+    expect(run(['default.perm', '--set', 'name=Ann'], dir).out).toBe('Hi Ann\n');
+    const typo = run(['default.perm', '--set', 'nmae=Ann'], dir);
+    expect(typo.out).toBe('Hi friend\n');
+    expect(typo.err).toMatch(/warning: The host value nmae is not used/);
+  });
+
+  test("an imported branch keeps its own file's delimiter, and inherits when the file has none", () => {
+    fs.writeFileSync(path.join(dir, 'dash.perm'), 'delimiter = "-"\ngreet = [a] [b]\n');
+    fs.writeFileSync(path.join(dir, 'plain.perm'), 'greet = [a] [b]\n');
+    fs.writeFileSync(path.join(dir, 'usedash.perm'), 'from dash use greet\nmain = [x] $greet\n');
+    fs.writeFileSync(path.join(dir, 'usens.perm'), 'use dash\nmain = [x] $dash.greet\n');
+    fs.writeFileSync(path.join(dir, 'useplain.perm'), 'from plain use greet\nmain = [[x] $greet; delimiter="+"]\n');
+    expect(run(['usedash.perm'], dir).out).toBe('x a-b\n');
+    expect(run(['usens.perm'], dir).out).toBe('x a-b\n');
+    expect(run(['useplain.perm'], dir).out).toBe('x+a+b\n');
+  });
+
+  test('--fn loads named exports, and says when a file adds none', () => {
+    fs.writeFileSync(path.join(dir, 'fns.js'), 'module.exports = { shout: (t) => t.toUpperCase() + "!" };\n');
+    fs.writeFileSync(path.join(dir, 'esm.mjs'), 'export default { whisper: (t) => t.toLowerCase() };\n');
+    fs.writeFileSync(path.join(dir, 'none.js'), 'module.exports = 5;\n');
+    expect(run(['[hi]:shout', '--fn', 'fns.js'], dir).out).toBe('HI!\n');
+    expect(run(['[HI]:whisper', '--fn', 'esm.mjs'], dir).out).toBe('hi\n');
+    expect(run(['[hi]', '--fn', 'none.js'], dir).err).toMatch(/adds no transforms/);
+    const missing = run(['[hi]', '--fn', 'nope.js'], dir);
+    expect(missing.code).toBe(1);
+    expect(missing.err).toMatch(/could not load nope.js/);
+  });
+
   test('inline program, --all and --count', () => {
     expect(run(['Hello [world|friend]!', '--all']).out).toBe('Hello world!\nHello friend!\n');
     expect(run(['Hello [world|friend]!', '--count']).out).toBe('2\n');

@@ -214,7 +214,7 @@ export class Parser {
     const group: GroupNode = {
       kind: 'group',
       id: newId(),
-      options: expandRanges(options),
+      options: expandRanges(options, this.src),
       delimiter: undefined,
       bare: true,
       range: [start, this.end],
@@ -408,7 +408,7 @@ export class Parser {
     const group: GroupNode = {
       kind: 'group',
       id: newId(),
-      options: expandRanges(options),
+      options: expandRanges(options, this.src),
       delimiter,
       bare: false,
       range,
@@ -473,7 +473,7 @@ function textOption(value: string, range: [number, number]): Option {
 }
 
 /** `[1..6]` and `[A..F]` expand into one option per value. */
-function expandRanges(options: Option[]): Option[] {
+function expandRanges(options: Option[], src: string): Option[] {
   const out: Option[] = [];
   for (const o of options) {
     const only = o.seq.pieces.length === 1 ? o.seq.pieces[0] : undefined;
@@ -481,11 +481,14 @@ function expandRanges(options: Option[]): Option[] {
     if (text !== undefined && !o.tags.length && !o.guard) {
       const num = /^(\d+)\.\.(\d+)$/.exec(text);
       if (num) {
-        const a = parseInt(num[1] as string, 10);
-        const b = parseInt(num[2] as string, 10);
-        if (b - a > 10000) fail('', 'Range is too large (max 10000 values)', o.range[0]);
+        const [x, y] = [num[1] as string, num[2] as string];
+        const a = parseInt(x, 10);
+        const b = parseInt(y, 10);
+        if (Math.abs(b - a) >= 10000) fail(src, `Range is too large: ${text} has ${Math.abs(b - a) + 1} values, and a range can have at most 10000`, o.range[0]);
+        // A leading zero pads every number to the same width, as in [00..59].
+        const width = (x.length > 1 && x.startsWith('0')) || (y.length > 1 && y.startsWith('0')) ? Math.max(x.length, y.length) : 0;
         const step = a <= b ? 1 : -1;
-        for (let v = a; step > 0 ? v <= b : v >= b; v += step) out.push({ ...textOption(String(v), o.range), rangeText: text });
+        for (let v = a; step > 0 ? v <= b : v >= b; v += step) out.push({ ...textOption(String(v).padStart(width, '0'), o.range), rangeText: text });
         continue;
       }
       const chars = [...text];

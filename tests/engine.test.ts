@@ -1,4 +1,4 @@
-import { compile, CompileOptions, PermError, seededRandom } from '../src';
+import { compile, CompileOptions, PermError, seededRandom, formatSource } from '../src';
 
 const texts = (src: string, opts?: CompileOptions): string[] =>
   [...compile(src, opts).all()].map((o) => o.text).sort();
@@ -515,3 +515,28 @@ advice = [Please remember|Take caution] to [mind the gap|stay six feet apart|cle
     expect(texts(src)).toContain('Hi, Take caution to mind the gap at all times.');
   });
 });
+
+describe('ranges, quotes and host values', () => {
+  test('a leading zero pads the numbers of a range', () => {
+    const inOrder = (src: string): string[] => [...compile(src).all()].map((r) => r.text);
+    expect(inOrder('[00..03]')).toEqual(['00', '01', '02', '03']);
+    expect(inOrder('[8..11]')).toEqual(['8', '9', '10', '11']);
+    expect(inOrder('[3..1]')).toEqual(['3', '2', '1']);
+    expect(() => compile('[0..10000]')).toThrow(/at most 10000 \(line 1, column 2\)/);
+    // Ranges written back keep their padding.
+    expect(formatSource('main = [00..59]', 'long').output).toMatch(/\[00\.\.59\]/);
+  });
+
+  test('a closing curly quote takes no delimiter before it', () => {
+    expect(texts('[“Hi] [”]')).toEqual(['“Hi”']);
+  });
+
+  test('a host value replaces a branch of the same name in the file you run', () => {
+    expect(compile('name = friend\nmain = Hi $name', { values: { name: 'Ann' } }).one().text).toBe('Hi Ann');
+    expect(compile('name = friend\nmain = Hi $name').one().text).toBe('Hi friend');
+    const w = compile('main = Hi', { values: { who: 'x' } }).warnings;
+    expect(w[0]?.message).toMatch(/host value who is not used/);
+    expect(w[0]?.line).toBe(0);
+  });
+});
+

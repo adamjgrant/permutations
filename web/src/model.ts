@@ -61,7 +61,7 @@ export function formatCount(n: bigint): string {
   return `${mantissa} × 10${[...String(exp)].map((d) => SUPER[Number(d)]).join('')}`;
 }
 
-export function tagLabel(name: string, value: string | number | true): string {
+export function tagLabel(name: string, value: string | number | boolean): string {
   return value === true ? name : `${name}=${value}`;
 }
 

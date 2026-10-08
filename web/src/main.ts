@@ -658,7 +658,7 @@ function relayout(keepTrace = false): void {
     hints.appendChild(p);
   }
   // The compiler's warnings: code that parses but probably does not do what it looks like.
-  const warnings = analysis.program.warnings.filter((w) => !w.path);
+  const warnings = analysis.program.warnings.filter((w) => !w.path && w.line > 0);
   for (const w of warnings.slice(0, 3)) {
     const row = document.createElement('span');
     row.className = 'warning-item';
@@ -1429,7 +1429,7 @@ function emptyLayout(): Layout {
 
 // --- examples --------------------------------------------------------------
 
-function chipsFor(tags: Record<string, string | number | true>): string {
+function chipsFor(tags: Record<string, string | number | boolean>): string {
   return Object.entries(tags)
     .map(([k, v]) => `<span class="chip">${escapeHtml(tagLabel(k, v))}</span>`)
     .join('');
@@ -1439,7 +1439,7 @@ function escapeHtml(s: string): string {
   return s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] as string);
 }
 
-function item(n: number, text: string, tags: Record<string, string | number | true>, index: bigint): string {
+function item(n: number, text: string, tags: Record<string, string | number | boolean>, index: bigint): string {
   const shown = text === '' ? '<span class="note">(empty text)</span>' : escapeHtml(text);
   return `<li><button type="button" class="ex-row" data-index="${index}" aria-pressed="false" title="Show how this one is made, in the chart"><span class="n">${n}</span><span class="t">${shown}</span><span class="chips">${chipsFor(tags)}</span></button></li>`;
 }

@@ -21,9 +21,9 @@ export interface Trace {
 
 type Table = Map<string, bigint>;
 
-const CLOSING = /^[.,;:!?)\]'’%…]/;
+const CLOSING = /^[.,;:!?)\]'’”%…]/;
 const OPENING = /[(\[“‘¿¡]$/;
-const MAX_TAGGED_ANYORDER = 8;
+export const MAX_TAGGED_ANYORDER = 8;
 
 // --- tag state -------------------------------------------------------------
 // State is a canonical string: sorted "name" or "name=value" entries joined by newlines.
@@ -61,7 +61,9 @@ function applyTags(s: string, tags: { name: string; value?: string | undefined }
 
 export function tagsOf(s: string): Output['tags'] {
   const out: Output['tags'] = {};
-  for (const [k, v] of decode(s)) out[k] = v === '' ? true : /^-?\d+(\.\d+)?$/.test(v) ? Number(v) : v;
+  // A bare tag is true, true and false are booleans, and a number is a number unless writing it as
+  // one would change it (05 stays the text "05").
+  for (const [k, v] of decode(s)) out[k] = v === '' || v === 'true' ? true : v === 'false' ? false : /^-?(0|[1-9]\d*)(\.\d+)?$/.test(v) ? Number(v) : v;
   return out;
 }
 
@@ -304,7 +306,7 @@ export class Evaluator {
       case 'ref': {
         const target = node.target;
         if (!target) throw new PermError(`Unresolved reference $${node.path}`);
-        return target.kind === 'def' ? this.walk(target.def.body, sIn, sOut, k, delim, tr) : target.value;
+        return target.kind === 'def' ? this.walk(target.def.body, sIn, sOut, k, node.delimiter ?? delim, tr) : target.value;
       }
       case 'seq': {
         const outs: string[] = [];
@@ -387,7 +389,7 @@ export class Evaluator {
         const base = `def:${target.def.name}`;
         const n = visits.get(base) ?? 0;
         visits.set(base, n + 1);
-        return this.walkKeyed(target.def.body, sIn, sOut, delim, `${base}#${n}`, draw, visits, tr);
+        return this.walkKeyed(target.def.body, sIn, sOut, node.delimiter ?? delim, `${base}#${n}`, draw, visits, tr);
       }
       case 'seq': {
         const outs: string[] = [];

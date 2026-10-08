@@ -1,4 +1,4 @@
-import { Program } from './engine';
+import { MAX_TAGGED_ANYORDER, Program } from './engine';
 import { findWarnings } from './warnings';
 import { fail, ImportRequest, lineCol, parseModule } from './parser';
 import { builtinTransforms, TransformFn } from './transforms';
@@ -86,12 +86,16 @@ export function compile(source: string, opts: CompileOptions = {}): Program {
   const fns: Record<string, TransformFn> = { ...builtinTransforms, ...(opts.fns ?? {}) };
 
   // Link references and check transform names.
+  const usedValues = new Set<string>();
   for (const module of all) {
     const bodies: Def[] = [...module.defs.values()];
     if (module.anonymous) bodies.push(module.anonymous);
     for (const def of bodies) {
       visit(def.body, (n) => {
-        if (n.kind === 'ref') linkRef(module, n, opts.values ?? {});
+        if (n.kind === 'ref') {
+          linkRef(module, n, opts.values ?? {}, module === root);
+          if (n.target?.kind === 'value') usedValues.add(n.path);
+        }
         if (n.kind === 'transform') {
           for (const f of n.fns) {
             if (!fns[f]) {
@@ -140,20 +144,46 @@ export function compile(source: string, opts: CompileOptions = {}): Program {
     fns: opts.fns ?? {},
     rng: opts.rng,
   });
+  // With tags, an any-order group's orderings are listed one by one, so they are capped. Say so here,
+  // with a position, rather than when the counts are first needed.
+  if (all.some((m) => m.hasTags)) {
+    for (const module of all) {
+      const bodies: Def[] = [...module.defs.values()];
+      if (module.anonymous) bodies.push(module.anonymous);
+      for (const def of bodies) {
+        visit(def.body, (n) => {
+          if (n.kind === 'anyorder' && n.items.length > MAX_TAGGED_ANYORDER) {
+            fail(module.source, `This any-order group has ${n.items.length} items, but in a program that uses tags an any-order group can have at most ${MAX_TAGGED_ANYORDER}. Split it into smaller groups`, n.range[0]);
+          }
+        });
+      }
+    }
+  }
   program.warnings = findWarnings(all, root);
+  for (const key of Object.keys(opts.values ?? {})) {
+    if (!usedValues.has(key)) program.warnings.push({ message: `The host value ${key} is not used: nothing in the program refers to $${key}`, offset: -1, line: 0, col: 0 });
+  }
   return program;
 }
 
-function linkRef(module: Module, ref: RefNode, values: Record<string, string>): void {
+function linkRef(module: Module, ref: RefNode, values: Record<string, string>, isRoot: boolean): void {
   const path = ref.path;
+  const hasValue = Object.prototype.hasOwnProperty.call(values, path);
+  // In the file you run, a host value replaces a branch of the same name: the branch is the default.
+  if (hasValue && isRoot) {
+    ref.target = { kind: 'value', value: values[path] as string };
+    return;
+  }
   const own = module.defs.get(path);
   if (own) {
     ref.target = { kind: 'def', def: own };
     return;
   }
+  // A branch from another file keeps that file's delimiter setting, if it has one.
   const named = module.named.get(path);
   if (named) {
     ref.target = { kind: 'def', def: named.module.defs.get(named.name) as Def };
+    ref.delimiter = named.module.delimiter;
     return;
   }
   const dot = path.indexOf('.');
@@ -162,10 +192,11 @@ function linkRef(module: Module, ref: RefNode, values: Record<string, string>): 
     const def = ns?.defs.get(path.slice(dot + 1));
     if (def) {
       ref.target = { kind: 'def', def };
+      ref.delimiter = ns?.delimiter;
       return;
     }
   }
-  if (Object.prototype.hasOwnProperty.call(values, path)) {
+  if (hasValue) {
     ref.target = { kind: 'value', value: values[path] as string };
     return;
   }

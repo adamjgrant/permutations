@@ -1,11 +1,10 @@
 # Permutations DSL Reference
 
-Status: draft for v3. Items marked **[open]** are undecided and listed in `SPEC.md`
-section 9. Everything else describes intended behavior.
+This is the one document you need to read or write Permutations (version 3). It is written
+for people and for LLMs. If you are an LLM asked to write Permutations code, read section 12
+first, then check your program against the examples in section 11.
 
-This is the one document you need to read or write Permutations. It is written for
-people and for LLMs. If you are an LLM asked to write Permutations code, read
-section 11 first.
+In the examples below, `->` shows what a line produces. It is not part of the code.
 
 ---
 
@@ -20,12 +19,12 @@ Hello [world|friend]!
 
 This program has 2 permutations: `Hello world!` and `Hello friend!`.
 
-Run it:
+Run it (this is shell, so `#` starts a shell comment here):
 
-```
-perm 'Hello [world|friend]!'        # one random result
-perm 'Hello [world|friend]!' --all  # both
-perm 'Hello [world|friend]!' --count
+```sh
+perm 'Hello [world|friend]!'          # one random result
+perm 'Hello [world|friend]!' --all    # both
+perm 'Hello [world|friend]!' --count  # 2
 ```
 
 ## 2. The mental model
@@ -36,7 +35,7 @@ result is every path from the start to the end.
 - **Plain text** is itself.
 - **`[a|b]`** is "a or b".
 - **`$name`** means "insert the named piece defined elsewhere".
-- Everything else (any order, repeats, transforms, tags) is a variation on those three.
+- Everything else (any order, repeats, ranges, transforms, tags) is a variation on those three.
 
 Spaces you type between pieces are **join points**. The engine fills them with a
 delimiter, a single space by default, and it tidies punctuation for you (section 7).
@@ -73,8 +72,8 @@ rule (section 7), giving `Hello world!`.
 
 Convert between the forms with `perm fmt --short file.perm`, `perm fmt --long file.perm`
 or `perm fmt --auto file.perm`. In the web app, select a branch name and choose Expand to
-long form or Collapse to short form, or convert the whole file with Long form and Short form. Use
-short form for quick sketches and small definitions. Use long form when a definition has
+long form or Collapse to short form, or convert the whole file with Long form and Short form.
+Use short form for quick sketches and small definitions. Use long form when a definition has
 more than two levels of nesting or needs comments on individual options.
 
 ### 3.1 Long form reference
@@ -97,7 +96,9 @@ expressions.
 | `tag q`, `tag severity = 5` | Set a tag. Goes inside the option it belongs to (a `sequence`, `when` or `otherwise` block). |
 | `when q`, `when not q`, `when k = 5`, `otherwise` | A guarded option, directly under `one of`. The indented lines are its content. |
 | `delimiter ", "` | Sets the delimiter for the enclosing block. Also allowed directly under `branch`. |
-| `"text"` | Literal text, with `\"` and `\\` escapes. |
+| `last " and "` | Under `any order` or `repeat`: what joins the final two items (section 6). |
+| `"text"` | Literal text, with `\"`, `\\`, `\n` (line break) and `\t` (tab) escapes. |
+| `# ...` | A comment, at any indent. To write a line that is the text `#...`, quote it: `"#1"`. |
 | any other line | A short-form expression: `Oh, Hi`, `How [are\|is] it`, `what @q`. |
 
 Rules:
@@ -110,7 +111,8 @@ Rules:
 - **Blocks need children.** `one of` with nothing under it is an error.
 - **Tags belong to an option.** A `tag` line directly under `one of` is an error. Put it in
   a `sequence` (or `when`) that is one of the options.
-- **Comments** are `#` lines, as in short form.
+- **Ranges need brackets here too.** A line `0..9` under `one of` is the text `0..9`. Write
+  the line as `[0..9]` (a short-form expression).
 
 Example with tags, a guard and a tight join:
 
@@ -134,8 +136,7 @@ Gives `Excuse me, what is really neat?` and `Excuse me, that is really neat.`
 
 `perm fmt` guarantees the converted program means exactly the same thing: same results,
 same counts, same tags. Definitions that contain a comment are skipped rather than losing
-it, and so is text that cannot be written in the other form (for example a line break
-inside text can only be written in long form).
+it.
 
 ## 4. Core constructs
 
@@ -156,25 +157,35 @@ Most punctuation is plain text. Characters are only special in these places:
 | `\|` | inside brackets, and at the top level of a definition line |
 | `&` | inside brackets, with whitespace on both sides (`Q&A` is plain text) |
 | `$` | followed by a letter or `_` (a reference). `$5` is plain text. |
-| `:` | directly after `]` or a reference (a transform) |
-| `{` | directly after a piece and followed by a digit (a repeat) |
-| `@` | right after whitespace, inside an option (a tag or guard) |
-| `#` | first non-space character on a line (a comment) |
+| `:` | directly after `]` or a reference, followed by a name or `[` (a transform). `Note: hi` is plain text. |
+| `{` | directly after `]` or a reference, followed by a digit (a repeat). `very{2}` is plain text. |
+| `@` | after whitespace or at the start of an option (a tag or guard). `bob@example.com` is plain text. |
+| `#` | first non-space character on a line, anywhere in the file (a comment) |
 
-So `Note: this is fine`, `50% off`, `a & b` outside brackets and hashtags like `#sale` in
-the middle of a line need no escaping. To use a special character literally in the places
-above, put `\` before it.
+So `Note: this is fine`, `50% off`, `a & b` outside brackets, email addresses and hashtags
+like `#sale` in the middle of a line need no escaping. To use a special character literally
+in the places above, put `\` before it: `\[`, `\]`, `\|`, `\$`, `\:`, `\{`, `\@`, `\#`, `\\`.
 
 ```
-Price: \$5 \[approx\]
+Price: \$5 \[approx\]          ->  Price: $5 [approx]
+Email \@support for help       ->  Email @support for help
+```
+
+Two escapes make characters you cannot otherwise type on one line: `\n` is a line break
+and `\t` is a tab.
+
+```
+Dear Sam,\n\nThanks [a lot|so much].
 ```
 
 ### 4.2 Choice
 
 ```
-[red|green|blue]                  # 3 options
-[Good morning! |Hi]               # trailing spaces inside an option are ignored
+[red|green|blue]
 ```
+
+Three options. Spaces around an option are ignored, so `[Good morning! | Hi]` is the same as
+`[Good morning!|Hi]`.
 
 Choices nest, and text can sit around them:
 
@@ -185,11 +196,11 @@ Choices nest, and text can sit around them:
 Short form: `[a|b|c]`. Long form: `one of`, one option per line.
 
 **Without brackets.** When a definition's whole right-hand side is a choice, the brackets
-are optional:
+are optional. These two lines mean the same thing:
 
 ```
 greeting = Hello | Hi | Hey
-greeting = [Hello | Hi | Hey]     # same thing
+greeting = [Hello | Hi | Hey]
 ```
 
 Ranges work there too: `hex = 0..9 | A..F` is the same as `hex = [0..9|A..F]`.
@@ -230,12 +241,14 @@ main = $greeting, friend.
 
 - Names start with a letter or `_`, then use letters, digits and `_`.
 - `main` is the entry point. A file with no `main` and a single unnamed expression uses
-  that expression as `main`.
-  If the file does define `main`, a line without a name is an error: it would never be used,
+  that expression as `main`. Run another definition with `perm file --entry NAME`.
+- If the file does define `main`, a line without a name is an error: it would never be used,
   so it is almost always a missing `name =` or a line meant to continue `main`.
 - A reference is `$name`. The name ends at the first character that is not a letter,
   digit or `_`, so `$name's` and `$name.` work as written. To put a letter directly after
-  a reference, use a transform-free group: `[$name]s`.
+  a reference, put the reference in brackets: `[$name]s`.
+- Every reference must exist. An unknown name is an error that suggests the closest name,
+  unless the host supplies it as a value (section 4.12).
 - **Names must not form a cycle.** `a = x $a` is an error. Use a repeat instead.
 
 Long form:
@@ -254,13 +267,14 @@ branch main
 ### 4.5 References inside choices
 
 A reference inside a choice contributes its own options, so merging needs no special
-syntax. "A or B, then C":
+syntax. In "A or B, then C", the choice below has 4 options (A, B, X, Y), followed by 1 or 2,
+for 8 results:
 
 ```
 a = [A|B]
 b = [X|Y]
 c = [1|2]
-main = [$a|$b] $c        # 4 choices (A, B, X, Y), then 1 or 2: 8 results
+main = [$a|$b] $c
 ```
 
 Because sampling is uniform over complete results (section 8), `[$a|C]` gives A, B and C
@@ -271,66 +285,125 @@ equal odds, exactly as if you had written `[A|B|C]`.
 `&` inside brackets produces every ordering of its items.
 
 ```
-[foo & bar]                  # "foo bar" or "bar foo"
-[A & T; delimiter=""]        # "AT" or "TA"
+[foo & bar]                     ->  foo bar / bar foo
+[A & T; delimiter=""]           ->  AT / TA
+[tent & stove & map; delimiter=", " last=" and "]
+                                ->  tent, stove and map / map, tent and stove / ...
 ```
 
-`n` items give `n!` results, so the editor warns above 7 items. In a program that uses tags,
-an any-order group can have at most 8 items. The items are joined with
-that group's delimiter (section 7). Items can be any piece, not only text.
+The items are joined with the group's delimiter (section 7), and `last` sets what joins the
+final two, which makes natural lists (two items give `tent and stove`). Items can be any
+piece, not only text.
 
-Long form: `any order`.
+`n` items give `n!` results, so the editor warns above 7 items. In a program that uses tags,
+an any-order group can have at most 8 items.
+
+An item cannot carry a tag or guard by itself, because `@` would apply to the whole group.
+Wrap the item in brackets: `[[a @t] & b]`.
+
+Long form: `any order`, one item per line, with optional `delimiter` and `last` lines.
 
 ### 4.7 Repeat
 
-`{n}` repeats the piece before it `n` times. `{n..m}` repeats between `n` and `m` times.
+`{n}` repeats the piece before it `n` times. `{n..m}` repeats it between `n` and `m` times.
+The repeated piece must be a bracket group or a reference, written directly before the `{`
+with no space: `[very]{2}` or `$hex{6}`. (`very{2}` is plain text, and so is `[very] {2}`.)
+
 Each repetition makes its own independent choices, and sampling stays uniform over all the
 results (a count with more results is picked more often).
 
 ```
 hex = [0..9|A..F]
-color = #$hex{6}              # #3FA09B
+color = #$hex{6}                ->  #3FA09B
 ```
 
-Repeats are glued together with no delimiter. Add one with `{6; delimiter=" "}`. Long form:
-`repeat 6`.
+Repeats are glued together with no delimiter, which suits codes like the one above. For
+words, give the repeat a delimiter, and optionally a `last`:
+
+```
+[cat|dog]{3; delimiter=" "}                     ->  cat dog cat
+[cat|dog|bird]{3; delimiter=", " last=" and "}  ->  bird, cat and bird
+```
+
+Long form: `repeat 6` or `repeat 2..4`, with the piece indented under it.
 
 ### 4.8 Ranges
 
-`[1..6]` is a choice among `1, 2, 3, 4, 5, 6`. Character ranges work too: `[a..e]`,
-`[A..F]`. They combine with other options: `[0..9|A..F]`.
+`[1..6]` is a choice among `1, 2, 3, 4, 5, 6`.
+
+- Numbers can have several digits: `[8..12]` is `8, 9, 10, 11, 12`.
+- A leading zero pads every number to the same width: `[00..59]` is `00, 01, ... 59`.
+  Without one, numbers are not padded: `[0..59]` starts `0, 1, 2`.
+- A range can count down: `[3..1]` is `3, 2, 1`.
+- Character ranges use single characters: `[a..e]`, `[A..F]`.
+- Ranges combine with other options: `[0..9|A..F]`, `[1..6|a lot]`.
+- A range is an option, so it needs brackets (or a bracket-free definition choice such as
+  `digit = 0..9`). In a sentence, `0..9` without brackets is plain text.
+- A range can have at most 10,000 values.
 
 Ranges cover the old use of random numbers (a dice roll is `[1..6]`).
 
 ### 4.9 Transforms
 
-`:name` after a piece changes that piece's text. It applies to the piece it is attached to
-and nothing else.
+`:name` directly after a bracket group or a reference changes that piece's text. It applies
+to the piece it is attached to and nothing else.
+
+| Transform | Does | `[hELLO wORLD]:...` |
+|---|---|---|
+| `lower` | every letter lowercase | `hello world` |
+| `upper` | every letter uppercase | `HELLO WORLD` |
+| `capitalize` | first letter uppercase, the rest unchanged | `HELLO wORLD` |
+| `title` | first letter of each word uppercase, the rest unchanged | `HELLO WORLD` |
+| `trim` | removes spaces at both ends | `hELLO wORLD` |
+
+`capitalize` and `title` do not lowercase anything. For "Hello world" from any input, chain
+them: `[hELLO wORLD]:lower:capitalize`. Chained transforms apply left to right.
 
 ```
-[Foo]:upper               # FOO
+[Foo]:upper                     ->  FOO
 $greeting:capitalize
-[Foo]:[lower|upper]       # foo or FOO (a choice of transforms)
+[Foo]:[lower|upper]             ->  foo / FOO (a choice of transforms: 2 results)
 ```
 
-Built-in: `lower`, `upper`, `capitalize`, `title`, `trim`. Custom transforms are supplied
-by the host (`perm --fn ./fns.js` or the app), never written inside the DSL. Transforms do
-not change how many permutations there are. Long form: `transform lower | upper` with the piece indented under it.
+A single transform does not change how many permutations there are. A choice of transforms
+multiplies them.
+
+To write a colon right after a group as text, escape it: `[1..12]\:[00..59]` gives times
+such as `3:07`.
+
+**Custom transforms** are supplied by the host, never written inside the DSL. On the
+command line, `perm --fn ./fns.js` loads a JavaScript file whose exports are functions
+from text to text:
+
+```js
+// fns.js (CommonJS; an ES module's named exports or default object work too)
+module.exports = {
+  shout: (text) => text.toUpperCase() + '!',
+};
+```
+
+Then `[hi]:shout` gives `HI!`. Names are letters, digits and `_`, and a custom transform
+with a built-in name replaces the built-in. In the library, pass `fns` to `compile`.
+
+Long form: `transform lower | upper` with the piece indented under it.
 
 ### 4.10 Tags and guards
 
 Tags let a later choice depend on an earlier one, and let you label results.
 
-**Set a tag** by writing `@name` after an option's text. If that option is taken, the tag
-is set for the rest of the walk.
+**Set a tag** by writing `@name` at the end of an option's text. If that option is taken,
+the tag is set for the rest of the walk, including inside and after references.
 
 ```
 [what @q|that]
 ```
 
+A tag is never printed. Put it at the end of the option: a tag in the middle of text works,
+but it reads like text and gets a warning. To print an `@` word, write `\@name`.
+
 **Guard an option** by starting it with `@name:`. A guarded option is only eligible when
 the tag is set. `@!name:` means not set. `@else:` is eligible when no earlier guard in the
-same choice matched.
+same choice matched, so put it last. Options without a guard are always eligible.
 
 ```
 Excuse me, [what @q|that] is really neat [@q: ?|@else: .]
@@ -339,19 +412,25 @@ Excuse me, [what @q|that] is really neat [@q: ?|@else: .]
 Gives `Excuse me, what is really neat?` or `Excuse me, that is really neat.`
 
 Ineligible options are removed before choosing, so the chosen option is still uniform
-among those that remain.
+among those that remain. If every option of a choice is guarded and none is eligible, the
+path has nowhere to go and is dropped: it is not counted and never produced. That is
+almost always a missing `@else:`, so it gets a warning.
 
-**Values and labels.** `@key=value` sets a tag with a value. Tags travel with the output.
+**Values and labels.** `@key=value` sets a tag with a value: letters, digits and
+punctuation, without spaces, `|`, `]` or `:` (a guard's value ends at its `:`). A later tag
+with the same name replaces the value. Tags travel with the output.
 
 ```
 [Server is down @severity=5|Disk is at 80% @severity=1]
 ```
 
-`perm --json` prints `{ "text": "...", "tags": { "severity": 5 } }`, and the web app shows
-tags as chips next to each example. Guards can test a value: `@severity=5:`.
+Guards can test a value: `@severity=5:`. The test compares the text exactly, so `05` and `5`
+are different values.
 
-Tags are read left to right. A guard only sees tags set before it. Long form: `tag name`
-and `when name` / `otherwise`.
+Tags are read left to right. A guard only sees tags set before it.
+
+Long form: `tag name` or `tag key = value`, and `when name`, `when not name`,
+`when key = value`, `otherwise`.
 
 ### 4.11 Namespaces and imports
 
@@ -366,39 +445,66 @@ main = A [$letters.B|$letters.C]
 A dot continues a name only when a letter follows it immediately, so `Hi $name.` ends the
 reference at the period.
 
-Import other files:
+Import other files (command line and library only; the web app is a single file):
 
 ```
-use lib                          # then write $lib.greeting
-from lib use greeting            # then write $greeting
+use lib
+from lib use greeting, farewell
 ```
 
-Import paths are relative to the importing file and the `.perm` extension is implied.
-Circular imports are an error.
+`use lib` makes the file's definitions available as `$lib.greeting`. `from lib use greeting`
+makes them available by their own names, as `$greeting`. Import paths are relative to the
+importing file and the `.perm` extension is implied. Circular imports are an error. An
+imported definition keeps its own file's `delimiter` setting, if the file has one.
+
+### 4.12 Host values
+
+A host value is text supplied from outside the program, used like a reference:
+
+```sh
+perm 'Hi $name' --set name=Ann     # Hi Ann
+```
+
+In the file you run, a host value replaces a definition with the same name, so the file can
+give a default: with `name = friend` in the file, `--set name=Ann` gives `Hi Ann`, and no
+`--set` gives `Hi friend`. A value that nothing refers to gets a warning, which catches
+typos. In the library, pass `values` to `compile`.
 
 ## 5. Comments
 
 ```
 # A comment: the first non-space character on the line is #
-main = Hello   # not a comment: this whole line is text after the =
+main = Hello
 ```
 
-Only a `#` that starts a line is a comment, so hashtags work mid-line. Put comments on
-their own line.
+A `#` that starts a line is a comment, wherever that line is: at the top level, in a
+long-form block, or between the options of a multi-line choice (a handy way to switch an
+option off). A `#` after text on a line is text, so hashtags work mid-line and `main = Hi
+# there` prints `Hi # there`. Put comments on their own line. To start a line with the
+character `#`, write `\#` (short form) or a quoted line `"#..."` (long form).
 
 ## 6. Settings
 
-Settings are lines at the top of a file, or an options clause inside a bracket.
-
-```
-delimiter = " "
-```
+There are two settings.
 
 | Setting | Default | Meaning |
 |---|---|---|
 | `delimiter` | single space | What fills a join point (section 7) |
+| `last` | the delimiter | What joins the final two items of an any-order group or a repeat |
 
-Inside brackets or after a piece, a clause `; delimiter=" AND "` sets it just there.
+Where they go:
+
+- **For the whole file:** a line `delimiter = ", "`. It can be anywhere in the file and
+  applies to all of it. `perm --delimiter STR` replaces it. There is no file-wide `last`:
+  a line `last = ...` is an ordinary definition named `last`.
+- **For one group:** a clause at the very end of `[ ]` or `{ }`, after `;`:
+  `[a & b; delimiter=" and "]`, `[x]{3; delimiter=", " last=" and "}`. A choice (`|`) can
+  take `delimiter` but not `last`. A clause anywhere else (for example after `]`) is text,
+  and gets a warning.
+- **In long form:** `delimiter ", "` and `last " and "` lines in the block.
+
+Values are double-quoted strings, with `\"`, `\\`, `\n` and `\t` escapes. Single quotes are
+not strings (they get a warning).
 
 ## 7. Spacing and delimiters
 
@@ -418,17 +524,17 @@ $a$b                       ->  the two touching, no delimiter
 
 1. An empty piece produces no delimiter.
 2. No delimiter before a piece starting with closing punctuation or a suffix:
-   `. , ; : ! ? ) ] ' ’ % …`, including `'s`.
+   `. , ; : ! ? ) ] ' ’ ” % …`, which covers `'s`, `'re` and other suffixes.
 3. No delimiter after a piece ending with opening punctuation: `( [ “ ‘ ¿ ¡`.
 4. Spaces inside one run of text are kept exactly as written.
 
 ```
-main = How [are you|'s [it|everything]]    ->  How are you / How's it / How's everything
+How [are you|'s [it|everything]]    ->  How are you / How's it / How's everything
 ```
 
 **Changing the delimiter.**
 
-- Globally: `delimiter = ", "` at the top of the file, or `perm --delimiter ", "`.
+- Globally: `delimiter = ", "` in the file, or `perm --delimiter ", "`.
 - Locally: a clause on a group, `[ ... ; delimiter="" ]`. The innermost setting wins, and
   it applies to everything inside that group, including nested groups.
 - Any-order groups use the delimiter of their own scope, so `[a & b]` gives `a b`, and
@@ -437,6 +543,18 @@ main = How [are you|'s [it|everything]]    ->  How are you / How's it / How's ev
 ```
 delimiter = " AND "
 main = a [b|c]                 ->  a AND b / a AND c
+```
+
+**The delimiter reaches into references.** A referenced definition uses the delimiter of
+the place it is used, unless it sets its own. To pin a definition's spacing, give it a
+clause:
+
+```
+x = [a|A] b
+main = [$x c; delimiter="-"]          ->  a-b-c / A-b-c
+
+x = [[a|A] b; delimiter=" "]
+main = [$x c; delimiter="-"]          ->  a b-c / A b-c
 ```
 
 A DNA-style tight join:
@@ -448,7 +566,8 @@ Example DNA Sequence [[A & T][G & C]; delimiter=""]
 Gives `Example DNA Sequence ATGC` / `TAGC` / `ATCG` / `TACG`. The join between the label
 and the group uses the outer (default) delimiter, and the inside is tight.
 
-**[open]** Escapes to force or suppress a delimiter at one specific spot.
+To glue two pieces, write them touching (`$a$b`, `[un|re]do`). To force a join point
+where there is none, add a space. Long form has `tight` for a run of glued lines.
 
 ## 8. Counting, sampling, listing
 
@@ -459,6 +578,8 @@ and the group uses the outer (default) delimiter, and the inside is tight.
   count.
 - `all()` lists everything, as a generator. Be careful, counts multiply: `$hex{6}` is
   16,777,216 results.
+- With a seed (`perm --seed 7`, or `seededRandom(7)` in the library), random results are
+  repeatable.
 
 ## 9. CLI
 
@@ -469,21 +590,55 @@ perm FILE_OR_PROGRAM [options]
   -n N                N distinct random results
   --all [--limit N]   every result
   --count             how many permutations
-  --json              output text plus tags as JSON
+  --json              results as JSON (see below)
   --entry NAME        start from NAME instead of main
-  --delimiter STR     global delimiter
-  --set key=value     host value, available as $key
-  --fn FILE           register custom transforms
+  --delimiter STR     global delimiter (replaces the file's delimiter setting)
+  --set key=value     host value, available as $key (section 4.12); repeatable
+  --fn FILE           load custom transforms (section 4.9); repeatable
   --seed N            repeatable random choices (same N, same results)
+  -q, --quiet         do not print warnings
 
 perm fmt --short|--long|--auto FILE [-w]   convert definitions between forms
                                            (prints the result, or overwrites FILE with -w)
 ```
 
-If the first argument is not an existing file, it is treated as a program. Use `-` to read the
-program from standard input.
+If the first argument is an existing file, it is read as a program. A name that looks like
+a file (such as `a.perm`) but does not exist is an error. Anything else is treated as the
+program itself. Use `-` to read the program from standard input.
 
-## 10. Worked examples
+`--json` prints an array with one object per result:
+
+```json
+[
+  { "text": "Server is down", "tags": { "severity": 5, "urgent": true } }
+]
+```
+
+A bare tag is `true`. A value is a number when it is written as one (`5`, `-2`, `0.5`, but
+not `05`), `true` or `false` when it is one of those words, and text otherwise.
+
+Errors go to standard error with the line and column, and the exit code is 1. Warnings
+(section 10) go to standard error too, and do not stop the program.
+
+## 10. Warnings
+
+Some code is valid but almost certainly does not do what it looks like. The CLI prints a
+warning for it (hide them with `-q`), and the web app shows it under the chart with a link
+to the line.
+
+| You wrote | What happens | Write instead |
+|---|---|---|
+| `very{2}`, `[very] {2}` | printed as written | `[very]{2}` |
+| `world:upper` | printed as written | `[world]:upper` |
+| `${...}` | printed as written: there is no inline code | ranges, transforms, tags or host values |
+| `[a & b]; delimiter=", "` | the clause is printed as text | `[a & b; delimiter=", "]` |
+| `delimiter=', '` | single quotes are not strings | `delimiter=", "` |
+| `email @bob please` | `@bob` is a tag, so it is not printed | `email \@bob please` |
+| `[@else: E\|@q: Q]` | the guard after `@else:` still competes with it | `[@q: Q\|@else: E]` |
+| `[x @q\|y] [@q: yes]` | when `q` is not set, the result is dropped | `[@q: yes\|@else: no]` |
+| `--set nmae=Ann` | nothing refers to `$nmae` | the right name |
+
+## 11. Worked examples
 
 **Greeting with a shared tail**
 
@@ -504,16 +659,25 @@ greeting = [How [are you|'s [it|everything]]|What [is new|is going on]]
 Excuse me, [what @q|that] is really neat [@q: ?|@else: .]
 ```
 
-**Any order, with a custom join**
+**A list in any order, with commas and a final "and"**
 
 ```
-All personnel [must have a parents signature & ages 18 and younger]
+Pack [a tent & a stove & a map; delimiter=", " last=" and "].
 ```
+
+Gives `Pack a tent, a stove and a map.`, `Pack a map, a tent and a stove.` and the other
+4 orderings.
 
 **Weather**
 
 ```
-it's [windy|still|blustery], [cloudy|partly cloudy|clear skies], and [5|10|20|30|40|50|60|70|80|90|100]% chance of precipitation.
+it's [windy|still|blustery], [cloudy|partly cloudy|clear skies], and [10..100]% chance of rain.
+```
+
+**Times of day**
+
+```
+main = [1..12]\:[00..59] [am|pm]          ->  3:07 pm
 ```
 
 **Labelled test data**
@@ -529,7 +693,23 @@ main = #$hex{6}
 hex = [0..9|A..F]
 ```
 
-## 11. Rules for an LLM writing this language
+**A letter with line breaks**
+
+```
+main = Dear $name,\n\n[Thanks|Thank you] for [writing|reaching out].
+name = Sam | Alex
+```
+
+**Agreement between parts, with a default from the host**
+
+```
+name = there
+main = [Hi|Hello] $name, [your order @order|your ticket] is [@order: on its way|@else: being worked on].
+```
+
+`perm file --set name=Ann` gives, for example, `Hello Ann, your ticket is being worked on.`
+
+## 12. Rules for an LLM writing this language
 
 Do:
 
@@ -539,9 +719,14 @@ Do:
 - Keep short definitions in short form. Use long form when nesting exceeds two levels.
 - Give shared sub-phrases a name and reference it, instead of repeating text.
 - Use `[x|]` for optional text.
-- Use tags and guards when a later choice must agree with an earlier one.
+- Use tags and guards when a later choice must agree with an earlier one, and end every
+  fully guarded choice with `@else:`.
+- Put repeats and transforms directly after `]` or a reference: `[very]{2}`, `$x:upper`.
 - Give a repeat of words a delimiter, `[cat|dog]{2; delimiter=" "}`: repeats glue their
   copies together by default, which suits codes like `[0..9|A..F]{6}` but not words.
+- For lists, use `last`: `[a & b & c; delimiter=", " last=" and "]`.
+- Use `\n` for a line break inside short-form text.
+- Check your program with `perm file --count` and `perm file -n 5`, and fix every warning.
 
 Do not:
 
@@ -555,7 +740,9 @@ Do not:
   it would never be used.
 - Do not rely on a global delimiter to place punctuation. The punctuation rules handle
   `. , ! ? ' ) %` already.
-- Do not put a `#` comment after text on a line. It will be treated as text.
+- Do not put a `#` comment after text on a line. It will be treated as text. Do not put
+  `# ...` notes after example lines either.
+- Do not put a tag on an any-order item directly (`[a @t & b]`). Wrap it: `[[a @t] & b]`.
 
 Recipe for a request such as "make variants of a support greeting that matches tone":
 
@@ -565,54 +752,69 @@ Recipe for a request such as "make variants of a support greeting that matches t
 4. If a part appears twice, name it with a definition and reference it.
 5. Run `perm file --count` to check the size, and `perm file -n 5` to look at samples.
 
-## 12. Grammar (informal)
+## 13. Grammar
+
+Short form. Whitespace between pieces is a join point; pieces that touch are glued.
 
 ```
 file        = { line }
-line        = comment | setting | import | definition | sequence
-comment     = "#" any-text            (only at the start of a line)
+line        = comment | setting | import | definition | expression
+comment     = { space } "#" any-text                 (any line, even inside brackets)
 setting     = "delimiter" "=" string
 import      = "use" path | "from" path "use" name { "," name }
-definition  = path "=" ( sequence | sequence { "|" sequence } )
+definition  = path "=" ( sequence | sequence "|" sequence { "|" sequence } )
+expression  = sequence                               (only in a file without main)
 sequence    = piece { [ whitespace ] piece }
-piece       = ( text | group | ref ) { postfix }
-group       = "[" alternatives [ ";" settings ] "]"
-alternatives= option { "|" option }  |  item { "&" item }
-option      = [ guard ] sequence { tag }
+piece       = text | group postfix* | ref postfix*
+group       = "[" ( choice | anyorder ) [ ";" settings ] "]"
+choice      = option { "|" option }
+anyorder    = sequence "&" sequence { "&" sequence }  (& with whitespace on both sides)
+option      = [ guard ] ( range | sequence ) { tag }  (an option may be empty)
 guard       = "@" [ "!" ] name [ "=" value ] ":"  |  "@else:"
 tag         = "@" name [ "=" value ]
+range       = digits ".." digits  |  char ".." char
 ref         = "$" path
-postfix     = ":" ( name | group )  |  "{" n [ ".." m ] [ ";" settings ] "}"
-range       = ch ".." ch                  (inside a group, as an option)
+postfix     = ":" ( name | "[" name { "|" name } "]" )
+            | "{" digits [ ".." digits ] [ ";" settings ] "}"
+settings    = { ( "delimiter" | "last" ) "=" string }
+string      = '"' { char | "\" char } '"'            (\n line break, \t tab)
+text        = { char | "\" char }                    (\n line break, \t tab)
 path        = name { "." name }
+name        = ( letter | "_" ) { letter | digit | "_" }
+value       = any characters except whitespace, "|", "]", ":"
 ```
 
-Long form (informal), indentation based:
+Long form, indentation based:
 
 ```
-branch   = "branch" path NEWLINE INDENT item+ DEDENT
-item     = block | leaf | shortline
-block    = ("one of" | "sequence" | "tight" | "any order"
-           | "repeat" n [".." m] | "transform" name {"|" name}
-           | "when" ["not"] name ["=" value] | "otherwise") NEWLINE INDENT item+ DEDENT
-leaf     = "nothing" | "ref" path | "tag" name ["=" value]
-           | "delimiter" string | string
-shortline = any other line, parsed as a short-form expression
+branch    = "branch" path NEWLINE INDENT item { item } DEDENT
+item      = block | leaf | comment | shortline
+block     = ( "one of" | "sequence" | "tight" | "any order"
+            | "repeat" digits [ ".." digits ] | "transform" name { "|" name }
+            | "when" [ "not" ] name [ "=" value ] | "otherwise" )
+            NEWLINE INDENT item { item } DEDENT
+leaf      = "nothing" | "ref" path | "tag" name [ "=" value ]
+            | "delimiter" string | "last" string | string
+shortline = any other line, parsed as a short-form sequence
 ```
 
-## 13. Cheat sheet
+## 14. Cheat sheet
 
 | I want | Write |
 |---|---|
 | Either or | `[a\|b]` |
 | Optional | `[a\|]` |
 | Every ordering | `[a & b]` |
+| A list with "and" | `[a & b & c; delimiter=", " last=" and "]` |
 | Reuse | `x = ...` then `$x` |
-| Repeat | `$x{3}` or `$x{2..4}` |
-| A number or letter range | `[1..6]` `[A..F]` |
-| Change case | `$x:upper` |
+| Repeat | `$x{3}`, `[very]{2..4}` |
+| A number or letter range | `[1..6]`, `[A..F]`, `[00..59]` |
+| Change case | `$x:upper`, `[x]:lower:capitalize` |
+| A line break | `\n` |
 | Make later text depend on earlier | `[a @t\|b]` then `[@t: x\|@else: y]` |
 | Label an output | `[a @severity=5\|b]` |
 | Different spacing | `[ ... ; delimiter=""]` or `delimiter = ", "` |
 | Group names | `ns.name = ...`, `$ns.name` |
 | Pull in a file | `use lib` / `from lib use x` |
+| A value from outside | `$name` with `--set name=...` |
+| A literal special character | `\[ \] \| \$ \: \{ \@ \# \\` |

@@ -7,6 +7,11 @@ describe('warnings for code that does not do what it looks like', () => {
     expect(warn('It was very{2} good')[0]).toMatch(/"very\{2\}" is printed as written.*\[very\]\{2\}/);
     expect(warn('Hello world:upper')[0]).toMatch(/\[world\]:upper/);
     expect(warn('It was [very]{2} good')).toEqual([]);
+    expect(warn('[very] {2}')[0]).toMatch(/with no space, as in \[word\]\{2\}/);
+    // Escaped on purpose, or quoted in long form: no warning.
+    expect(warn('a \\{2} b, very\\{2}, world\\:upper, \\${x}')).toEqual([]);
+    expect(warn('branch main\n  "very{2} and ${x}"')).toEqual([]);
+    expect(warn('branch main\n  very{2}')[0]).toMatch(/very\{2\}/);
     expect(warn('[Hello]:upper')).toEqual([]);
   });
 
@@ -47,3 +52,15 @@ describe('error messages that suggest the fix', () => {
     expect(() => compile('[a @t & b]')).toThrow(/Wrap it in brackets, as in \[\[a @t\] & b\]/);
   });
 });
+
+describe('tag values in results', () => {
+  test('numbers, booleans and text', () => {
+    const tags = compile('[a @k=5.5 @n=-2 @z=05 @yes=true @no=false @bare @word=low]').one().tags;
+    expect(tags).toEqual({ k: 5.5, n: -2, z: '05', yes: true, no: false, bare: true, word: 'low' });
+  });
+
+  test('an any-order group that is too big for tags is reported where it is', () => {
+    expect(() => compile('[[a @x] & b & c & d & e & f & g & h & i]')).toThrow(/9 items.*at most 8\. Split it into smaller groups \(line 1, column 1\)/);
+  });
+});
+

@@ -182,8 +182,26 @@ function main(): void {
 
   const fns: Record<string, TransformFn> = {};
   for (const f of args.fnFiles) {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    Object.assign(fns, require(path.resolve(f)));
+    let exported: unknown;
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      exported = require(path.resolve(f));
+    } catch (e) {
+      console.error(`Error: could not load ${f}: ${(e as Error).message.split('\n')[0]}`);
+      process.exit(1);
+    }
+    // module.exports = { name: fn }, or an ES module's named exports (and a default object).
+    const found: Record<string, TransformFn> = {};
+    for (const obj of [exported, (exported as { default?: unknown } | undefined)?.default]) {
+      if (!obj || (typeof obj !== 'object' && typeof obj !== 'function')) continue;
+      for (const [name, fn] of Object.entries(obj as Record<string, unknown>)) {
+        if (typeof fn === 'function' && /^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) found[name] = fn as TransformFn;
+      }
+    }
+    if (Object.keys(found).length === 0) {
+      console.error(`warning: ${f} adds no transforms. Export functions by name, as in module.exports = { shout: (text) => text.toUpperCase() + '!' }`);
+    }
+    Object.assign(fns, found);
   }
 
   try {
@@ -198,7 +216,7 @@ function main(): void {
     });
 
     if (!args.quiet) {
-      for (const w of prog.warnings) console.error(`warning: ${w.message} (${w.path ? w.path + ', ' : ''}line ${w.line}, column ${w.col})`);
+      for (const w of prog.warnings) console.error(`warning: ${w.message}${w.line > 0 ? ` (${w.path ? w.path + ', ' : ''}line ${w.line}, column ${w.col})` : ''}`);
     }
 
     if (args.count) {
