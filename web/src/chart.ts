@@ -551,11 +551,13 @@ export class ChartView {
     const wasOnlySelection = this.selected.size === 1 && this.selected.has(b.id) && this.clickedId === b.id;
     this.clickedId = b.id;
     if (selectable(b)) this.focusBox(b.id, false);
-    const chip = (b.kind === 'tag' || b.kind === 'guard') && this.actions.canEdit();
-    this.actions.select(b, extend, !chip);
-    if (chip && !extend) this.actions.editChip(b);
-    // A second, separate click on a selected text box edits it, like renaming a file.
-    else if (!extend && wasOnlySelection && ev.detail === 1 && isEditableText(b)) this.beginEdit(b);
+    this.actions.select(b, extend, true);
+    // A second, separate click on a selected box edits it, like renaming a file: text in place,
+    // a tag or guard chip in its dialog. The first click only selects, so the strip shows what
+    // can be done, the same for every kind of box.
+    const again = !extend && wasOnlySelection && ev.detail === 1;
+    if (again && (b.kind === 'tag' || b.kind === 'guard') && this.actions.canEdit()) this.actions.editChip(b);
+    else if (again && isEditableText(b)) this.beginEdit(b);
   }
 
   private onDblClick(ev: MouseEvent): void {
@@ -569,6 +571,10 @@ export class ChartView {
     if (b.kind === 'defLabel') {
       const def = this.boxes.find((x) => x.kind === 'def' && x.name === b.name);
       if (def && this.actions.canEdit()) this.actions.defAction(def, 'rename');
+      return;
+    }
+    if (b.kind === 'tag' || b.kind === 'guard') {
+      if (this.actions.canEdit()) this.actions.editChip(b);
       return;
     }
     if (!isEditableText(b)) return;

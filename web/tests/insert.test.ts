@@ -100,3 +100,22 @@ test('inserting a reference into a long-form alternative keeps it one alternativ
   assert.equal(analyze(out2).program.count, 2n);
   assert.match(meaning(out2), /one of hi/);
 });
+
+test('vary words keeps punctuation outside the choice, and pins spacing under another delimiter', () => {
+  const src = 'main = Hi Sam, thanks for getting in touch.';
+  const t0 = text(src, 'Hi Sam, thanks for getting in touch.');
+  const r = varyWords(src, t0, 1, 1, 'Alex');
+  const out = run(src, r);
+  assert.equal(out, 'main = Hi [Sam|Alex], thanks for getting in touch.');
+  assert.equal(out.slice(r!.select![0], r!.select![1]), 'Alex');
+  assert.match(meaning(out), /"Hi Alex, thanks for getting in touch\."/);
+  const quoted = 'main = She said (hello) twice';
+  const q = run(quoted, varyWords(quoted, text(quoted, 'She said (hello) twice'), 2, 2, 'hi'));
+  assert.equal(q, 'main = She said ([hello|hi]) twice');
+  const dashed = 'delimiter = "-"\nmain = Hello dear world';
+  const d = varyWords(dashed, text(dashed, 'Hello dear world'), 1, 1, null);
+  const dout = run(dashed, d);
+  assert.equal(dout.split('\n')[1], 'main = [Hello [dear|] world; delimiter=" "]');
+  assert.match(meaning(dout), /"Hello world"/);
+  assert.match(meaning(dout), /"Hello dear world"/);
+});

@@ -5,7 +5,7 @@ import { canvasMeasure, ChartActions, ChartView, DefAction, FocusKey } from './c
 import { createEditor } from './editor';
 import {
   addAlternative, addGuard, addTag, alternatives, applyPatches, ChoiceNode, deleteAlternative, EditResult, editGuard, editRange, editTag, editText, fillEmpty,
-  guardInputOf, isStructurallyEditable, mapAfterMove, mapOffset, moveAlternative, parseGuardInput, parseTagInput, tagInputOf, Patch,
+  guardInputOf, isStructurallyEditable, mapAfterMove, mapOffset, moveAlternative, parseGuardInput, parseTagInput, removeAlternatives, tagInputOf, Patch,
 } from './patch';
 import {
   convertForms, createDefinition, deleteDefinition, EditOrError, ExtractSelection, extractToBranch, failed, referencesTo, renameDefinition,
@@ -20,7 +20,7 @@ import { deletePiece, isSolePiece, locatePiece } from './remove';
 import { setDelimiter, setSettings } from './delim';
 import { parseCount, removeRepeat, removeTransform, setRepeatCount, setTransforms } from './wrappers';
 type DelimTarget = Parameters<typeof setDelimiter>[1];
-import { inside } from './nav';
+import { focusable, inside, selectable } from './nav';
 import { redo, undo } from '@codemirror/commands';
 import { builtinTransforms, seededRandom, visit } from '../../src/index';
 import type { Output, Trace } from '../../src/index';
@@ -210,7 +210,7 @@ function applyEdit(
   clearNotice();
   const barFocus = bar.contains(document.activeElement) ? (document.activeElement as HTMLElement).dataset['action'] : undefined;
   // A dialog opened from the chart or the strip hands focus back to the chart afterwards.
-  const fromDialog = !!document.activeElement?.closest('.popover') && chart.lastKey() !== undefined;
+  const fromDialog = !!document.activeElement?.closest('.popover');
   const chartArea = chart.hasFocus() || !!barFocus || fromDialog;
   const keepBar = barOn;
   const selected = chart.boxes.find((b) => b.id === selectedId);
@@ -237,8 +237,11 @@ function applyEdit(
   }
   if (landed && (keepBar || chartArea)) {
     selectBox(landed, { bar: true, reveal: false });
-    if (barFocus) bar.focusAction(barFocus);
-    else if (fromDialog) chart.focusBox(landed.id, true, true);
+    // Back to the strip button that was used, or, when the selection no longer has it (the
+    // thing it removed is gone), to the box in the chart.
+    if (barFocus) {
+      if (!bar.focusAction(barFocus)) chart.focusBox(landed.id, true, true);
+    } else if (fromDialog) chart.focusBox(landed.id, true, true);
   }
   opts.then?.(result.patches);
   if (sel && opts.startEdit) {
@@ -310,12 +313,39 @@ function gotoBranch(name: string): void {
   if (def) chart.flash(def.id);
 }
 
+/** The first box in an alternative that can take focus (rows themselves cannot). */
+function firstIn(row: Box): Box | undefined {
+  return chart.boxes
+    .filter((b) => b.id !== row.id && focusable(b) && b.kind !== 'tag' && b.kind !== 'guard' && inside(b, row))
+    .sort((a, b) => a.y - b.y || a.x - b.x)[0];
+}
+
+/** Delete every selected alternative of one choice, as one change. */
+function deleteSelectedRows(): void {
+  if (!analysis || !canEdit()) return;
+  const rows = chart.boxes.filter((b) => multi.has(b.id) && b.kind === 'row');
+  const node = rows[0]?.node as ChoiceNode | undefined;
+  if (!node || rows.some((r) => r.node !== node)) return;
+  if (rows.length >= alternatives(node).length) {
+    notify('A choice needs at least one alternative. Select fewer, or delete the whole choice.', 'warn');
+    return;
+  }
+  const patches = removeAlternatives(analysis.source, node, rows.map((r) => r.index ?? 0));
+  const n = rows.length;
+  const first = rows.reduce((a, r) => ((r.index ?? 0) < (a.index ?? 0) ? r : a));
+  const keep = chart.boxes.find((b) => b.kind === 'row' && b.node === node && !multi.has(b.id) && (b.index ?? 0) < (first.index ?? 0)) ?? chart.boxes.find((b) => b.kind === 'row' && b.node === node && !multi.has(b.id));
+  multi.clear();
+  const target = keep ? (firstIn(keep) ?? keep) : undefined;
+  if (!applyEdit(patches ? { patches } : undefined, target ? { focus: target } : {})) toast(`${n} alternatives deleted.`, UNDO);
+}
+
 function toggleRow(box: Box): void {
   const row = chart.contextFor(box.id).row;
   if (!row) return;
   if (multi.size === 0) {
+    // Start the set with the alternative that was selected, unless that is the one toggled.
     const cur = chart.contextFor(selectedId).row;
-    if (cur) multi.add(cur.id);
+    if (cur && cur.id !== row.id) multi.add(cur.id);
   }
   const first = chart.boxes.find((b) => b.id === [...multi][0]);
   if (first && first.frameId !== row.frameId) multi.clear();
@@ -379,6 +409,18 @@ const actions: ChartActions = {
     }
   },
   focused(b) {
+    // Moving with the arrows through the same choice keeps a multi-selection, so Space can add
+    // the alternative focus lands on.
+    if (multi.size > 0) {
+      const row = chart.contextFor(b.id).row;
+      const first = chart.boxes.find((x) => x.id === [...multi][0]);
+      if (row && first && first.frameId === row.frameId) {
+        selectedId = b.id;
+        chart.setSelected([...multi]);
+        updateTools();
+        return;
+      }
+    }
     multi.clear();
     selectBox(b, { bar: true });
   },
@@ -430,8 +472,10 @@ const actions: ChartActions = {
   removeChip(box) {
     if (!analysis || !canEdit()) return;
     let err: string | undefined = 'none';
-    if (box.kind === 'tag' && box.tag) err = applyEdit(editTag(analysis.source, box.tag, null), { focus: box });
-    else if (box.kind === 'guard' && box.guard) err = applyEdit(editGuard(analysis.source, box.guard, null), { focus: box });
+    const owner = ownerOf(box);
+    const focus = owner ? { focus: owner } : {};
+    if (box.kind === 'tag' && box.tag) err = applyEdit(editTag(analysis.source, box.tag, null), focus);
+    else if (box.kind === 'guard' && box.guard) err = applyEdit(editGuard(analysis.source, box.guard, null), focus);
     if (!err) toast(`${box.kind === 'tag' ? 'Tag' : 'Guard'} removed.`, UNDO);
   },
   addAlternative(frame, after) {
@@ -442,6 +486,10 @@ const actions: ChartActions = {
   },
   deleteAlternative(row) {
     if (!analysis || !canEdit()) return;
+    if (multi.size > 1 && multi.has(row.id)) {
+      deleteSelectedRows();
+      return;
+    }
     const what = (row.node as ChoiceNode).kind === 'anyorder' ? 'Item' : 'Alternative';
     if (!applyEdit(deleteAlternative(analysis.source, row.node as ChoiceNode, row.index ?? 0))) toast(`${what} deleted.`, UNDO);
   },
@@ -518,6 +566,22 @@ const actions: ChartActions = {
   },
 };
 
+/**
+ * The box that takes focus when `box` goes away: the alternative a tag or guard chip sits on,
+ * the piece a repeat or transform was around, or the label of the branch it is in.
+ */
+function ownerOf(box: Box): Box | undefined {
+  const ctx = chart.contextFor(box.id);
+  const node = box.node;
+  if (node && (node.kind === 'repeat' || node.kind === 'transform')) {
+    const inner = chart.boxes.find((b) => b.node === node.inner && selectable(b) && b.id !== box.id);
+    if (inner) return inner;
+  }
+  if (ctx.row && ctx.row.id !== box.id) return firstIn(ctx.row) ?? ctx.row;
+  const def = chart.boxes.find((d) => d.kind === 'def' && inside(box, d));
+  return def ? chart.boxes.find((b) => b.kind === 'defLabel' && b.name === def.name) : undefined;
+}
+
 function editChip(box: Box): void {
   if (!analysis || !canEdit()) return;
   const src = analysis.source;
@@ -554,7 +618,12 @@ function editChip(box: Box): void {
       {
         label: 'Remove',
         kind: 'danger',
-        run: () => applyEdit(isTag ? editTag(src, box.tag!, null) : editGuard(src, box.guard!, null), { focus: box }),
+        run: () => {
+          const owner = ownerOf(box);
+          const err = applyEdit(isTag ? editTag(src, box.tag!, null) : editGuard(src, box.guard!, null), owner ? { focus: owner } : {});
+          if (!err) toast(`${isTag ? 'Tag' : 'Guard'} removed.`, UNDO);
+          return err;
+        },
       },
       { label: 'Cancel', run: () => undefined },
     ],
@@ -612,7 +681,7 @@ function defAction(def: Box, action: DefAction): void {
         label: 'Delete',
         kind: 'danger',
         run: () => {
-          const err = applyEdit(r);
+          const err = applyEdit(r, neighbourLabel(name));
           if (!err) toast(`Branch ${name} deleted.`, UNDO);
           return err;
         },
@@ -878,7 +947,8 @@ function runAction(id: ActionId): void {
       if (ctx.row) actions.moveAlternative(ctx.row, id === 'up' ? -1 : 1);
       return;
     case 'delete':
-      if (ctx.row) actions.deleteAlternative(ctx.row);
+      if (multi.size > 1) deleteSelectedRows();
+      else if (ctx.row) actions.deleteAlternative(ctx.row);
       return;
     case 'delete-piece': {
       const err = removePiece(box);
@@ -1050,7 +1120,16 @@ function removePiece(box: Box): string | undefined {
 function deleteUnused(name: string): void {
   const r = deleteDefinition(editor.getText(), name);
   if (failed(r)) notify(r.error, 'warn');
-  else if (!applyEdit(r)) toast(`Branch ${name} deleted.`, UNDO);
+  else if (!applyEdit(r, neighbourLabel(name))) toast(`Branch ${name} deleted.`, UNDO);
+}
+
+/** Focus for after deleting a branch: the label of the branch before it, or main's. */
+function neighbourLabel(name: string): { focus?: Box } {
+  const names = branchNames();
+  const i = names.indexOf(name);
+  const prev = names[i - 1] ?? names.find((n) => n !== name);
+  const label = prev ? chart.boxes.find((b) => b.kind === 'defLabel' && (b.name === prev || (prev === 'main' && b.name === '<main>'))) : undefined;
+  return label ? { focus: label } : {};
 }
 
 function branchNames(): string[] {
@@ -1062,12 +1141,14 @@ function branchNames(): string[] {
 function wrapperAction(id: ActionId, box: Box): void {
   if (!analysis || !box.node) return;
   const src = analysis.source;
+  const owner = ownerOf(box);
+  const focus = owner ? { focus: owner } : {};
   if (id === 'repeat-remove' && box.node.kind === 'repeat') {
-    if (!applyEdit(removeRepeat(src, box.node))) toast('Repeat removed.', UNDO);
+    if (!applyEdit(removeRepeat(src, box.node), focus)) toast('Repeat removed.', UNDO);
     return;
   }
   if (id === 'transform-remove' && box.node.kind === 'transform') {
-    if (!applyEdit(removeTransform(src, box.node))) toast('Transform removed.', UNDO);
+    if (!applyEdit(removeTransform(src, box.node), focus)) toast('Transform removed.', UNDO);
     return;
   }
   if (id === 'repeat-edit' && box.node.kind === 'repeat') {

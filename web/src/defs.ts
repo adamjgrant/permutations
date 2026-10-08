@@ -2,7 +2,7 @@
 // retarget a reference, and Expand / Collapse through the core formatter.
 // All pure: they take the source text and return patches (or an error message to show).
 
-import { formatSource, printLongDef, printShortDef } from '../../src/index';
+import { compile, formatSource, printLongDef, printShortDef } from '../../src/index';
 import type { FormatMode } from '../../src/index';
 import { visit } from '../../src/core/compile';
 import { isReservedLine } from '../../src/core/longform';
@@ -286,6 +286,8 @@ export function inlineReference(src: string, node: RefNode): EditOrError {
       const top = lines.filter((l) => !l.startsWith(unit) && !/^\s/.test(l));
       const body = top.length > 1 ? ['sequence', ...lines.map((l) => unit + l)] : lines;
       const insert = body.map((l, i) => (i === 0 ? l : base + l)).join('\n');
+      const entry = defs.find((d) => d.range[0] <= r[0] && r[1] <= d.range[1])?.name;
+      if (!sameResults(src, src.slice(0, r[0]) + insert + src.slice(r[1]), entry)) return { error: `${node.path} cannot be inlined here without changing the results.` };
       return { patches: [{ from: r[0], to: r[1], insert }], select: [r[0], r[0] + insert.length] };
     }
     // A short-form branch goes in as you wrote it (ranges, spacing and escapes untouched); a
@@ -308,9 +310,40 @@ export function inlineReference(src: string, node: RefNode): EditOrError {
     else if (choice) insert = `[${tightenTopLevel(text)}]`;
     else if (suffix && !isOneGroup(text) && !/^\$?[\w.]+$/.test(text)) insert = `[${text}]`;
     else insert = text;
+    // Without brackets, text can merge with the text around it, and the spaces between them stop
+    // being join points (no punctuation rule, no delimiter). Keep the bare form only when the
+    // results stay the same; the bracketed form is one piece, exactly like the reference.
+    const splice = (ins: string): string => src.slice(0, r[0]) + ins + src.slice(r[1]);
+    const entry = defs.find((d) => d.range[0] <= r[0] && r[1] <= d.range[1])?.name;
+    if (insert === text && !isOneGroup(text) && !sameResults(src, splice(insert), entry)) insert = `[${text}]`;
+    if (!sameResults(src, splice(insert), entry)) return { error: `${node.path} cannot be inlined here without changing the results.` };
     return { patches: [{ from: r[0], to: r[1], insert }], select: [r[0], r[0] + insert.length] };
   } catch (e) {
     return { error: `${node.path} cannot be inlined here: ${(e as Error).message}.` };
+  }
+}
+
+/**
+ * True when two versions of the code give the same results (texts and tags, in the same order)
+ * from `entry`: all of them for small programs, and an even spread of 400 for large ones.
+ */
+export function sameResults(a: string, b: string, entry?: string): boolean {
+  try {
+    const opts = { load: () => undefined, ...(entry && entry !== '<main>' ? { entry } : {}) };
+    const pa = compile(a, opts);
+    const pb = compile(b, opts);
+    const n = pa.count;
+    if (n !== pb.count) return false;
+    const take = n <= 400n ? Number(n) : 400;
+    for (let i = 0; i < take; i++) {
+      const idx = n <= 400n ? BigInt(i) : (n * BigInt(i)) / 400n;
+      const x = pa.at(idx);
+      const y = pb.at(idx);
+      if (x.text !== y.text || JSON.stringify(x.tags) !== JSON.stringify(y.tags)) return false;
+    }
+    return true;
+  } catch {
+    return false;
   }
 }
 

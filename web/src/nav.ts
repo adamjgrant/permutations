@@ -43,13 +43,14 @@ const cy = (b: Box): number => b.y + b.h / 2;
  * Moving sideways into a choice lands on one of ITS alternatives (the one nearest the line we
  * came along), never on a box nested deeper that happens to sit on that line.
  */
-function enterChoice(boxes: Box[], from: Box, hit: Box, dir: Dir): Box {
+function enterChoice(boxes: Box[], from: Box, hit: Box, dir: Dir, origin: Box = from): Box {
   const outer = boxes
-    .filter((f) => f.kind === 'frame' && (f.frameOf === 'group' || f.frameOf === 'anyorder') && inside(hit, f) && !inside(from, f))
+    .filter((f) => f.kind === 'frame' && (f.frameOf === 'group' || f.frameOf === 'anyorder') && inside(hit, f) && !inside(origin, f) && !inside(from, f))
     .sort((p, q) => area(q) - area(p))[0];
   if (!outer) return hit;
   const rows = boxes.filter((r) => r.kind === 'row' && r.frameId === outer.id);
-  const row = rows.sort((p, q) => Math.abs(cy(p) - cy(from)) - Math.abs(cy(q) - cy(from)))[0];
+  // The alternative nearest the line we came along (the first of two at the same distance).
+  const row = rows.sort((p, q) => Math.abs(cy(p) - cy(from)) - Math.abs(cy(q) - cy(from)) || p.y - q.y)[0];
   if (!row) return hit;
   const inRow = boxes.filter((b) => focusable(b) && inside(b, row));
   const pick = inRow.sort((p, q) => (dir === 'right' ? p.x - q.x : q.x + q.w - (p.x + p.w)) || Math.abs(cy(p) - cy(row)) - Math.abs(cy(q) - cy(row)))[0];
@@ -73,14 +74,41 @@ export function navigate(boxes: Box[], from: Box, dir: Dir): Box | undefined {
       }
       return best;
     };
-    const direct = along(from, Math.max(from.h, 34) / 2 + 2);
-    if (direct) return enterChoice(boxes, from, direct, dir);
+    const gapTo = (ref: Box, c: Box): number => (dir === 'right' ? c.x - (ref.x + ref.w) : ref.x - (c.x + c.w));
+    // A choice ahead whose side the line runs into. With an even number of alternatives no box
+    // sits on the line itself (the rows are above and below it), so look for the frame too.
+    const choiceAhead = (ref: Box): Box | undefined => {
+      let best: Box | undefined;
+      let bestGap = Infinity;
+      for (const f of boxes) {
+        if (!isChoiceFrame(f) || inside(from, f) || inside(ref, f)) continue;
+        if (cy(ref) < f.y || cy(ref) > f.y + f.h) continue;
+        const gap = gapTo(ref, f);
+        if (gap < -1) continue;
+        if (gap < bestGap) {
+          best = f;
+          bestGap = gap;
+        }
+      }
+      return best;
+    };
+    const step = (ref: Box, tol: number): Box | undefined => {
+      const direct = along(ref, tol);
+      const frame = choiceAhead(ref);
+      if (frame && (!direct || gapTo(ref, frame) < gapTo(ref, direct))) {
+        const inner = boxes.find((b) => focusable(b) && inside(b, frame));
+        if (inner) return enterChoice(boxes, ref === from ? from : ref, inner, dir, from);
+      }
+      return direct ? enterChoice(boxes, from, direct, dir) : undefined;
+    };
+    const next = step(from, Math.max(from.h, 34) / 2 + 2);
+    if (next) return next;
     // Nothing in this alternative's line: leave the choice and continue from its connector.
     const frames = boxes.filter((f) => f.kind === 'frame' && inside(from, f)).sort((p, q) => area(p) - area(q));
     for (const f of frames) {
       // The line enters and leaves a choice somewhere along its side, not always at its middle.
-      const hit = along(f, f.h / 2);
-      if (hit && !inside(hit, f)) return enterChoice(boxes, from, hit, dir);
+      const hit = step(f, f.h / 2);
+      if (hit && !inside(hit, f)) return hit;
     }
     return undefined;
   }

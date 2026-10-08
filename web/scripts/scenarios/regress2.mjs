@@ -32,7 +32,10 @@ export default async (t) => {
   check((await page.$$('.k-tag')).length === 1, 'the tag shows as a chip');
   await page.locator('.k-tag').first().click();
   await t.settle(150);
-  check((await t.state()).popover === 'Edit tag', 'clicking a tag chip opens Edit tag');
+  check((await t.state()).overlay.includes('Edit tag') && !(await t.state()).popover, 'clicking a tag chip selects it, and the strip offers Edit tag');
+  await page.locator('.k-tag').first().click();
+  await t.settle(150);
+  check((await t.state()).popover === 'Edit tag', 'clicking the selected tag chip again opens Edit tag');
   await page.keyboard.press('Meta+a');
   await page.keyboard.type('near');
   await page.keyboard.press('Enter');

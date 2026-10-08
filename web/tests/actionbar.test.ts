@@ -81,9 +81,9 @@ test('a branch name offers rename, expand or collapse, and delete', () => {
   assert.equal(long.find((a) => a.id === 'convert')?.label, 'Collapse to short form');
 });
 
-test('a multi-selection offers extract and clear', () => {
+test('a multi-selection offers extract, clear and delete', () => {
   const acts = barActions(input('main = [a|b|c]', (b) => b.kind === 'row', { multi: 2 }));
-  assert.deepEqual(acts.map((a) => a.id), ['extract', 'clear']);
+  assert.deepEqual(acts.map((a) => a.id), ['extract', 'clear', 'delete']);
   assert.match(acts[0]!.label, /2 alternatives/);
 });
 

@@ -75,6 +75,7 @@ export function barActions(s: BarInput): ActionSpec[] {
     return [
       { id: 'extract', label: `Extract ${s.multi} alternatives…`, title: 'Move the selected alternatives into a new branch', group: 0, disabled: !s.canExtract },
       { id: 'clear', label: 'Clear selection', title: 'Clear the selection (Escape)', group: 1 },
+      { id: 'delete', label: `Delete ${s.multi} alternatives`, title: 'Delete the selected alternatives (Delete)', group: 4, danger: true },
     ];
   }
   if (b.kind === 'def' || b.kind === 'defLabel') {
@@ -250,10 +251,11 @@ export class ActionBar {
         if (s.danger) btn.classList.add('danger');
         btn.disabled = !!s.disabled;
         btn.addEventListener('click', (e) => {
-          // The second click of a double-click that lands on a different button (because the
-          // first click changed the buttons) was aimed at the old one: ignore it. Clicking the
-          // same button again (Move down, twice) still works.
-          if (e.detail >= 2 && this.lastAction !== s.id) return;
+          // The second click of a double-click acts on whatever the first click left selected, so
+          // it is ignored: a double-clicked Delete deletes one thing, not two. Only the move
+          // buttons repeat, so clicking Move down quickly moves several places.
+          const repeats = s.id === 'up' || s.id === 'down';
+          if (e.detail >= 2 && !(repeats && this.lastAction === s.id)) return;
           this.lastAction = s.id;
           this.onRun(s.id);
         });
@@ -297,10 +299,11 @@ export class ActionBar {
   }
 
   /** Focus the button for an action, or the first enabled one when it is gone or disabled. */
-  focusAction(id: string): void {
+  /** Focus the button for `id`; false when the strip no longer has it. */
+  focusAction(id: string): boolean {
     const b = this.actions.querySelector<HTMLButtonElement>(`button[data-action="${id}"]:not(:disabled)`);
-    if (b) b.focus();
-    else this.focusFirst();
+    b?.focus();
+    return !!b;
   }
 
   /** Focus the first enabled button. */

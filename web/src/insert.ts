@@ -2,7 +2,7 @@
 // optional), and insert a reference after a piece. Like everything in patch.ts, the result is a
 // set of text patches against the source; the source is never regenerated.
 
-import { visit } from '../../src/index';
+import { compile, visit } from '../../src/index';
 import type { Node, SeqNode, TextNode } from '../../src/core/types';
 import { EditResult, formAt, longLine } from './patch';
 import { isReservedLine } from '../../src/core/longform';
@@ -93,6 +93,24 @@ export function insertReference(src: string, at: { range: Range; seq?: SeqNode; 
   return { patches: [{ from: r[1], to: r[1], insert }], select: [r[1] + 1, r[1] + insert.length] };
 }
 
+/**
+ * True when replacing [from, to) with `probe` (the words as a choice of themselves) prints the
+ * same texts as before, so the new join points print the spaces they replace.
+ */
+function spacingKept(src: string, from: number, to: number, probe: string): boolean {
+  try {
+    const opts = { load: () => undefined };
+    const before = compile(src, opts);
+    const after = compile(src.slice(0, from) + probe + src.slice(to), opts);
+    if (before.count > 2000n) return true;
+    const a = new Set([...before.all()].map((o) => o.text));
+    const b = new Set([...after.all()].map((o) => o.text));
+    return a.size === b.size && [...a].every((t) => b.has(t));
+  } catch {
+    return true;
+  }
+}
+
 /** The words of a text, as the Vary words dialog shows them. */
 export function wordsOf(text: string): string[] {
   return text.split(/\s+/).filter((w) => w !== '');
@@ -108,15 +126,28 @@ export function varyWords(src: string, node: TextNode, first: number, last: numb
   const words = parts.filter((_, i) => i % 2 === 0);
   if (first < 0 || last >= words.length || first > last) return undefined;
   const before = parts.slice(0, first * 2).join('').trimEnd();
-  const chosen = parts.slice(first * 2, last * 2 + 1).join('');
+  const picked = parts.slice(first * 2, last * 2 + 1).join('');
   const after = parts.slice(last * 2 + 2).join('').trimStart();
+  // Punctuation at the edges of the picked words stays outside the choice, so "Sam," varies
+  // as [Sam|Alex], and every alternative keeps the comma.
+  const m = /^([("“‘¿¡\[]*)([\s\S]*?)([.,;:!?)”’"…\]]*)$/u.exec(picked) as RegExpExecArray;
+  const [lead, chosen, trail] = (m[2] as string) === '' ? ['', picked, ''] : [m[1] as string, m[2] as string, m[3] as string];
   const [from, to] = node.range;
   const second = alt === null ? '' : escapeText(alt, false);
   const group = `[${escapeText(chosen, false)}|${second}]`;
   // Outside the brackets a standalone & is plain text, so leave the words around as they were.
   const plain = (t: string, atStart: boolean): string => escapeText(t, atStart).replace(/\\&/g, '&');
   const head = before ? plain(before, isAtLineStart(src, from)) + ' ' : '';
-  const insert = head + group + (after ? ' ' + plain(after, false) : '');
-  const at = from + head.length + 1 + escapeText(chosen, false).length + 1;
+  const open = lead ? plain(lead, !head && isAtLineStart(src, from)) : '';
+  const close = trail ? plain(trail, false) : '';
+  const build = (alternative: string): string => head + open + `[${escapeText(chosen, false)}|${alternative}]` + close + (after ? ' ' + plain(after, false) : '');
+  let insert = build(second);
+  let at = from + head.length + open.length + 1 + escapeText(chosen, false).length + 1;
+  // The spaces around the new choice become join points, which print the delimiter in force. When
+  // that is not a space (delimiter = "-"), the words around would change too: pin the spacing.
+  if ((head || after) && !spacingKept(src, from, to, build(escapeText(chosen, false)))) {
+    insert = `[${insert}; delimiter=" "]`;
+    at += 1;
+  }
   return { patches: [{ from, to, insert }], select: [at, at + second.length] };
 }

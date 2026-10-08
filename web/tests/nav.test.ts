@@ -46,3 +46,21 @@ test('moving right into a nested choice lands on one of its own alternatives', (
   const back = navigate(boxes, text(boxes, "'s"), 'left')!;
   assert.equal(back.full, 'How');
 });
+
+test('left and right enter a choice with an even number of alternatives instead of skipping it', () => {
+  let boxes = build('main = Start [Hi|Hello] there');
+  assert.equal(navigate(boxes, text(boxes, 'Start'), 'right')!.full, 'Hi', 'right from Start enters the choice');
+  assert.equal(navigate(boxes, text(boxes, 'there'), 'left')!.full, 'Hi', 'left from there enters it from the other side');
+  assert.equal(navigate(boxes, text(boxes, 'Hi'), 'right')!.full, 'there', 'and leaves it again');
+  assert.equal(navigate(boxes, text(boxes, 'Hello'), 'left')!.full, 'Start');
+  boxes = build('main = [Hi|Hello] there');
+  assert.equal(navigate(boxes, text(boxes, 'there'), 'left')!.full, 'Hi');
+  boxes = build('main = [a|b] [c|d] e');
+  assert.equal(navigate(boxes, text(boxes, 'e'), 'left')!.full, 'c');
+  assert.equal(navigate(boxes, text(boxes, 'c'), 'left')!.full, 'a');
+  assert.equal(navigate(boxes, text(boxes, 'b'), 'right')!.full, 'd');
+  assert.equal(navigate(boxes, text(boxes, 'd'), 'right')!.full, 'e');
+  boxes = build('main = $greeting there\ngreeting = [Hi|Hello] you');
+  const ref = boxes.find((b) => b.kind === 'ref')!;
+  assert.equal(navigate(boxes, text(boxes, 'there'), 'left')!.id, ref.id);
+});

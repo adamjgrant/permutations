@@ -360,3 +360,18 @@ test('deleting a branch takes the comment right above it, but not a file header'
   const head = '# file header\nspare = [a|b]\nmain = x\n';
   assert.equal(run(head, deleteDefinition(head, 'spare')), '# file header\nmain = x\n');
 });
+
+test('inline keeps the results: content that would merge with the text around it is bracketed', () => {
+  const cases: [string, string][] = [
+    ['main = Hello $g\ng = , friend', 'main = Hello [, friend]'],
+    ["main = I said $g\ng = 's fine", "main = I said ['s fine]"],
+    ['delimiter = "-"\nmain = Say $g now\ng = x [a|b]', 'main = Say [x [a|b]] now'],
+    ['main = Say $g now\ng = [a|b]', 'main = Say [a|b] now'],
+    ['main = $g\ng = hello there', 'main = hello there'],
+  ];
+  for (const [src, line] of cases) {
+    const out = run(src, inlineReference(src, refs(src)[0]!));
+    assert.ok(out.split('\n').includes(line), `${JSON.stringify(src)} gave ${JSON.stringify(out)}`);
+    assert.equal(meaning(out), meaning(src));
+  }
+});
