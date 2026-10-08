@@ -267,7 +267,7 @@ export function extractToBranch(src: string, sel: ExtractSelection, newName: str
   // A whole node: text, reference, choice, repeat or transform.
   const node = sel.node;
   if (node.kind === 'seq') return { error: 'Select a single box, or one or more alternatives.' };
-  if (node.kind === 'group' && node.bare) return { error: 'This is the choice a definition is written as. Select its alternatives instead.' };
+  if (node.kind === 'group' && node.bare) return { error: 'This choice is the whole branch. Select its alternatives instead.' };
   const from = node.range[0];
   const long = formAt(src, from) === 'long';
   const to = node.range[1];
@@ -307,5 +307,5 @@ export function convertForms(src: string, mode: FormatMode, names?: string[]): C
 export function skippedNotice(skipped: { name: string; reason: string }[]): string {
   if (!skipped.length) return '';
   const parts = skipped.map((s) => `${s.name} (${s.reason})`);
-  return `Skipped ${skipped.length} ${skipped.length === 1 ? 'definition' : 'definitions'}: ${parts.join('; ')}.`;
+  return `Skipped ${skipped.length} ${skipped.length === 1 ? 'branch' : 'branches'}: ${parts.join('; ')}.`;
 }

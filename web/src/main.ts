@@ -469,7 +469,7 @@ function defAction(def: Box, action: DefAction): void {
   }
   if (action === 'rename') {
     const refs = referencesTo(src, name).length;
-    nameDialog(`Rename ${name}`, 'New name', name, `The definition and ${refs} ${refs === 1 ? 'reference' : 'references'} will change together.`, def, (v) => {
+    nameDialog(`Rename ${name}`, 'New name', name, `The branch and ${refs} ${refs === 1 ? 'reference' : 'references'} to it will change together.`, def, (v) => {
       const r = renameDefinition(src, name, v);
       if (failed(r)) return r.error;
       const err = applyEdit(r, { then: () => gotoBranch(v) });
@@ -535,7 +535,7 @@ function runConvert(mode: 'short' | 'long', names: string[] | undefined, label: 
     return;
   }
   const err = applyEdit({ patches: res.patches });
-  if (!err) notify(`${verb} ${res.changed.length} ${res.changed.length === 1 ? 'definition' : 'definitions'}.${skipped ? ' ' + skipped : ''}`, skipped ? 'warn' : 'info');
+  if (!err) notify(`${verb} ${res.changed.length} ${res.changed.length === 1 ? 'branch' : 'branches'}.${skipped ? ' ' + skipped : ''}`, skipped ? 'warn' : 'info');
 }
 
 // --- chart -----------------------------------------------------------------

@@ -298,7 +298,7 @@ test('skipped definitions are reported with the core reasons', () => {
   const r = convertForms(src, 'short');
   assert.deepEqual(r.skipped.map((s) => s.name), ['a']);
   assert.match(r.skipped[0]!.reason, /comment/);
-  assert.match(skippedNotice(r.skipped), /^Skipped 1 definition: a \(contains a comment/);
+  assert.match(skippedNotice(r.skipped), /^Skipped 1 branch: a \(contains a comment/);
   const none = convertForms('main = x', 'long', ['main']);
   assert.equal(skippedNotice(none.skipped), '');
 });
