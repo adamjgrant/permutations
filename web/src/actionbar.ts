@@ -150,7 +150,8 @@ export function barActions(s: BarInput): ActionSpec[] {
     out.push({ id: 'optional', label: 'Make optional', title: already ? 'Already optional: it has an empty alternative' : 'Add an empty alternative, so this choice can be left out', group: 1, disabled: already });
   }
   if (b.kind === 'frame' && s.piece?.deletable && !s.piece.sole) {
-    out.push({ id: 'delete-piece', label: 'Delete choice', title: 'Delete this whole choice (Delete)', group: 4, danger: true });
+    const thing = b.frameOf === 'anyorder' ? 'group' : b.frameOf === 'repeat' ? 'repeat' : b.frameOf === 'transform' ? 'piece' : 'choice';
+    out.push({ id: 'delete-piece', label: `Delete ${thing}`, title: `Delete this whole ${thing} (Delete)`, group: 4, danger: true });
   }
   if ((b.kind === 'text' || b.kind === 'ref') && (s.branches ?? 1) > 0) {
     out.push({ id: 'insert-ref', label: 'Insert reference…', title: 'Insert $name of a branch right after this', group: 3 });

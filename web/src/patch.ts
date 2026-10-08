@@ -156,6 +156,8 @@ const sepChar = (node: ChoiceNode): string => (node.kind === 'anyorder' ? '&' : 
 /** The text of a plain long-form line for `text`, quoted only when a bare line would be misread. */
 export function longLine(text: string): string {
   const flat = text.replace(/\r?\n/g, ' ').replace(/\t/g, ' ');
+  // An empty line of long form is written as the keyword for it.
+  if (flat.trim() === '') return 'nothing';
   const esc = escapeText(flat, true);
   if (flat !== flat.trim() || flat === '' || isReservedLine(esc) || /^".*"$/.test(esc) || /^&$/.test(esc)) return quoteLong(flat);
   return esc;

@@ -45,13 +45,13 @@ function parse(src: string): Parsed {
 /** Why `name` cannot be used for a definition, or undefined when it can. `ignore` is the name being renamed. */
 export function nameProblem(src: string, name: string, ignore?: string): string | undefined {
   if (!NAME_RE.test(name)) {
-    return `"${name}" is not a valid name. A name starts with a letter or underscore and uses letters, digits and underscores (a dot separates a namespace).`;
+    return `“${name}” is not a valid name. A name starts with a letter or underscore and uses letters, digits and underscores (a dot separates a namespace).`;
   }
   if (RESERVED_NAMES.includes(name.split('.')[0] as string)) {
-    return `"${name}" is reserved: ${name.split('.')[0]} already has a meaning at the start of a line. Pick another name.`;
+    return `“${name}” is reserved: ${name.split('.')[0]} already has a meaning at the start of a line. Pick another name.`;
   }
   const { defs } = parse(src);
-  if (name !== ignore && defs.some((d) => d.name === name)) return `A branch named "${name}" already exists.`;
+  if (name !== ignore && defs.some((d) => d.name === name)) return `A branch named “${name}” already exists.`;
   return undefined;
 }
 
@@ -114,13 +114,13 @@ function defNameRange(src: string, def: Def): Range | undefined {
 export function renameDefinition(src: string, oldName: string, newName: string): EditOrError {
   const { defs } = parse(src);
   const def = defs.find((d) => d.name === oldName);
-  if (!def) return { error: `There is no branch named "${oldName}".` };
+  if (!def) return { error: `There is no branch named “${oldName}”.` };
   if (newName === oldName) return { patches: [] };
   if (oldName === 'main') return { error: '"main" is the entry point, so it keeps its name.' };
   const problem = nameProblem(src, newName, oldName);
   if (problem) return { error: problem };
   const nameRange = defNameRange(src, def);
-  if (!nameRange) return { error: `Could not find where "${oldName}" is defined.` };
+  if (!nameRange) return { error: `Could not find where “${oldName}” is defined.` };
   const patches: Patch[] = [{ from: nameRange[0], to: nameRange[1], insert: newName }];
   for (const hit of referencesTo(src, oldName)) {
     const s = refPathStart(src, hit.node);
@@ -171,12 +171,12 @@ export function createDefinition(src: string, name: string, form?: 'short' | 'lo
 export function deleteDefinition(src: string, name: string): EditOrError {
   const { defs } = parse(src);
   const def = defs.find((d) => d.name === name);
-  if (!def) return { error: `There is no branch named "${name}".` };
+  if (!def) return { error: `There is no branch named “${name}”.` };
   if (name === 'main') return { error: '"main" is the entry point and cannot be deleted.' };
   const refs = referencesTo(src, name);
   if (refs.length) {
     const who = [...new Set(refs.map((r) => r.from))];
-    return { error: `Cannot delete "${name}" because ${who.join(', ')} ${who.length === 1 ? 'refers' : 'refer'} to it. Change those references first.` };
+    return { error: `Cannot delete “${name}” because ${who.join(', ')} ${who.length === 1 ? 'refers' : 'refer'} to it. Change those references first.` };
   }
   let from = lineStart(src, def.range[0]);
   // A comment right above a branch is about it: it goes too, unless it heads the file.
@@ -201,9 +201,9 @@ export function deleteDefinition(src: string, name: string): EditOrError {
 
 export function retargetReference(src: string, node: RefNode, newName: string): EditOrError {
   const name = newName.trim().replace(/^\$/, '');
-  if (!NAME_RE.test(name)) return { error: `"${name}" is not a valid name.` };
+  if (!NAME_RE.test(name)) return { error: `“${name}” is not a valid name.` };
   const { defs } = parse(src);
-  if (!defs.some((d) => d.name === name)) return { error: `There is no branch named "${name}". Create it first, or pick one of: ${defs.map((d) => d.name).join(', ') || '(none)'}.` };
+  if (!defs.some((d) => d.name === name)) return { error: `There is no branch named “${name}”. Create it first, or pick one of: ${defs.map((d) => d.name).join(', ') || '(none)'}.` };
   const s = refPathStart(src, node);
   return { patches: [{ from: s, to: node.range[1], insert: name }], select: [s, s + name.length] };
 }
@@ -271,7 +271,7 @@ function isOneGroup(text: string): boolean {
 export function inlineReference(src: string, node: RefNode): EditOrError {
   const { defs } = parse(src);
   const def = defs.find((d) => d.name === node.path);
-  if (!def) return { error: `There is no branch named "${node.path}" in this code to inline.` };
+  if (!def) return { error: `There is no branch named “${node.path}” in this code to inline.` };
   const r = trimRange(src, node.range);
   const long = formAt(src, r[0]) === 'long' && isAtLineStart(src, r[0]) && isAtLineEnd(src, r[1]);
   try {

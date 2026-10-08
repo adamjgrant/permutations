@@ -94,8 +94,9 @@ function webError(message: string, offset?: number): { message: string; fixes: F
     return { message: `There is no branch named ${name} (${where}). Fix the name, or create the branch.`, fixes: [create] };
   }
   const mod = /^Cannot find module '([^']+)' \((line \d+, column \d+)\)/.exec(message);
-  if (mod) return { message: `Imports do not work in the web app, so '${mod[1]}' cannot be loaded (${mod[2]}). Copy its branches into this code instead.`, fixes: [] };
-  return { message, fixes: [] };
+  if (mod) return { message: `Imports do not work in the web app, so “${mod[1]}” cannot be loaded (${mod[2]}). Copy its branches into this code instead.`, fixes: [] };
+  // The compiler's messages are written for a terminal; here they read as sentences.
+  return { message: /[.!?…]$/.test(message) ? message : message + '.', fixes: [] };
 }
 
 function showFatal(e: unknown): void {
@@ -289,6 +290,8 @@ function clearSelection(): void {
   const hadBarFocus = bar.contains(document.activeElement);
   const prev = selectedId;
   selectedId = undefined;
+  // The note about a multi-selection goes with it.
+  if (multi.size && /alternatives? selected/.test($('notice-text').textContent ?? '')) clearNotice();
   multi.clear();
   barOn = false;
   chart.setSelected([]);
@@ -635,7 +638,7 @@ function editChip(box: Box): void {
           const p = parseGuardInput(v);
           if ('error' in p) return p.error;
           const err = applyEdit(editGuard(src, box.guard!, p.spec), { focus: box });
-          if (!err && p.spec.kind === 'tag' && !known.has(p.spec.name)) notify(`No alternative sets the tag "${p.spec.name}", so this guard has nothing to test.`, 'warn');
+          if (!err && p.spec.kind === 'tag' && !known.has(p.spec.name)) notify(`No alternative sets the tag “${p.spec.name}”, so this guard has nothing to test.`, 'warn');
           return err;
         },
       },
@@ -758,7 +761,7 @@ function relayout(keepTrace = false): void {
   chart.render(lastLayout);
   const names = [...new Set(lastLayout.boxes.filter((b) => b.kind === 'guard' && b.warn && b.guard?.kind === 'tag').map((b) => (b.guard as { name: string }).name))];
   const notes: string[] = [];
-  if (names.length) notes.push(`no alternative sets ${names.map((n) => `"${n}"`).join(', ')}, so ${names.length === 1 ? 'the guard on it has' : 'guards on them have'} nothing to test. Add the tag with @ on an earlier alternative.`);
+  if (names.length) notes.push(`no alternative sets ${names.map((n) => `“${n}”`).join(', ')}, so ${names.length === 1 ? 'the guard on it has' : 'guards on them have'} nothing to test. Add the tag with @ on an earlier alternative.`);
   // Two empty alternatives in one choice make leaving it out twice as likely: usually a slip.
   let doubled = 0;
   for (const d of [analysis.main, ...analysis.others]) {
@@ -879,7 +882,13 @@ function selectionLabel(b: Box): string {
     b.kind === 'row'
       ? 'Alternative'
       : b.kind === 'frame'
-        ? 'Choice'
+        ? b.frameOf === 'anyorder'
+          ? 'Any-order group'
+          : b.frameOf === 'repeat'
+            ? 'Repeat'
+            : b.frameOf === 'transform'
+              ? 'Transform'
+              : 'Choice'
         : b.kind === 'ref'
           ? `Reference ${b.full}`
           : b.kind === 'empty'
@@ -1340,12 +1349,15 @@ function insertRefDialog(box: Box): void {
     notify('A reference cannot be inserted here.', 'warn');
     return;
   }
+  // The label may end with its own full stop: do not add a second one after the quote.
+  const what = box.label.replace(/[.!?…]+$/, '');
   openPopover({
     title: 'Insert reference',
     label: 'Branch',
-    value: '',
+    // With one branch to choose from, it is already filled in.
+    value: names.length === 1 ? (names[0] as string) : '',
     placeholder: names[0] ?? 'name',
-    hint: `Inserts $name right after “${box.label}”. Branches: ${names.join(', ')}.`,
+    hint: `Inserts $name right after “${what}”. Branches: ${names.join(', ')}.`,
     suggestions: names,
     anchor: anchorOf(box),
     returnFocus: document.activeElement as HTMLElement | null,
@@ -1354,8 +1366,8 @@ function insertRefDialog(box: Box): void {
         label: 'Insert',
         kind: 'primary',
         run(v) {
-          const name = v.trim().replace(/^\$/, '');
-          if (!name) return 'Type the name of a branch.';
+          const name = v.trim().replace(/^\$/, '') || (names.length === 1 ? (names[0] as string) : '');
+          if (!name) return `Type the name of a branch: ${names.join(', ')}.`;
           if (!names.includes(name)) {
             return branchNames().includes(name)
               ? `${name} cannot go here: it uses this branch already, so it would loop.`
@@ -1807,6 +1819,11 @@ function toast(msg: string, action?: { label: string; run: () => void }): void {
     );
     t.appendChild(b);
   }
+  // Above the chart's hint bar and strip, so it never covers a warning or the buttons.
+  const hints = $('chart-hints');
+  const floor = (!hints.hidden ? hints : $('selbar')).getBoundingClientRect().top;
+  const onScreen = floor > 80 && floor <= window.innerHeight;
+  t.style.bottom = `${onScreen ? Math.max(16, Math.round(window.innerHeight - floor + 8)) : 16}px`;
   t.classList.add('show');
   toastHasAction = !!action;
   window.clearTimeout(toastTimer);
@@ -1983,8 +2000,16 @@ function undoOnce(): void {
 function historyStep(step: typeof undo, focusChart = false): boolean {
   const a = document.activeElement;
   const inChartArea = focusChart || chart.hasFocus() || bar.contains(a) || !!a?.closest('.toast, .inline-edit');
+  // An example row that had focus is redrawn: keep focus on the row in the same place.
+  const exRow = a?.closest('.ex-row');
+  const exList = exRow?.closest('ol')?.id;
+  const exIndex = exRow ? [...(exRow.closest('ol')?.querySelectorAll('.ex-row') ?? [])].indexOf(exRow) : -1;
   if (!step(editor.view)) return false;
   refresh();
+  if (exList && exIndex >= 0) {
+    const rows = document.querySelectorAll<HTMLElement>(`#${exList} .ex-row`);
+    (rows[Math.min(exIndex, rows.length - 1)] ?? null)?.focus();
+  }
   const box = chart.boxAtOffset(editor.view.state.selection.main.head);
   if (box && inChartArea) {
     chart.focusBox(box.id, true, true);

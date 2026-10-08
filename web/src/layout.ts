@@ -396,10 +396,10 @@ export function layout(input: LayoutInput): Layout {
       const extra: Partial<Box> = { range: g.range ?? trim(range), guard: g };
       if (g.kind === 'tag' && !g.negate && knownTags && !knownTags.has(g.name)) {
         extra.warn = true;
-        extra.note = `No alternative sets the tag "${g.name}", so this guard can never match.`;
+        extra.note = `No alternative sets the tag “${g.name}”, so this guard can never match.`;
       } else if (g.kind === 'tag' && knownTags && !knownTags.has(g.name)) {
         extra.warn = true;
-        extra.note = `No alternative sets the tag "${g.name}", so this guard always matches.`;
+        extra.note = `No alternative sets the tag “${g.name}”, so this guard always matches.`;
       }
       items.push({ b: chip('guard', guardLabel(g), extra), gapBefore: 0, link: false });
     }
