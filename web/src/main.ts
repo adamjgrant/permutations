@@ -913,6 +913,11 @@ const editor = createEditor($('editor'), loadInitial(), {
 });
 
 function schedule(): void {
+  // An Undo in a toast stands for one change: any later change makes it stale, so hide it.
+  if (toastHasAction) {
+    toastHasAction = false;
+    $('toast').classList.remove('show');
+  }
   window.clearTimeout(timer);
   timer = window.setTimeout(refresh, DEBOUNCE_MS);
   persist();
@@ -1146,6 +1151,7 @@ function copyTexts(list: string): void {
 // --- toolbar ---------------------------------------------------------------
 
 let toastTimer: number | undefined;
+let toastHasAction = false;
 
 /** A short message at the bottom of the window, optionally with one action such as Undo. */
 function toast(msg: string, action?: { label: string; run: () => void }): void {
@@ -1169,8 +1175,12 @@ function toast(msg: string, action?: { label: string; run: () => void }): void {
     t.appendChild(b);
   }
   t.classList.add('show');
+  toastHasAction = !!action;
   window.clearTimeout(toastTimer);
-  toastTimer = window.setTimeout(() => t.classList.remove('show'), action ? 8000 : 2200);
+  toastTimer = window.setTimeout(() => {
+    t.classList.remove('show');
+    toastHasAction = false;
+  }, action ? 8000 : 2200);
 }
 
 $('b-share').addEventListener(

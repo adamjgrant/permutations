@@ -151,4 +151,16 @@ export default async (t) => {
   await act('inline').click();
   await t.settle();
   check((await line1()) === 'main = Say [hi|yo]', 'Inline replaces a reference with the branch content');
+
+  // An Undo toast never outlives its change.
+  await t.setCode('main = [a|b|c]\n');
+  await page.locator('.k-text', { hasText: 'b' }).first().click();
+  await act('delete').click();
+  await t.settle(200);
+  check(await page.$eval('#toast', (e) => e.classList.contains('show')), 'deleting shows an Undo toast');
+  await page.click('.cm-content');
+  await page.keyboard.press('Meta+End');
+  await page.keyboard.type(' x');
+  await t.settle(100);
+  check(!(await page.$eval('#toast', (e) => e.classList.contains('show'))), 'a later change hides the Undo toast');
 };
