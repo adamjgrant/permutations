@@ -21,7 +21,10 @@ export type ActionId =
   | 'clear'
   | 'rename'
   | 'convert'
-  | 'delete-def';
+  | 'delete-def'
+  | 'wrap'
+  | 'optional'
+  | 'insert-ref';
 
 export interface ActionSpec {
   id: ActionId;
@@ -47,6 +50,8 @@ export interface BarInput {
   restructure: boolean;
   caps: { tag: boolean; guard: boolean; move: boolean };
   canExtract: boolean;
+  /** How many branches a reference could point at. */
+  branches?: number;
 }
 
 const TEXTUAL = new Set(['text', 'empty', 'range']);
@@ -99,6 +104,13 @@ export function barActions(s: BarInput): ActionSpec[] {
     }
   } else if (inChoice && b.kind === 'frame') {
     out.push({ id: 'add', label: '+ Alternative', title: 'Add an alternative at the end (+)', group: 1 });
+  } else if (b.kind === 'text' || b.kind === 'ref') {
+    // Not in a choice yet: offer to make one.
+    out.push({ id: 'wrap', label: '+ Alternative', title: 'Turn this into a choice with another alternative (+)', group: 1 });
+    out.push({ id: 'optional', label: 'Make optional', title: 'Allow this to be left out: adds an empty alternative', group: 1 });
+  }
+  if ((b.kind === 'text' || b.kind === 'ref') && (s.branches ?? 1) > 0) {
+    out.push({ id: 'insert-ref', label: 'Insert reference…', title: 'Insert $name of a branch right after this', group: 3 });
   }
   if (s.canExtract) out.push({ id: 'extract', label: 'Extract…', title: 'Move this into a new branch and refer to it by name', group: 3 });
   return out;

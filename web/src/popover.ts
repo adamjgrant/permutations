@@ -21,6 +21,8 @@ export interface PopoverOptions {
   returnFocus?: HTMLElement | null;
   /** A paragraph of text instead of a field (for confirmations). */
   message?: string;
+  /** Values offered as completions for the field. */
+  suggestions?: string[];
 }
 
 let current: { close(): void } | undefined;
@@ -58,6 +60,17 @@ export function openPopover(o: PopoverOptions): { close(): void } {
     input.autocomplete = 'off';
     label.appendChild(input);
     root.appendChild(label);
+    if (o.suggestions?.length) {
+      const list = document.createElement('datalist');
+      list.id = 'pop-suggest';
+      for (const v of o.suggestions) {
+        const opt = document.createElement('option');
+        opt.value = v;
+        list.appendChild(opt);
+      }
+      root.appendChild(list);
+      input.setAttribute('list', list.id);
+    }
   }
   if (o.hint) {
     const p = document.createElement('p');

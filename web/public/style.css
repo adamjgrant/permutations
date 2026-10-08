@@ -304,3 +304,5 @@ button.linkish:hover:not(:disabled) { background: none; color: var(--accent-stro
 .keys td { color: var(--text-2); padding: 5px 0; }
 .keys tr + tr th, .keys tr + tr td { border-top: 1px solid var(--border); }
 kbd { font: 11.5px ui-monospace, "SF Mono", Menlo, monospace; padding: 1px 5px; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 5px; background: var(--surface); color: var(--text); }
+
+.error-fix { margin-left: 8px; font: 13px -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif; color: var(--danger); border-color: var(--danger); background: var(--bg); }

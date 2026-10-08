@@ -23,7 +23,7 @@ const ids = (i: BarInput): string[] => barActions(i).map((a) => a.id);
 
 test('text in a choice offers edit, alternative actions, tag, guard and extract', () => {
   const i = input('main = Say [red|green|blue] now', (b) => b.kind === 'text' && b.full === 'green');
-  assert.deepEqual(ids(i), ['edit', 'add', 'up', 'down', 'delete', 'tag', 'guard', 'extract']);
+  assert.deepEqual(ids(i), ['edit', 'add', 'up', 'down', 'delete', 'tag', 'guard', 'insert-ref', 'extract']);
   const acts = barActions(i);
   assert.equal(acts.find((a) => a.id === 'up')?.disabled, false);
   assert.equal(acts.find((a) => a.id === 'down')?.disabled, false);
@@ -37,8 +37,9 @@ test('first and last alternatives disable the moves that would fall off the end'
   assert.equal(last.find((a) => a.id === 'down')?.disabled, true);
 });
 
-test('text outside any choice can be edited and extracted, nothing else', () => {
-  assert.deepEqual(ids(input('main = Say [red|green] now', (b) => b.kind === 'text' && b.full === 'Say')), ['edit', 'extract']);
+test('text outside any choice can become a choice or optional', () => {
+  assert.deepEqual(ids(input('main = Say [red|green] now', (b) => b.kind === 'text' && b.full === 'Say')), ['edit', 'wrap', 'optional', 'insert-ref', 'extract']);
+  assert.deepEqual(ids(input('main = Say [red|green] now', (b) => b.kind === 'text' && b.full === 'Say', { branches: 0 })), ['edit', 'wrap', 'optional', 'extract']);
 });
 
 test('a reference offers go to and change target', () => {
@@ -49,7 +50,7 @@ test('a reference offers go to and change target', () => {
 });
 
 test('a reference inside a choice also gets the alternative actions', () => {
-  assert.deepEqual(ids(input('main = [$a|b]\na = x', (b) => b.kind === 'ref')), ['goto', 'retarget', 'add', 'up', 'down', 'delete', 'tag', 'guard', 'extract']);
+  assert.deepEqual(ids(input('main = [$a|b]\na = x', (b) => b.kind === 'ref')), ['goto', 'retarget', 'add', 'up', 'down', 'delete', 'tag', 'guard', 'insert-ref', 'extract']);
 });
 
 test('chips offer edit and remove; a guard chip has no Delete for the alternative', () => {
@@ -87,6 +88,7 @@ test('a multi-selection offers extract and clear', () => {
 test('groups are separated so the bar can draw dividers', () => {
   const acts = barActions(input('main = Say [red|green|blue] now', (b) => b.kind === 'text' && b.full === 'green'));
   assert.deepEqual([...new Set(acts.map((a) => a.group))], [0, 1, 2, 3]);
+  assert.ok(acts.filter((a) => a.group === 3).length === 2, 'insert reference and extract share the last group');
 });
 
 test('adding an alternative after a given one, in short and long form', () => {

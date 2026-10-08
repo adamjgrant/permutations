@@ -148,6 +148,9 @@ export class ChartView {
   private context = new Set<string>();
   /** Set while focus moves for a reason other than the user moving it (no selection change). */
   private quiet = false;
+  /** The box the user last clicked. A click edits text only when it repeats a click on that box,
+   *  never when the app moved the selection there (after an edit, from the code cursor). */
+  private clickedId: string | undefined;
   scale = 1;
   fit = true;
 
@@ -187,6 +190,7 @@ export class ChartView {
 
   render(layout: Layout): void {
     this.cancelEdit();
+    this.clickedId = undefined;
     this.layout = layout;
     const avail = this.host.clientWidth - 8;
     // Fit shrinks a little at most: below this, text gets too small to read, so scroll instead.
@@ -471,7 +475,8 @@ export class ChartView {
       return;
     }
     const extend = ev.shiftKey || ev.metaKey || ev.ctrlKey;
-    const wasOnlySelection = this.selected.size === 1 && this.selected.has(b.id);
+    const wasOnlySelection = this.selected.size === 1 && this.selected.has(b.id) && this.clickedId === b.id;
+    this.clickedId = b.id;
     if (focusable(b)) this.focusBox(b.id, false);
     const chip = (b.kind === 'tag' || b.kind === 'guard') && this.actions.canEdit();
     this.actions.select(b, extend, !chip);

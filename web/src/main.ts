@@ -14,6 +14,8 @@ import {
 import { closePopover, openPopover } from './popover';
 import { HELP_ITEMS, insertionFor, SHORTCUTS } from './help';
 import { ActionBar, ActionId, barActions } from './actionbar';
+import { insertReference, pieceRange, WrapNode, wrapInChoice } from './insert';
+import { redo, undo } from '@codemirror/commands';
 
 const STORAGE_KEY = 'permutations.v3.source';
 const ALL_LIMIT = 1000;
@@ -23,12 +25,45 @@ const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) 
 
 // --- never white-screen --------------------------------------------------------
 
-function showError(message: string, offset?: number): void {
+function showError(message: string, offset?: number, fix?: { label: string; run: () => void }): void {
   const box = $('error');
   box.hidden = false;
   box.textContent = message;
   box.title = offset === undefined ? '' : 'Click to jump to the error';
   box.onclick = offset === undefined ? null : () => editor.focusAt(offset);
+  if (fix) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'error-fix';
+    b.textContent = fix.label;
+    b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      safe(fix.run)();
+    });
+    box.append(' ', b);
+  }
+}
+
+/** Compiler messages written for the command line, said the way the web app works. */
+function webError(message: string): { message: string; fix?: { label: string; run: () => void } } {
+  const unknown = /^Unknown reference \$([A-Za-z_][\w.]*) \((line \d+, column \d+)\)/.exec(message);
+  if (unknown) {
+    const name = unknown[1] as string;
+    return {
+      message: `There is no branch named ${name} (${unknown[2]}). Fix the name, or create the branch.`,
+      fix: {
+        label: `Create branch ${name}`,
+        run: () => {
+          const r = createDefinition(editor.getText(), name);
+          if (failed(r)) notify(r.error, 'warn');
+          else applyEdit(r, { then: () => gotoBranch(name) });
+        },
+      },
+    };
+  }
+  const mod = /^Cannot find module '([^']+)' \((line \d+, column \d+)\)/.exec(message);
+  if (mod) return { message: `Imports do not work in the web app, so '${mod[1]}' cannot be loaded (${mod[2]}). Copy its branches into this code instead.` };
+  return { message };
 }
 
 function showFatal(e: unknown): void {
@@ -294,8 +329,10 @@ const actions: ChartActions = {
   editChip: (box) => editChip(box),
   removeChip(box) {
     if (!analysis || !canEdit()) return;
-    if (box.kind === 'tag' && box.tag) applyEdit(editTag(analysis.source, box.tag, null), { focus: box });
-    else if (box.kind === 'guard' && box.guard) applyEdit(editGuard(analysis.source, box.guard, null), { focus: box });
+    let err: string | undefined = 'none';
+    if (box.kind === 'tag' && box.tag) err = applyEdit(editTag(analysis.source, box.tag, null), { focus: box });
+    else if (box.kind === 'guard' && box.guard) err = applyEdit(editGuard(analysis.source, box.guard, null), { focus: box });
+    if (!err) toast(`${box.kind === 'tag' ? 'Tag' : 'Guard'} removed.`, UNDO);
   },
   addAlternative(frame, after) {
     if (!analysis || !canEdit()) return;
@@ -303,7 +340,7 @@ const actions: ChartActions = {
   },
   deleteAlternative(row) {
     if (!analysis || !canEdit()) return;
-    applyEdit(deleteAlternative(analysis.source, row.node as ChoiceNode, row.index ?? 0));
+    if (!applyEdit(deleteAlternative(analysis.source, row.node as ChoiceNode, row.index ?? 0))) toast('Alternative deleted.', UNDO);
   },
   moveAlternative(row, delta) {
     if (!analysis || !canEdit()) return;
@@ -452,7 +489,15 @@ function defAction(def: Box, action: DefAction): void {
     anchor: anchorOf(def),
     returnFocus: document.activeElement as HTMLElement | null,
     actions: [
-      { label: 'Delete', kind: 'danger', run: () => applyEdit(r) },
+      {
+        label: 'Delete',
+        kind: 'danger',
+        run: () => {
+          const err = applyEdit(r);
+          if (!err) toast(`Branch ${name} deleted.`, UNDO);
+          return err;
+        },
+      },
       { label: 'Cancel', run: () => undefined },
     ],
   });
@@ -612,6 +657,7 @@ function updateBar(): void {
     restructure,
     caps: ctx.row ? actions.rowCaps(ctx.row) : { tag: false, guard: false, move: false },
     canExtract: ok && !!currentExtraction(),
+    branches: branchNames().length,
   });
   bar.show(specs, selectionLabel(box));
 }
@@ -669,6 +715,15 @@ function runAction(id: ActionId): void {
     case 'clear':
       clearSelection();
       return;
+    case 'wrap':
+    case 'optional':
+      if (analysis && (box.node?.kind === 'text' || box.node?.kind === 'ref')) {
+        applyEdit(wrapInChoice(analysis.source, box.node as WrapNode, id === 'wrap' ? 'new' : null), id === 'wrap' ? { startEdit: true } : { focus: box });
+      }
+      return;
+    case 'insert-ref':
+      insertRefDialog(box);
+      return;
     case 'rename':
     case 'convert':
     case 'delete-def': {
@@ -677,6 +732,45 @@ function runAction(id: ActionId): void {
       return;
     }
   }
+}
+
+function branchNames(): string[] {
+  if (!analysis) return [];
+  return [analysis.main.name === '<main>' ? 'main' : analysis.main.name, ...analysis.others.map((o) => o.name)];
+}
+
+function insertRefDialog(box: Box): void {
+  if (!analysis || !canEdit() || !box.node) return;
+  const src = analysis.source;
+  const names = branchNames();
+  const after = pieceRange([analysis.main.body, ...analysis.others.map((o) => o.body)], box.node);
+  if (!after) {
+    notify('A reference cannot be inserted here.', 'warn');
+    return;
+  }
+  openPopover({
+    title: 'Insert reference',
+    label: 'Branch',
+    value: '',
+    placeholder: names.find((n) => n !== 'main') ?? 'name',
+    hint: `Inserts $name right after “${box.label}”. Branches: ${names.join(', ')}.`,
+    suggestions: names,
+    anchor: anchorOf(box),
+    returnFocus: document.activeElement as HTMLElement | null,
+    actions: [
+      {
+        label: 'Insert',
+        kind: 'primary',
+        run(v) {
+          const name = v.trim();
+          if (!name) return 'Type the name of a branch.';
+          if (!names.includes(name)) return `There is no branch named ${name}. Create it with New branch first.`;
+          return applyEdit(insertReference(src, after, name));
+        },
+      },
+      { label: 'Cancel', run: () => undefined },
+    ],
+  });
 }
 
 const bar = new ActionBar($('selbar'), (id) => safe(runAction)(id));
@@ -753,7 +847,8 @@ function refresh(): void {
     // Any error, not only the compiler's own, lands here and keeps the last good chart.
     const { message, offset } = describeError(e);
     hasError = true;
-    showError(message, offset);
+    const w = webError(message);
+    showError(w.message, offset, w.fix);
     editor.error(offset ?? null);
     $('stale').hidden = !analysis;
     if (!analysis) chart.render(emptyLayout());
@@ -985,6 +1080,28 @@ $('help').addEventListener('keydown', (e) => {
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') closePopover();
+});
+
+// Undo and redo work everywhere, so a change made in the chart can be undone from the chart.
+// Inside the code editor and text fields their own undo applies.
+function undoOnce(): void {
+  if (undo(editor.view)) refresh();
+}
+const UNDO = { label: 'Undo', run: undoOnce };
+document.addEventListener('keydown', (e) => {
+  if (!(e.metaKey || e.ctrlKey) || e.altKey) return;
+  const k = e.key.toLowerCase();
+  const isUndo = k === 'z' && !e.shiftKey;
+  const isRedo = (k === 'z' && e.shiftKey) || (k === 'y' && e.ctrlKey && !e.metaKey);
+  if (!isUndo && !isRedo) return;
+  const t = e.target as HTMLElement | null;
+  if (t?.closest('.cm-editor, input, textarea, [contenteditable="true"]')) return;
+  e.preventDefault();
+  safe(() => {
+    const did = isUndo ? undo(editor.view) : redo(editor.view);
+    if (did) refresh();
+    toast(did ? (isUndo ? 'Undone' : 'Redone') : isUndo ? 'Nothing to undo' : 'Nothing to redo');
+  })();
 });
 refresh();
 showTab('random');
