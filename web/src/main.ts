@@ -668,7 +668,7 @@ function updateBar(): void {
   }
   const ok = canEdit();
   if (!ok) {
-    bar.hide('Fix the error in the code to edit from the chart.');
+    bar.hide(hasError ? 'Fix the error in the code to edit from the chart.' : 'Updating the chart…');
     return;
   }
   const ctx = chart.contextFor(box.id);
