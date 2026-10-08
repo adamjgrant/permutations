@@ -42,8 +42,9 @@ Chart and code stay in sync in both directions. See section 7.
 
 One parse produces a graph. The chart draws it, the engine walks it.
 
-Node types: `Text`, `Empty`, `Seq`, `Choice`, `AnyOrder`, `Ref`, `Splat`, `Repeat`,
-`Transform`, `Tag`, `Guard`.
+Node types: `Text`, `Seq`, `Group` (a choice), `AnyOrder`, `Ref`, `Repeat` and
+`Transform`. Tags and guards belong to the options of a group; an empty option is a
+sequence with nothing in it.
 
 An output is `{ text, tags }`. A permutation is one path through the graph.
 
@@ -51,7 +52,8 @@ Properties the engine must keep:
 
 - **Compile once, query many.** `count`, `one()`, `sample(n)`, `all()`.
 - **Counting without enumeration.** Counts come from memoized dynamic programming over
-  `(node, tag state)`. AnyOrder contributes n!. Transforms do not change counts.
+  `(node, tag state)`. AnyOrder contributes n!. A single transform does not change counts;
+  a choice of transforms multiplies them.
 - **Uniform sampling.** `one()` and `sample(n)` are uniform over complete permutations,
   not per node, so lopsided branches are not over-sampled. This works by picking a
   random index below `count` and unranking it.
@@ -232,15 +234,20 @@ and reusing.
 Library:
 
 ```js
-const prog = compile(source, { delimiter: " " });
-prog.count;          // number of permutations
-prog.one();          // one uniform random permutation
-prog.sample(5);      // up to 5 distinct
-prog.all();          // generator, so callers can stream and cap
-prog.graph;          // the model the chart draws
+const prog = compile(source, { delimiter: " ", values: { name: "Ann" }, fns: { shout } });
+prog.count;                // number of permutations (a BigInt)
+prog.one();                // one uniform random permutation: { text, tags }
+prog.sample(5);            // up to 5 distinct
+prog.at(i);                // the permutation at index i (unranking)
+prog.trace(i);             // ... and the choices and nodes on its path
+prog.sampleSteady(5, 42);  // examples that stay put while the program is edited
+prog.all();                // generator, so callers can stream and cap
+prog.ast;                  // the syntax tree the chart draws
+prog.warnings;             // code that parses but probably does not do what it looks like
 ```
 
-`one()` never enumerates.
+`one()` never enumerates. `sampleSteady` picks by weighted rendezvous hashing, keyed by what
+each alternative says, so an edit changes only the examples it has to.
 
 CLI:
 
@@ -253,7 +260,11 @@ perm file.perm --json             # text plus tags
 perm 'Hello [world|friend]!'      # inline program, no file
 perm fmt --short|--long|--auto file.perm
 perm file.perm --set year=2026 --fn ./fns.js --delimiter " "
+perm file.perm --entry other --seed 7 -q
+perm - < file.perm                # program from standard input
 ```
+
+Warnings go to standard error (hide them with `-q`); errors exit with code 1.
 
 The web app is a thin shell over the same library.
 
@@ -270,18 +281,29 @@ comments or your choice of short versus long form. So:
   buttons. Clicking selected text again (or double-clicking) edits it in place;
   double-clicking a reference goes to its branch; clicking empty space clears the
   selection. Keyboard focus moves the selection; Tab moves into the strip.
-- Edits built: change text; add (after the selected one), delete and reorder alternatives;
-  turn text into a choice or make it optional; insert a reference; extract alternatives or
-  a piece into a new named branch; create, rename (with every reference) and delete
-  branches; inline a branch (the inverse of extract); add, edit and remove tags and guards;
-  set a choice's delimiter; expand or collapse a branch between forms.
-- **Undo** works from anywhere (Cmd+Z), and deletions offer Undo in a toast.
+- Edits built: change text; vary some words of a text; add (after the selected one),
+  delete (one or several) and reorder alternatives; turn text into a choice or make any
+  piece optional; insert text or a reference after any piece, choice or at the end of a
+  branch; extract alternatives or a piece into a new named branch; create, rename (with
+  every reference) and delete branches; inline a branch (the inverse of extract, checked to
+  keep the results); add, edit and remove tags and guards; set the delimiter and final join
+  of a choice, any-order group or repeat; change or remove repeats and transforms; expand
+  or collapse a branch between forms.
+- **The strip** keeps the first action, + Alternative and Delete in its row and moves what
+  does not fit into a More… menu. A message about a chart action shows under the chart.
+- **Undo** works from anywhere (Cmd+Z), and deletions offer Undo in a toast. A placeholder
+  you name straight away (+ Alternative) is one undo step, and cancelling it leaves nothing
+  to redo.
 - **Tracing.** Clicking an example lights the path that made it through the chart.
-- **Invalid code** keeps the last good chart and shows the error inline, like the old
-  "Waiting for edits..." status.
-- Layout: `main` at the top and BRANCHES below the dashed line, namespaces grouped and
-  collapsible. The sketch draws a shared continuation (`greeting`) once per row. We can
-  also draw it once with fan-in edges. Layout choice is open.
+- **Steady examples.** Examples keep their picks while you edit; a new alternative only
+  replaces the examples it wins.
+- **Invalid code** keeps the last good chart and shows the error inline, with a fix button
+  when the compiler has a suggestion (a mistyped name, letters after a reference).
+  Warnings show under the chart with a link to the line.
+- Layout: `main` at the top and BRANCHES below the dashed line, in rows that wrap to the
+  pane, namespaces grouped and collapsible. Each card says who uses it. Reference lines run
+  through the gaps between cards. Pieces written touching are drawn close together. Fit
+  picks the largest scale at which everything fits, rewrapping the cards to use the width.
 
 ## 8. Porting the old examples
 
