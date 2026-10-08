@@ -2,7 +2,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { compile, formatSource, FormatMode, LoadedSource, PermError, TransformFn } from './index';
+import { compile, formatSource, FormatMode, LoadedSource, PermError, seededRandom, TransformFn } from './index';
 
 const USAGE = `Usage: perm <file | program> [options]
        perm fmt --short|--long|--auto <file> [-w]
@@ -16,9 +16,11 @@ const USAGE = `Usage: perm <file | program> [options]
   --delimiter STR      global delimiter (default: a single space)
   --set key=value      host value, available as $key (repeatable)
   --fn FILE            JS module exporting custom transforms
+  --seed N             make the random choices repeatable (same N, same results)
   -h, --help           show this help
 
 If the first argument is not an existing file, it is treated as a program.
+Use - to read the program from standard input.
 
 fmt rewrites each definition in short form, long form, or whichever fits (--auto).
 It prints the result, or overwrites the file with -w. Comments, settings, imports and
@@ -36,6 +38,7 @@ interface Args {
   delimiter?: string;
   values: Record<string, string>;
   fnFiles: string[];
+  seed?: number;
   help: boolean;
 }
 
@@ -86,8 +89,14 @@ function parseArgs(argv: string[]): Args {
       case '--fn':
         a.fnFiles.push(need(++i, '--fn'));
         break;
+      case '--seed': {
+        const v = need(++i, '--seed');
+        if (!/^-?\d+$/.test(v)) throw new Error('--seed needs a whole number');
+        a.seed = Number(v);
+        break;
+      }
       default:
-        if (arg.startsWith('-') && arg.length > 1 && !a.target) throw new Error(`Unknown option ${arg}`);
+        if (arg.startsWith('-') && arg.length > 1) throw new Error(`Unknown option ${arg}`);
         if (a.target !== undefined) throw new Error(`Unexpected argument: ${arg}`);
         a.target = arg;
     }
@@ -155,8 +164,9 @@ function main(): void {
     process.exit(args.help ? 0 : 2);
   }
 
-  const isFile = fs.existsSync(args.target) && fs.statSync(args.target).isFile();
-  const source = isFile ? fs.readFileSync(args.target, 'utf-8') : args.target;
+  const fromStdin = args.target === '-';
+  const isFile = !fromStdin && fs.existsSync(args.target) && fs.statSync(args.target).isFile();
+  const source = fromStdin ? fs.readFileSync(0, 'utf-8') : isFile ? fs.readFileSync(args.target, 'utf-8') : args.target;
   const progPath = isFile ? path.resolve(args.target) : '<program>';
 
   const fns: Record<string, TransformFn> = {};
@@ -173,6 +183,7 @@ function main(): void {
       fns,
       ...(args.entry !== undefined ? { entry: args.entry } : {}),
       ...(args.delimiter !== undefined ? { delimiter: args.delimiter } : {}),
+      ...(args.seed !== undefined ? { rng: seededRandom(args.seed) } : {}),
     });
 
     if (args.count) {

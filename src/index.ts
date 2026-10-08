@@ -3,6 +3,7 @@ export type { CompileOptions, LoadedSource } from './core/compile';
 export { Program } from './core/engine';
 export type { Trace } from './core/engine';
 export { builtinTransforms } from './core/transforms';
+export { seededRandom } from './core/random';
 export type { TransformFn } from './core/transforms';
 export { PermError } from './core/types';
 export type { Node, Output, Module, Def, Tag, Guard, Option, Piece, Range } from './core/types';

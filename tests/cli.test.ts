@@ -47,6 +47,15 @@ describe('perm CLI', () => {
     expect(run(['--bogus']).code).toBe(2);
   });
 
+  test('--seed makes sampling repeatable, and - reads the program from stdin', () => {
+    const a = run(['[a|b|c|d|e|f|g|h]', '-n', '4', '--seed', '42']).out;
+    const b = run(['[a|b|c|d|e|f|g|h]', '-n', '4', '--seed', '42']).out;
+    expect(a).toBe(b);
+    expect(run(['[a|b]', '--seed', 'x']).code).toBe(2);
+    const r = spawnSync('node', [CLI, '-', '--all'], { input: 'Hello [world|friend]!', encoding: 'utf-8' });
+    expect(r.stdout).toBe('Hello world!\nHello friend!\n');
+  });
+
   test('--help and no arguments', () => {
     expect(run(['--help']).code).toBe(0);
     expect(run([]).code).toBe(2);

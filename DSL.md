@@ -469,12 +469,14 @@ perm FILE_OR_PROGRAM [options]
   --delimiter STR     global delimiter
   --set key=value     host value, available as $key
   --fn FILE           register custom transforms
+  --seed N            repeatable random choices (same N, same results)
 
 perm fmt --short|--long|--auto FILE [-w]   convert definitions between forms
                                            (prints the result, or overwrites FILE with -w)
 ```
 
-If the first argument is not an existing file, it is treated as a program.
+If the first argument is not an existing file, it is treated as a program. Use `-` to read the
+program from standard input.
 
 ## 10. Worked examples
 
