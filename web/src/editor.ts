@@ -213,8 +213,9 @@ export function createEditor(parent: HTMLElement, doc: string, handlers: EditorH
       silent = true;
       try {
         const len = view.state.doc.length;
+        // A highlight, not a selection: typing or Help's Insert must never replace the chart's pick.
         view.dispatch({
-          selection: { anchor: Math.min(range[0], len), head: Math.min(range[1], len) },
+          selection: { anchor: Math.min(range[0], len) },
           effects: [setHighlight.of(range), EditorView.scrollIntoView(Math.min(range[0], len), { y: 'nearest', yMargin: 40 })],
         });
       } finally {
