@@ -1089,10 +1089,16 @@ function renderSamples(): void {
     clearTrace();
     // A fixed seed keeps the same five while you edit; Make a new 5 moves to the next seed.
     const idx = p.sampleIndices(5, seededRandom(sampleSeed));
-    list.innerHTML = idx.map((ix, i) => {
-      const o = p.at(ix);
-      return item(i + 1, o.text, o.tags, ix);
-    }).join('');
+    const outs = idx.map((ix) => p.at(ix));
+    list.innerHTML = outs.map((o, i) => item(i + 1, o.text, o.tags, idx[i] as bigint)).join('');
+    // After an edit, mark the examples it changed, so its effect is easy to see.
+    if (flashChanges) {
+      list.querySelectorAll('.ex-row').forEach((row, i) => {
+        if (lastSamples[i] !== undefined && lastSamples[i] !== outs[i]?.text) row.classList.add('changed');
+      });
+    }
+    lastSamples = outs.map((o) => o.text);
+    flashChanges = true;
     note.textContent = p.count <= 5n ? 'That is every permutation. Click one to see how it is made.' : `${idx.length} distinct random outputs. Click one to see how it is made.`;
   } catch (e) {
     list.innerHTML = `<li><span class="empty-state">${escapeHtml(describeError(e).message)}</span></li>`;
@@ -1141,8 +1147,11 @@ function showTab(which: 'random' | 'all'): void {
 on('tab-random', () => showTab('random'));
 on('tab-all', () => showTab('all'));
 let sampleSeed = Math.floor(Math.random() * 2 ** 31);
+let lastSamples: string[] = [];
+let flashChanges = false;
 on('b-new', () => {
   sampleSeed = (sampleSeed + 1) % 2 ** 31;
+  flashChanges = false;
   renderSamples();
 });
 on('b-copy5', () => copyTexts('#samples'));

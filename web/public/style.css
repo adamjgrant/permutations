@@ -369,3 +369,9 @@ kbd { font: 11.5px ui-monospace, "SF Mono", Menlo, monospace; padding: 1px 5px; 
   .pane-head .tools { gap: 6px; }
   .pane-head .tools button { padding: 2px 8px; font-size: 13px; }
 }
+
+.ex-row.changed { background: var(--warn-bg); }
+@media (prefers-reduced-motion: no-preference) {
+  .ex-row.changed { animation: changed 1.6s ease-out forwards; }
+  @keyframes changed { from { background: var(--warn-bg); } to { background: transparent; } }
+}
