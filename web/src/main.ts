@@ -18,10 +18,11 @@ import { insertReference, pieceRange, varyWords, wordsOf, WrapNode, wrapInChoice
 import { pathBoxes } from './trace';
 import { deletePiece, isSolePiece, locatePiece } from './remove';
 import { setDelimiter } from './delim';
+import { parseCount, removeRepeat, removeTransform, setRepeatCount, setTransforms } from './wrappers';
 type DelimTarget = Parameters<typeof setDelimiter>[1];
 import { inside } from './nav';
 import { redo, undo } from '@codemirror/commands';
-import { seededRandom, visit } from '../../src/index';
+import { builtinTransforms, seededRandom, visit } from '../../src/index';
 import type { Output, Trace } from '../../src/index';
 
 const STORAGE_KEY = 'permutations.v3.source';
@@ -876,6 +877,12 @@ function runAction(id: ActionId): void {
     case 'vary':
       varyDialog(box);
       return;
+    case 'repeat-edit':
+    case 'repeat-remove':
+    case 'transform-edit':
+    case 'transform-remove':
+      wrapperAction(id, box);
+      return;
     case 'delimiter': {
       const f = delimFrameFor(box);
       if (f) delimiterDialog(f, box);
@@ -989,6 +996,71 @@ function deleteUnused(name: string): void {
 function branchNames(): string[] {
   if (!analysis) return [];
   return [analysis.main.name === '<main>' ? 'main' : analysis.main.name, ...analysis.others.map((o) => o.name)];
+}
+
+/** Change or remove the repeat or transform a chip stands for. */
+function wrapperAction(id: ActionId, box: Box): void {
+  if (!analysis || !box.node) return;
+  const src = analysis.source;
+  if (id === 'repeat-remove' && box.node.kind === 'repeat') {
+    if (!applyEdit(removeRepeat(src, box.node))) toast('Repeat removed.', UNDO);
+    return;
+  }
+  if (id === 'transform-remove' && box.node.kind === 'transform') {
+    if (!applyEdit(removeTransform(src, box.node))) toast('Transform removed.', UNDO);
+    return;
+  }
+  if (id === 'repeat-edit' && box.node.kind === 'repeat') {
+    const node = box.node;
+    openPopover({
+      title: 'Repeat',
+      label: 'How many times',
+      value: node.min === node.max ? `${node.min}` : `${node.min}..${node.max}`,
+      hint: 'A number such as 3, or a range such as 2..4 (each count equally likely per result).',
+      anchor: anchorOf(box),
+      returnFocus: document.activeElement as HTMLElement | null,
+      actions: [
+        {
+          label: 'Set',
+          kind: 'primary',
+          run(v) {
+            const c = parseCount(v);
+            if ('error' in c) return c.error;
+            return applyEdit(setRepeatCount(src, node, c.min, c.max), { focus: box });
+          },
+        },
+        { label: 'Cancel', run: () => undefined },
+      ],
+    });
+    return;
+  }
+  if (id === 'transform-edit' && box.node.kind === 'transform') {
+    const node = box.node;
+    const known = Object.keys(builtinTransforms);
+    openPopover({
+      title: 'Transform',
+      label: 'Transforms',
+      value: node.fns.join(' | '),
+      hint: `One name, or several with | between them to pick one at random: ${known.join(', ')}.`,
+      suggestions: known,
+      anchor: anchorOf(box),
+      returnFocus: document.activeElement as HTMLElement | null,
+      actions: [
+        {
+          label: 'Set',
+          kind: 'primary',
+          run(v) {
+            const fns = v.split('|').map((f) => f.trim()).filter(Boolean);
+            const bad = fns.find((f) => !known.includes(f));
+            if (!fns.length) return 'Type at least one transform.';
+            if (bad) return `There is no transform named ${bad}. Use one of: ${known.join(', ')}.`;
+            return applyEdit(setTransforms(src, node, fns), { focus: box });
+          },
+        },
+        { label: 'Cancel', run: () => undefined },
+      ],
+    });
+  }
 }
 
 /** Pick some words of a text box and make them a choice, or optional. */

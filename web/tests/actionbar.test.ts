@@ -124,3 +124,12 @@ test('Delete names its scope: the piece alone, or the whole alternative', () => 
   const free = barActions(input('main = Say [a|b] now', (b) => b.kind === 'text' && b.full === 'now', { piece: { sole: false, deletable: true } }));
   assert.ok(free.some((x) => x.id === 'delete-piece'));
 });
+
+test('repeat and transform chips can be changed and removed', () => {
+  const r = ids(input('main = [a|b]{2}', (b) => b.kind === 'repeat'));
+  assert.equal(r[0], 'repeat-edit');
+  assert.equal(r[r.length - 1], 'repeat-remove');
+  const f = ids(input('main = [Foo]:upper', (b) => b.kind === 'transform'));
+  assert.equal(f[0], 'transform-edit');
+  assert.equal(f[f.length - 1], 'transform-remove');
+});

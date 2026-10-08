@@ -28,7 +28,11 @@ export type ActionId =
   | 'inline'
   | 'delimiter'
   | 'delete-piece'
-  | 'vary';
+  | 'vary'
+  | 'repeat-edit'
+  | 'repeat-remove'
+  | 'transform-edit'
+  | 'transform-remove';
 
 export interface ActionSpec {
   id: ActionId;
@@ -95,6 +99,12 @@ export function barActions(s: BarInput): ActionSpec[] {
     out.push({ id: 'goto', label: `Go to ${name}`, title: `Show the ${name} branch (Enter, or double-click)`, group: 0 });
     out.push({ id: 'retarget', label: 'Change target', title: 'Point this reference at another branch (F2)', group: 0 });
     out.push({ id: 'inline', label: 'Inline', title: `Replace this reference with what ${name} contains`, group: 0 });
+  } else if (b.kind === 'repeat') {
+    out.push({ id: 'repeat-edit', label: 'Change count…', title: 'Set how many times this repeats', group: 0 });
+    out.push({ id: 'repeat-remove', label: 'Remove repeat', title: 'Use the part once instead', group: 4, danger: true });
+  } else if (b.kind === 'transform') {
+    out.push({ id: 'transform-edit', label: 'Change…', title: 'Pick other transforms (lower, upper, capitalize, title, trim)', group: 0 });
+    out.push({ id: 'transform-remove', label: 'Remove transform', title: 'Use the text as it is', group: 4, danger: true });
   } else if (b.kind === 'tag' || b.kind === 'guard') {
     out.push({ id: 'chip-edit', label: b.kind === 'tag' ? 'Edit tag' : 'Edit guard', title: `Change this ${b.kind} (Enter)`, group: 0 });
     out.push({ id: 'chip-remove', label: b.kind === 'tag' ? 'Remove tag' : 'Remove guard', title: `Remove this ${b.kind} (Delete)`, group: 4, danger: true });
