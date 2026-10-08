@@ -2,7 +2,7 @@
 // retarget a reference, and Expand / Collapse through the core formatter.
 // All pure: they take the source text and return patches (or an error message to show).
 
-import { formatSource } from '../../src/index';
+import { formatSource, printLongDef, printShortDef } from '../../src/index';
 import type { FormatMode } from '../../src/index';
 import { visit } from '../../src/core/compile';
 import { isReservedLine } from '../../src/core/longform';
@@ -198,6 +198,82 @@ export function retargetReference(src: string, node: RefNode, newName: string): 
   if (!defs.some((d) => d.name === name)) return { error: `There is no branch named "${name}". Create it first, or pick one of: ${defs.map((d) => d.name).join(', ') || '(none)'}.` };
   const s = refPathStart(src, node);
   return { patches: [{ from: s, to: node.range[1], insert: name }], select: [s, s + name.length] };
+}
+
+// --- inline a branch ---------------------------------------------------------------
+
+/** `a | b` written bracket-free becomes `a|b`, the style used inside brackets (top level only). */
+function tightenTopLevel(text: string): string {
+  let out = '';
+  let depth = 0;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i] as string;
+    if (c === '\\') {
+      out += c + (text[i + 1] ?? '');
+      i++;
+      continue;
+    }
+    if (c === '[') depth++;
+    else if (c === ']') depth--;
+    if (depth === 0 && text.startsWith(' | ', i)) {
+      out += '|';
+      i += 2;
+      continue;
+    }
+    out += c;
+  }
+  return out;
+}
+
+/** True when `text` is one bracket group from its first character to its last. */
+function isOneGroup(text: string): boolean {
+  if (!text.startsWith('[') || !text.endsWith(']')) return false;
+  let depth = 0;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (c === '\\') i++;
+    else if (c === '[') depth++;
+    else if (c === ']') {
+      depth--;
+      if (depth === 0 && i < text.length - 1) return false;
+    }
+  }
+  return depth === 0;
+}
+
+/**
+ * Replace a reference with the content of the branch it names: the inverse of Extract. Inside
+ * a line the content goes in as one bracketed piece, `[...]`, so it joins its neighbours exactly
+ * as the reference did; a whole `ref name` line becomes the branch's long-form lines. The branch
+ * itself stays (it may still be used elsewhere).
+ */
+export function inlineReference(src: string, node: RefNode): EditOrError {
+  const { defs } = parse(src);
+  const def = defs.find((d) => d.name === node.path);
+  if (!def) return { error: `There is no branch named "${node.path}" in this code to inline.` };
+  const r = trimRange(src, node.range);
+  const long = formAt(src, r[0]) === 'long' && isAtLineStart(src, r[0]) && isAtLineEnd(src, r[1]);
+  try {
+    if (long) {
+      const unit = indentUnit(src);
+      const base = indentOf(src, r[0]);
+      // printLongDef indents by two spaces per level; use this file's unit instead.
+      const lines = printLongDef(def).split('\n').slice(1).map((l) => {
+        const m = /^((?:  )*)(.*)$/.exec(l.slice(2)) as RegExpExecArray;
+        return unit.repeat((m[1] as string).length / 2) + (m[2] as string);
+      });
+      const top = lines.filter((l) => !l.startsWith(unit) && !/^\s/.test(l));
+      const body = top.length > 1 ? ['sequence', ...lines.map((l) => unit + l)] : lines;
+      const insert = body.map((l, i) => (i === 0 ? l : base + l)).join('\n');
+      return { patches: [{ from: r[0], to: r[1], insert }], select: [r[0], r[0] + insert.length] };
+    }
+    const printed = printShortDef(def);
+    const text = printed.slice(printed.indexOf('=') + 1).trim();
+    const insert = text === '' ? '[]' : isOneGroup(text) ? text : `[${tightenTopLevel(text)}]`;
+    return { patches: [{ from: r[0], to: r[1], insert }], select: [r[0], r[0] + insert.length] };
+  } catch (e) {
+    return { error: `${node.path} cannot be inlined here: ${(e as Error).message}.` };
+  }
 }
 
 // --- extract to branch ---------------------------------------------------------------

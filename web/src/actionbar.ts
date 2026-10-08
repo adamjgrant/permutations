@@ -24,7 +24,8 @@ export type ActionId =
   | 'delete-def'
   | 'wrap'
   | 'optional'
-  | 'insert-ref';
+  | 'insert-ref'
+  | 'inline';
 
 export interface ActionSpec {
   id: ActionId;
@@ -83,6 +84,7 @@ export function barActions(s: BarInput): ActionSpec[] {
     const name = b.target ?? b.full.replace(/^\$/, '');
     out.push({ id: 'goto', label: `Go to ${name}`, title: `Show the ${name} branch (Enter, or double-click)`, group: 0 });
     out.push({ id: 'retarget', label: 'Change target', title: 'Point this reference at another branch (F2)', group: 0 });
+    out.push({ id: 'inline', label: 'Inline', title: `Replace this reference with what ${name} contains`, group: 0 });
   } else if (b.kind === 'tag' || b.kind === 'guard') {
     out.push({ id: 'chip-edit', label: b.kind === 'tag' ? 'Edit tag' : 'Edit guard', title: `Change this ${b.kind} (Enter)`, group: 0 });
     out.push({ id: 'chip-remove', label: b.kind === 'tag' ? 'Remove tag' : 'Remove guard', title: `Remove this ${b.kind} (Delete)`, group: 0, danger: true });

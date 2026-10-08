@@ -9,7 +9,7 @@ import {
 } from './patch';
 import {
   convertForms, createDefinition, deleteDefinition, EditOrError, ExtractSelection, extractToBranch, failed, referencesTo, renameDefinition,
-  retargetReference, skippedNotice, uniqueName,
+  inlineReference, retargetReference, skippedNotice, uniqueName,
 } from './defs';
 import { closePopover, openPopover } from './popover';
 import { HELP_ITEMS, insertionFor, SHORTCUTS } from './help';
@@ -739,6 +739,16 @@ function runAction(id: ActionId): void {
     case 'insert-ref':
       insertRefDialog(box);
       return;
+    case 'inline':
+      if (analysis && box.node?.kind === 'ref') {
+        const name = box.node.path;
+        const err = applyEdit(inlineReference(analysis.source, box.node as RefNode));
+        if (!err) {
+          const unused = referencesTo(editor.getText(), name).length === 0;
+          toast(unused ? `Inlined ${name}. Nothing uses it any more.` : `Inlined ${name}.`, unused ? { label: `Delete ${name}`, run: () => deleteUnused(name) } : UNDO);
+        }
+      }
+      return;
     case 'rename':
     case 'convert':
     case 'delete-def': {
@@ -747,6 +757,12 @@ function runAction(id: ActionId): void {
       return;
     }
   }
+}
+
+function deleteUnused(name: string): void {
+  const r = deleteDefinition(editor.getText(), name);
+  if (failed(r)) notify(r.error, 'warn');
+  else if (!applyEdit(r)) toast(`Branch ${name} deleted.`, UNDO);
 }
 
 function branchNames(): string[] {

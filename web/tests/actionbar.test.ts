@@ -47,10 +47,11 @@ test('a reference offers go to and change target', () => {
   assert.equal(acts[0]?.id, 'goto');
   assert.equal(acts[0]?.label, 'Go to greeting');
   assert.equal(acts[1]?.id, 'retarget');
+  assert.equal(acts[2]?.id, 'inline');
 });
 
 test('a reference inside a choice also gets the alternative actions', () => {
-  assert.deepEqual(ids(input('main = [$a|b]\na = x', (b) => b.kind === 'ref')), ['goto', 'retarget', 'add', 'up', 'down', 'delete', 'tag', 'guard', 'insert-ref', 'extract']);
+  assert.deepEqual(ids(input('main = [$a|b]\na = x', (b) => b.kind === 'ref')), ['goto', 'retarget', 'inline', 'add', 'up', 'down', 'delete', 'tag', 'guard', 'insert-ref', 'extract']);
 });
 
 test('chips offer edit and remove; a guard chip has no Delete for the alternative', () => {

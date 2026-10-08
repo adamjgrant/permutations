@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
-  convertForms, createDefinition, deleteDefinition, extractToBranch, nameProblem, referencesTo, renameDefinition, retargetReference, skippedNotice,
+  convertForms, createDefinition, deleteDefinition, extractToBranch, inlineReference, nameProblem, referencesTo, renameDefinition, retargetReference, skippedNotice,
   uniqueName, ExtractSelection,
 } from '../src/defs';
 import { analyze } from '../src/model';
@@ -308,4 +308,36 @@ test('suggested names are never taken or reserved', () => {
   assert.equal(uniqueName('main = x\nphrase = y'), 'phrase2');
   assert.equal(uniqueName('main = x', 'branch'), 'branch2');
   assert.equal(uniqueName('main = x', 'main'), 'main2');
+});
+
+// --- inline ------------------------------------------------------------------------
+
+test('inline replaces a reference with the branch content and keeps the meaning', () => {
+  const cases = [
+    'main = Say $g now\ng = [a|b] c',
+    'main = Say $g now\ng = a | b',
+    'main = Say $g:upper\ng = [x|y]',
+    'main = [Hi $g|Yo]\ng = there',
+    'main = $g{2}\ng = [0|1]',
+    'main = Say $g!\ng = [what @q|that] [@q: ?|@else: .]',
+  ];
+  for (const src of cases) {
+    const ref = refs(src).find((r) => r.path === 'g')!;
+    const out = run(src, inlineReference(src, ref));
+    assert.equal(meaning(out), meaning(src), `meaning changed for: ${src}\n-> ${out}`);
+    assert.ok(!out.split('\n')[0]!.includes('$g'), `still references g: ${out}`);
+  }
+  const bare = 'main = Say $g\ng = a | b [c | d]';
+  assert.equal(run(bare, inlineReference(bare, refs(bare)[0]!)).split('\n')[0], 'main = Say [a|b [c | d]]');
+});
+
+test('inline a long-form ref line keeps the meaning and the file indent', () => {
+  const src = 'branch main\n  Hello\n  ref g\nbranch g\n  one of\n    there\n    sequence\n      you\n      all\n';
+  const ref = refs(src).find((r) => r.path === 'g')!;
+  const out = run(src, inlineReference(src, ref));
+  assert.equal(meaning(out), meaning(src));
+  assert.match(out, /^branch main\n {2}Hello\n {2}one of\n {4}there\n {4}sequence\n {6}you\n {6}all\n/);
+  const seq = 'branch main\n  one of\n    ref g\n    other\ng = a [b|c]\n';
+  const out2 = run(seq, inlineReference(seq, refs(seq).find((r) => r.path === 'g')!));
+  assert.equal(meaning(out2), meaning(seq), 'several top-level pieces stay one alternative');
 });
