@@ -900,6 +900,14 @@ export class ChartView {
     return best;
   }
 
+  /** Draw a row faded: an alternative that can never be picked. */
+  markDead(id: string): void {
+    const e = this.elements.get(id);
+    if (!e) return;
+    e.classList.add('dead');
+    e.setAttribute('aria-description', 'This alternative is never picked: its guard never holds here.');
+  }
+
   /** Briefly outline a box, to show where a jump landed. */
   flash(id: string): void {
     const e = this.elements.get(id);

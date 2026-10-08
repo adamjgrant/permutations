@@ -22,6 +22,7 @@ import { parseCount, removeRepeat, removeTransform, setRepeatCount, setTransform
 type DelimTarget = Parameters<typeof setDelimiter>[1];
 import { focusable, inside, selectable } from './nav';
 import { shown } from './visible';
+import { escapeText } from './ranges';
 import { redo, undo } from '@codemirror/commands';
 import { builtinTransforms, seededRandom, visit } from '../../src/index';
 import type { Output, Trace } from '../../src/index';
@@ -62,6 +63,9 @@ const replaceRef = (offset: number, path: string, insert: string): Fix['run'] =>
   applyEdit({ patches: [{ from: offset, to: offset + path.length + 1, insert }] });
 };
 
+/** The compiler's messages are written for a terminal; here they read as sentences. */
+const sentence = (m: string): string => (/[.!?…]$/.test(m) ? m : m + '.');
+
 /** Compiler messages written for the command line, said the way the web app works. */
 function webError(message: string, offset?: number): { message: string; fixes: Fix[] } {
   const unknown = /^Unknown reference \$([A-Za-z_][\w.]*) \((line \d+, column \d+)\)\.?\s*(.*)$/s.exec(message);
@@ -94,10 +98,28 @@ function webError(message: string, offset?: number): { message: string; fixes: F
     if (group) return { message: `${name} is a group of branches, not one branch (${where}). Pick one: ${group[1]}.`, fixes: [] };
     return { message: `There is no branch named ${name} (${where}). Fix the name, or create the branch.`, fixes: [create] };
   }
+  // Mistakes with an obvious repair get a button for it.
+  const src = editor.getText();
+  const patchFix = (label: string, patches: { from: number; to: number; insert: string }[]): Fix => ({ label, run: () => void applyEdit({ patches }) });
+  if (offset !== undefined && /^Unclosed \[/.test(message)) {
+    const end = src.indexOf('\n', offset);
+    const at = end === -1 ? src.length : end;
+    return { message: sentence(message), fixes: [patchFix('Add ] at the end of the line', [{ from: at, to: at, insert: ']' }])] };
+  }
+  if (offset !== undefined && /^Unmatched \]/.test(message) && src[offset] === ']') {
+    return { message: sentence(message), fixes: [patchFix('Remove this ]', [{ from: offset, to: offset + 1, insert: '' }])] };
+  }
+  if (offset !== undefined && /^(Settings need double quotes|Separate settings with spaces)/.test(message)) {
+    const close = src.slice(offset).search(/[\]}]/);
+    if (close !== -1) {
+      const clause = src.slice(offset, offset + close);
+      const fixed = clause.replace(/'((?:[^'\\]|\\.)*)'/g, '"$1"').replace(/("\s*),\s*(?=[A-Za-z_])/g, '$1 ');
+      if (fixed !== clause) return { message: sentence(message), fixes: [patchFix('Fix the settings', [{ from: offset, to: offset + close, insert: fixed }])] };
+    }
+  }
   const mod = /^Cannot find module '([^']+)' \((line \d+, column \d+)\)/.exec(message);
   if (mod) return { message: `Imports do not work in the web app, so “${mod[1]}” cannot be loaded (${mod[2]}). Copy its branches into this code instead.`, fixes: [] };
-  // The compiler's messages are written for a terminal; here they read as sentences.
-  return { message: /[.!?…]$/.test(message) ? message : message + '.', fixes: [] };
+  return { message: sentence(message), fixes: [] };
 }
 
 function showFatal(e: unknown): void {
@@ -845,7 +867,42 @@ function relayout(keepTrace = false): void {
     go.title = 'Show it in the code';
     go.addEventListener('click', safe(() => editor.focusAt(w.offset)));
     row.append(go, `: ${w.message}. `);
+    // And where it is in the chart, when it is a box there.
+    const box = chart.boxAtOffset(w.offset);
+    if (box) {
+      const show = document.createElement('button');
+      show.type = 'button';
+      show.className = 'linkish';
+      show.textContent = 'Show in chart';
+      show.addEventListener(
+        'click',
+        safe(() => {
+          const now = chart.boxAtOffset(w.offset);
+          if (!now) return;
+          chart.focusBox(now.id, true, true);
+          selectBox(now, { bar: true });
+        }),
+      );
+      row.append(show);
+    }
     hints.appendChild(row);
+  }
+  // In the code too: underline each warning, with its message on hover.
+  editor.warnings(
+    warnings.map((w) => {
+      const rest = analysis?.source.slice(w.offset) ?? '';
+      const len = /^\S+/.exec(rest)?.[0].length ?? 1;
+      return { from: w.offset, to: w.offset + Math.min(len, 40), message: w.message };
+    }),
+  );
+  // Alternatives that can never be picked are drawn faded.
+  for (const w of warnings) {
+    if (!/never picked/.test(w.message)) continue;
+    // The warning is at the start of the alternative, which may begin with spaces.
+    let at = w.offset;
+    while (/\s/.test(analysis.source[at] ?? '')) at++;
+    const row = chart.boxes.find((b) => b.kind === 'row' && b.range && b.range[0] === at);
+    if (row) chart.markDead(row.id);
   }
   if (warnings.length > 3 && !showAllWarnings) {
     const more = document.createElement('button');
@@ -1698,16 +1755,46 @@ function showBlank(): void {
   $('ex-stale').hidden = true;
   $('chart-hints').hidden = true;
   editor.error(null);
+  editor.warnings([]);
   const box = document.createElement('div');
   box.className = 'chart-empty';
   box.innerHTML =
-    '<h3>Nothing to draw yet</h3><p>Write a line in the code to see it here, for example <code>Hello [world|friend]!</code></p>';
+    '<h3>Nothing to draw yet</h3><p>Start from a sentence you want variations of, then pick the words that should vary. Or write in the code, for example <code>Hello [world|friend]!</code></p>';
+  // Start from a sentence: it becomes main, and Vary words opens on it.
+  const form = document.createElement('form');
+  form.className = 'start-form';
+  const field = document.createElement('input');
+  field.type = 'text';
+  field.placeholder = 'Thanks for writing, we will look into it.';
+  field.setAttribute('aria-label', 'A sentence to start from');
+  const go = document.createElement('button');
+  go.type = 'submit';
+  go.className = 'primary';
+  go.textContent = 'Start';
+  form.append(field, go);
+  form.addEventListener(
+    'submit',
+    safe((e: Event) => {
+      e.preventDefault();
+      const sentence = field.value.trim();
+      if (!sentence) {
+        field.focus();
+        return;
+      }
+      editor.setText(`main = ${escapeText(sentence, false)}\n`);
+      refresh();
+      const text = chart.boxes.find((x) => x.kind === 'text');
+      if (!text) return;
+      selectBox(text, { bar: true });
+      chart.focusBox(text.id, true, true);
+      if (/\S\s+\S/.test(sentence)) varyDialog(text);
+    }),
+  );
   const b = document.createElement('button');
   b.type = 'button';
-  b.className = 'primary';
   b.textContent = 'Insert the example';
   b.addEventListener('click', safe(() => editor.setText(DEFAULT_PROGRAM)));
-  box.appendChild(b);
+  box.append(form, b);
   chart.showEmpty(box);
   $('count').textContent = '0';
   $('count').title = '';
@@ -1740,6 +1827,7 @@ function refresh(): void {
     // The hints and warnings were about the code before the error: they would point at the
     // wrong lines now.
     $('chart-hints').hidden = true;
+    editor.warnings([]);
     editor.error(offset ?? null);
     $('stale').hidden = !analysis;
     $('ex-stale').hidden = !analysis;

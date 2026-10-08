@@ -461,3 +461,11 @@ kbd { font: 11.5px ui-monospace, "SF Mono", Menlo, monospace; padding: 1px 5px; 
 
 /* A narrow code pane keeps its tools on one row: "Long form" becomes "Long". */
 @media (max-width: 1100px) { .code-pane .opt-word { display: none; } }
+
+.cm-warn { text-decoration: underline dotted var(--warn-stroke); text-decoration-thickness: 2px; text-underline-offset: 3px; }
+/* An alternative that can never be picked (its guard never holds there) is drawn faded. */
+.chart-svg .box.dead { opacity: 0.45; }
+.chart-svg .box.dead > rect { stroke-dasharray: 4 3; }
+
+.chart-empty .start-form { display: flex; gap: 8px; margin: 12px 0; max-width: 520px; }
+.chart-empty .start-form input { flex: 1; min-width: 0; padding: 6px 10px; font: inherit; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); }

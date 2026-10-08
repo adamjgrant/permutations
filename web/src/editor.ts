@@ -41,6 +41,26 @@ const hlField = StateField.define<DecorationSet>({
   provide: (f) => EditorView.decorations.from(f),
 });
 
+/** Warnings from the compiler: a dotted underline on their place, the message on hover. */
+const setWarnings = StateEffect.define<{ from: number; to: number; message: string }[]>();
+const warnField = StateField.define<DecorationSet>({
+  create: () => Decoration.none,
+  update(deco, tr) {
+    deco = deco.map(tr.changes);
+    for (const e of tr.effects) {
+      if (e.is(setWarnings)) {
+        const len = tr.state.doc.length;
+        const marks = e.value
+          .filter((w) => w.from >= 0 && w.from < len)
+          .map((w) => Decoration.mark({ class: 'cm-warn', attributes: { title: w.message } }).range(w.from, Math.min(Math.max(w.to, w.from + 1), len)));
+        deco = Decoration.set(marks, true);
+      }
+    }
+    return deco;
+  },
+  provide: (f) => EditorView.decorations.from(f),
+});
+
 const errField = StateField.define<DecorationSet>({
   create: () => Decoration.none,
   update(deco, tr) {
@@ -67,7 +87,8 @@ const TOKENS: [RegExp, string][] = [
   [/(?<!\\)\*?\$[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*/g, 'tok-ref'],
   [/(?<!\\)@(?:else|!?[A-Za-z_]\w*)(?:=[^\s:|\]&;]+)?:?/g, 'tok-tag'],
   [/(?<=\$[\w.]+|[\]}]):(?:[A-Za-z_]\w*|\[[^\]]*\])/g, 'tok-fn'],
-  [/\{\d+(?:\.\.\d+)?(?:\s*;[^}]*)?\}/g, 'tok-repeat'],
+  // A repeat only after a bracket, a reference, a transform or another repeat (very{2} is text).
+  [/(?<=\]|\}|\$[A-Za-z_][\w.]*|:[A-Za-z_]\w*)\{\d+(?:\.\.\d+)?(?:\s*;[^}]*)?\}/g, 'tok-repeat'],
   [/;\s*(?:(?:delimiter|last)\s*=\s*"(?:[^"\\]|\\.)*"\s*)+/g, 'tok-setting'],
   [/(?<!\\)[\[\]|]|(?<=\s)&(?=\s)/g, 'tok-punct'],
 ];
@@ -188,6 +209,8 @@ export interface Editor {
   focusAt(offset: number): void;
   /** Where you last put the cursor yourself, or undefined if you have not been in the code. */
   userSelection(): { from: number; to: number } | undefined;
+  /** Underline the compiler's warnings (and say each one on hover). */
+  warnings(list: { from: number; to: number; message: string }[]): void;
 }
 
 export function createEditor(parent: HTMLElement, doc: string, handlers: EditorHandlers): Editor {
@@ -213,6 +236,7 @@ export function createEditor(parent: HTMLElement, doc: string, handlers: EditorH
         syntax,
         hlField,
         errField,
+        warnField,
         userSelection,
         EditorView.updateListener.of((u) => {
           if (u.docChanged) handlers.onChange();
@@ -268,5 +292,8 @@ export function createEditor(parent: HTMLElement, doc: string, handlers: EditorH
       view.dispatch({ selection: { anchor: offset }, scrollIntoView: true, userEvent: 'select' });
     },
     userSelection: () => view.state.field(userSelection) ?? undefined,
+    warnings(list) {
+      view.dispatch({ effects: setWarnings.of(list) });
+    },
   };
 }

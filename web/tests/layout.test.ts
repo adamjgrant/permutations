@@ -214,9 +214,10 @@ test('long-form programs lay out like short ones, with forms recorded on the car
   assert.equal(l.boxes.find((b) => b.kind === 'def' && b.name === 'short')!.form, 'short');
   const tag = l.boxes.find((b) => b.kind === 'tag')!;
   assert.equal(src.slice(...tag.range!), 'tag q');
-  const guard = l.boxes.find((b) => b.kind === 'guard' && b.label === '@q:')!;
+  // Long-form guards are shown as written: when q, otherwise.
+  const guard = l.boxes.find((b) => b.kind === 'guard' && b.label === 'when q')!;
   assert.equal(src.slice(...guard.range!), 'when q');
-  assert.ok(l.boxes.some((b) => b.kind === 'guard' && b.label === '@else:'));
+  assert.ok(l.boxes.some((b) => b.kind === 'guard' && b.label === 'otherwise'));
   assertNoOverlap(l.boxes);
 });
 

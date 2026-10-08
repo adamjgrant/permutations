@@ -321,8 +321,12 @@ export function layout(input: LayoutInput): Layout {
   const chip = (kind: BoxKind, label: string, extra: Partial<Box> = {}): Block => leaf(kind, label, extra);
 
   const tagLabel = (t: { name: string; value?: string | undefined }): string => '@' + t.name + (t.value !== undefined ? '=' + t.value : '');
-  const guardLabel = (g: NonNullable<Option['guard']>): string =>
-    g.kind === 'else' ? '@else:' : '@' + (g.negate ? '!' : '') + g.name + (g.value !== undefined ? '=' + g.value : '') + ':';
+  const guardLabel = (g: NonNullable<Option['guard']>): string => {
+    // In long form a guard is a `when q` or `otherwise` line: show it as written.
+    const written = source !== undefined && g.range ? source.slice(g.range[0], g.range[1]).trim() : '';
+    if (/^(when\b|otherwise$)/.test(written)) return written;
+    return g.kind === 'else' ? '@else:' : '@' + (g.negate ? '!' : '') + g.name + (g.value !== undefined ? '=' + g.value : '') + ':';
+  };
   /** The chip for a node's own settings: its delimiter, and what joins the final two (last). */
   const settingsLabel = (d: string | undefined, l: string | undefined): string | undefined =>
     d === undefined && l === undefined
@@ -399,8 +403,18 @@ export function layout(input: LayoutInput): Layout {
         return wrapper(nodeBlock(node.inner, d), chips, 'repeat', node);
       }
       case 'transform': {
-        const label = node.fns.length > 1 ? ':[' + node.fns.join('|') + ']' : ':' + node.fns[0];
-        return wrapper(nodeBlock(node.inner, d), [chip('transform', label, { range: node.range, node })], 'transform', node);
+        // Chained transforms ([x]:lower:capitalize) share one frame, their chips in the order
+        // they apply: the innermost first.
+        const chainOf: Node[] = [];
+        let inner: Node = node;
+        while (inner.kind === 'transform') {
+          chainOf.push(inner);
+          inner = inner.inner;
+        }
+        const chips = chainOf
+          .reverse()
+          .map((t) => (t.kind === 'transform' ? chip('transform', t.fns.length > 1 ? ':[' + t.fns.join('|') + ']' : ':' + t.fns[0], { range: t.range, node: t }) : chip('transform', '', {})));
+        return wrapper(nodeBlock(inner, d), chips, 'transform', node);
       }
     }
   };
