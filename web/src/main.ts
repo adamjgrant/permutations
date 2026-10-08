@@ -223,7 +223,11 @@ function applyEdit(
         : selected
           ? chart.focusKey(selected)
           : undefined;
-  editor.patch(result.patches);
+  // A placeholder that you name straight away (+ Alternative, Wrap, Vary words) stays out of
+  // the undo history: naming it makes the whole change again, as one step, and cancelling takes
+  // it out without leaving anything for Redo to bring back.
+  const placeholder = !!(opts.startEdit && opts.fresh);
+  const inverse = editor.patch(result.patches, undefined, placeholder ? { history: false } : undefined);
   refresh();
   const map = (n: number): number => (opts.map ?? mapOffset)(result.patches, n);
   const sel = result.select;
@@ -252,14 +256,14 @@ function applyEdit(
       const fresh = opts.fresh;
       chart.beginEdit(box, {
         placeholder: true,
-        onCancel: () => void historyStep(undo, true),
+        onCancel: () => void historyStep(placeholder ? () => (editor.revert(inverse), true) : undo, true),
         ...(fresh
           ? {
               onCommit: (value: string) => {
                 // Take the placeholder back out, then make the whole change again with your text.
-                undo(editor.view);
+                editor.revert(inverse);
                 const err = applyEdit(fresh(value));
-                if (err) redo(editor.view);
+                if (err) editor.patch(result.patches, undefined, { history: false });
                 return err;
               },
             }
@@ -436,11 +440,20 @@ const actions: ChartActions = {
     if (!analysis || !canEdit()) return 'The code has an error, so the chart cannot edit it right now.';
     const src = analysis.source;
     let result: EditOrError | undefined;
-    if (box.kind === 'text') result = editText(src, box.node as TextNode, value);
-    else if (box.kind === 'empty') result = box.node?.kind === 'text' ? editText(src, box.node, value) : box.range ? fillEmpty(src, box.range, value) : undefined;
+    const branches = new Set(branchNames());
+    if (box.kind === 'text') result = editText(src, box.node as TextNode, value, branches);
+    else if (box.kind === 'empty') result = box.node?.kind === 'text' ? editText(src, box.node, value, branches) : box.range ? fillEmpty(src, box.range, value, branches) : undefined;
     else if (box.kind === 'range' && box.range) result = editRange(src, box.range, value);
     else if (box.kind === 'ref' && box.node?.kind === 'ref') result = retargetReference(src, box.node as RefNode, value);
-    return applyEdit(result, { focus: box });
+    const err = applyEdit(result, { focus: box });
+    if (!err && (box.kind === 'text' || box.kind === 'empty')) {
+      const named = [...value.matchAll(/\$([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)/g)].map((m) => m[1] as string);
+      const made = named.filter((n) => branches.has(n));
+      const unknown = named.filter((n) => !branches.has(n));
+      if (made.length) toast(`${made.map((n) => '$' + n).join(', ')} ${made.length === 1 ? 'is a reference' : 'are references'} to the branch${made.length === 1 ? '' : 'es'} of that name.`, UNDO);
+      else if (unknown.length) notify(`There is no branch named ${unknown[0]}, so $${unknown[0]} is written as text. To make it a reference, create the branch first, or use Insert reference.`);
+    }
+    return err;
   },
   editChip: (box) => editChip(box),
   deleteBox(box) {
@@ -482,7 +495,7 @@ const actions: ChartActions = {
     if (!analysis || !canEdit()) return;
     const src = analysis.source;
     const node = frame.node as ChoiceNode;
-    applyEdit(addAlternative(src, node, 'new', after), { startEdit: true, fresh: (v) => addAlternative(src, node, v, after) });
+    applyEdit(addAlternative(src, node, 'new', after), { startEdit: true, fresh: (v) => addAlternative(src, node, v, after, new Set(branchNames())) });
   },
   deleteAlternative(row) {
     if (!analysis || !canEdit()) return;
@@ -1404,8 +1417,6 @@ window.addEventListener('resize', () => {
 
 // --- editor ----------------------------------------------------------------
 
-/** True once you have put the cursor in the code yourself (Help inserts at your cursor then). */
-let editorTouched = false;
 const editor = createEditor($('editor'), loadInitial(), {
   onChange: schedule,
   onCursor: safe(() => {
@@ -1422,7 +1433,6 @@ document.addEventListener('keydown', (e) => (lastKeyTab = e.key === 'Tab'), true
 document.addEventListener('pointerdown', () => (lastKeyTab = false), true);
 let tabHintTimer: number | undefined;
 editor.view.contentDOM.addEventListener('focus', () => {
-  editorTouched = true;
   // Reached with the keyboard: say that Tab indents here, and how to move on.
   if (!lastKeyTab) return;
   const h = $('editor-hint');
@@ -1857,14 +1867,15 @@ function buildHelp(): void {
     btn.addEventListener(
       'click',
       safe(() => {
-        const sel = editor.view.state.selection.main;
+        // Your own cursor in the code, not the place a chart selection showed.
+        const sel = editor.userSelection();
         const doc = editor.getText();
         const taken = new Set(branchNames());
         // Into main unless your cursor is inside a branch: on a line of its own, a snippet
         // would belong to no branch at all.
-        const inBranch = !!analysis && [analysis.main, ...analysis.others].some((d) => sel.from >= d.range[0] && sel.from <= d.range[1]);
-        const mainEnd = analysis && (!editorTouched || !inBranch) ? analysis.main.range[1] : undefined;
-        const ins = insertionFor(h, doc, sel.from, sel.to, { taken, ...(mainEnd !== undefined ? { mainEnd } : {}) });
+        const inBranch = !!sel && !!analysis && [analysis.main, ...analysis.others].some((d) => sel.from >= d.range[0] && sel.from <= d.range[1]);
+        const mainEnd = analysis && (!sel || !inBranch) ? analysis.main.range[1] : undefined;
+        const ins = insertionFor(h, doc, sel?.from ?? 0, sel?.to ?? 0, { taken, ...(mainEnd !== undefined ? { mainEnd } : {}) });
         editor.view.dispatch({
           changes: { from: ins.from, to: ins.to, insert: ins.insert },
           selection: { anchor: ins.select[0], head: ins.select[1] },
@@ -1933,6 +1944,10 @@ function setHelp(open: boolean): void {
   help.classList.toggle('over-examples', narrow);
   help.hidden = !open;
   document.querySelector('.editor-wrap')?.classList.toggle('help-open', open && !narrow);
+  // The code wraps to a new width: have the editor measure again, or the gutter's line
+  // numbers stay where the old lines were.
+  editor.view.requestMeasure();
+  window.requestAnimationFrame(() => editor.view.requestMeasure());
   $('b-help').setAttribute('aria-expanded', String(open));
   if (open) $('help-close').focus();
   else $('b-help').focus();
@@ -1994,3 +2009,43 @@ document.addEventListener('keydown', (e) => {
 });
 refresh();
 showTab('random');
+
+// A click that ends an inline edit: the edit commits as the field loses focus (on pointerdown),
+// the chart redraws, and the element the click was aimed at is gone before the click arrives. Do
+// what it was for afterwards: select the box now under the pointer, or run the strip button.
+document.addEventListener(
+  'pointerdown',
+  (e) => {
+    const field = document.querySelector('input.inline-edit');
+    const target = e.target as Element | null;
+    if (!field || !target || field === target || e.button !== 0) return;
+    const action = target.closest('.selbar-actions button')?.getAttribute('data-action') ?? undefined;
+    const onChart = !!target.closest('#chart');
+    if (!action && !onChart) return;
+    const { clientX: x, clientY: y } = e;
+    let arrived = false;
+    const seen = (): void => {
+      arrived = true;
+    };
+    document.addEventListener('click', seen, { capture: true, once: true });
+    window.addEventListener(
+      'pointerup',
+      () =>
+        window.setTimeout(
+          safe(() => {
+            document.removeEventListener('click', seen, { capture: true });
+            if (arrived || document.querySelector('input.inline-edit, .popover')) return;
+            if (action) {
+              const b = document.querySelector<HTMLButtonElement>(`.selbar-actions button[data-action="${action}"]:not(:disabled)`);
+              b?.click();
+              return;
+            }
+            document.elementFromPoint(x, y)?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: x, clientY: y, detail: 1 }));
+          }),
+          0,
+        ),
+      { once: true },
+    );
+  },
+  true,
+);

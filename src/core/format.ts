@@ -350,6 +350,8 @@ export interface FormatResult {
 export function formatSource(source: string, mode: FormatMode, names?: string[]): FormatResult {
   const { module } = parseModule(source, '<format>');
   const defs = [...module.defs.values()].sort((a, b) => a.range[0] - b.range[0]);
+  // A file's single unnamed expression is its main: in long form it becomes `branch main`.
+  if (module.anonymous && !module.defs.has('main')) defs.push({ ...module.anonymous, name: 'main' });
   const edits: { start: number; end: number; text: string }[] = [];
   const changed: string[] = [];
   const skipped: { name: string; reason: string }[] = [];

@@ -436,3 +436,8 @@ kbd { font: 11.5px ui-monospace, "SF Mono", Menlo, monospace; padding: 1px 5px; 
 
 /* Pieces written touching sit close, joined by a short thick stub: they print as one word. */
 .edge.flow.glued { stroke-width: 3; stroke-linecap: round; }
+
+/* The five examples scroll on their own, so Make a new 5 and Copy stay in view when they wrap. */
+#view-random { overflow: hidden; }
+#view-random .samples { flex: 0 1 auto; min-height: 0; overflow: auto; }
+#view-random .ex-foot { flex: none; }

@@ -277,3 +277,15 @@ describe('formatSource with names', () => {
     expect(output.startsWith('a = [x|y]\nbranch b')).toBe(true);
   });
 });
+
+describe('an unnamed main', () => {
+  test('expands to branch main and back', () => {
+    const long = formatSource('Hello [world|friend]!', 'long');
+    expect(long.changed).toEqual(['main']);
+    expect(long.output.startsWith('branch main\n')).toBe(true);
+    expect([...compile(long.output).all()].map((o) => o.text)).toEqual(['Hello world!', 'Hello friend!']);
+    expect(formatSource(long.output, 'short').output).toBe('main = Hello [world|friend]!');
+    // Already short: nothing to do.
+    expect(formatSource('Hello [a|b]', 'short').changed).toEqual([]);
+  });
+});

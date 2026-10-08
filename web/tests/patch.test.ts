@@ -168,3 +168,21 @@ test('deleting down to one alternative unwraps the choice, and keeps a repeat wo
   assert.equal(out, 'main = [b|c]');
   assert.equal(out.slice(r.select![0], r.select![0] + 1), 'b', 'the neighbour is selected');
 });
+
+test('typed text: $name of a branch becomes a reference, anything else stays text', () => {
+  const src = 'main = Hi [there|you]\nclosing = Bye';
+  const branches = new Set(['main', 'closing']);
+  const t0 = texts(src).find((t) => t.value === 'there')!;
+  assert.equal(run(src, editText(src, t0, 'there $closing', branches)).split('\n')[0], 'main = Hi [there $closing|you]');
+  assert.equal(run(src, editText(src, t0, 'costs $5 or $money', branches)).split('\n')[0], 'main = Hi [costs \\$5 or \\$money|you]');
+  assert.equal(run(src, editText(src, t0, '$closing', undefined)).split('\n')[0], 'main = Hi [\\$closing|you]');
+  const g = choices(src)[0]!;
+  assert.equal(run(src, addAlternative(src, g, 'see $closing', undefined, branches)).split('\n')[0], 'main = Hi [there|you|see $closing]');
+});
+
+test('+ on a whole choice adds before a trailing empty alternative', () => {
+  const src = 'main = [red|green|blue|]';
+  assert.equal(run(src, addAlternative(src, choices(src)[0]!, 'purple')), 'main = [red|green|blue|purple|]');
+  // Added after the empty one when that is the one selected.
+  assert.equal(run(src, addAlternative(src, choices(src)[0]!, 'purple', 3)), 'main = [red|green|blue||purple]');
+});

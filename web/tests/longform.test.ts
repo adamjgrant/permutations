@@ -329,3 +329,12 @@ test('offsets follow their text when alternatives are swapped', async () => {
   const out2 = applyPatches(src, r2.patches);
   assert.equal(out2.slice(mapAfterMove(r2.patches, 8), mapAfterMove(r2.patches, 8) + 3), 'red');
 });
+
+test('long form: a comment right above an alternative moves with it', () => {
+  const src = 'branch main\n  one of\n    sequence\n      dear\n      colleague\n    # the neighbour from next door\n    neighbour\n';
+  const g = choices(src)[0]!;
+  const out = run(src, moveAlternative(src, g, 0, 1));
+  assert.equal(out, 'branch main\n  one of\n    # the neighbour from next door\n    neighbour\n    sequence\n      dear\n      colleague\n');
+  const back = run(out, moveAlternative(out, choices(out)[0]!, 0, 1));
+  assert.equal(back, src);
+});

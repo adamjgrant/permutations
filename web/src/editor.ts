@@ -3,12 +3,27 @@
 
 import { defaultKeymap, history, historyKeymap, indentWithTab, toggleComment } from '@codemirror/commands';
 import { bracketMatching, indentService, indentUnit } from '@codemirror/language';
-import { EditorSelection, EditorState, Range as CMRange, StateEffect, StateField } from '@codemirror/state';
+import { ChangeSet, EditorSelection, EditorState, Range as CMRange, StateEffect, StateField, Transaction } from '@codemirror/state';
 import { Decoration, DecorationSet, drawSelection, EditorView, highlightActiveLine, keymap, lineNumbers, ViewPlugin, ViewUpdate } from '@codemirror/view';
 import type { Range } from './ranges';
 
 const setHighlight = StateEffect.define<Range | null>();
 const setError = StateEffect.define<number | null>();
+
+/**
+ * Where you last put the cursor yourself (clicking, typing, moving with the keys), kept in place
+ * as the text changes. Selecting in the chart moves the editor's cursor to show the piece, and
+ * edits from the chart set it too; neither counts as yours.
+ */
+const USER_EVENTS = ['select', 'input.type', 'input.paste', 'input.drop', 'input.complete', 'input.snippet', 'delete', 'move'];
+const userSelection = StateField.define<{ from: number; to: number } | null>({
+  create: () => null,
+  update(v, tr) {
+    if (USER_EVENTS.some((e) => tr.isUserEvent(e))) return { from: tr.newSelection.main.from, to: tr.newSelection.main.to };
+    if (v && tr.docChanged) return { from: tr.changes.mapPos(v.from, -1), to: tr.changes.mapPos(v.to, 1) };
+    return v;
+  },
+});
 
 const hlField = StateField.define<DecorationSet>({
   create: () => Decoration.none,
@@ -157,14 +172,21 @@ export interface EditorHandlers {
 export interface Editor {
   view: EditorView;
   getText(): string;
-  /** Apply non-overlapping patches expressed in the coordinates of the current text. */
-  patch(patches: { from: number; to: number; insert: string }[], selection?: Range): void;
+  /**
+   * Apply non-overlapping patches expressed in the coordinates of the current text. Returns the
+   * change that takes them back out. With history false, undo and redo never see the change.
+   */
+  patch(patches: { from: number; to: number; insert: string }[], selection?: Range, opts?: { history?: boolean }): ChangeSet;
+  /** Apply a change returned by patch, outside the undo history. */
+  revert(changes: ChangeSet): void;
   setText(text: string): void;
   highlight(range: Range | null): void;
   /** Move the cursor to a range and reveal it without taking focus. */
   reveal(range: Range): void;
   error(offset: number | null): void;
   focusAt(offset: number): void;
+  /** Where you last put the cursor yourself, or undefined if you have not been in the code. */
+  userSelection(): { from: number; to: number } | undefined;
 }
 
 export function createEditor(parent: HTMLElement, doc: string, handlers: EditorHandlers): Editor {
@@ -190,6 +212,7 @@ export function createEditor(parent: HTMLElement, doc: string, handlers: EditorH
         syntax,
         hlField,
         errField,
+        userSelection,
         EditorView.updateListener.of((u) => {
           if (u.docChanged) handlers.onChange();
           if ((u.selectionSet || u.docChanged) && !silent) handlers.onCursor(u.state.selection.main.head);
@@ -200,8 +223,18 @@ export function createEditor(parent: HTMLElement, doc: string, handlers: EditorH
   return {
     view,
     getText: () => view.state.doc.toString(),
-    patch(patches, selection) {
-      view.dispatch({ changes: patches, ...(selection ? { selection: { anchor: selection[0], head: selection[1] } } : {}), userEvent: 'input.chart' });
+    patch(patches, selection, opts) {
+      const tr = view.state.update({
+        changes: patches,
+        ...(selection ? { selection: { anchor: selection[0], head: selection[1] } } : {}),
+        userEvent: 'input.chart',
+        ...(opts?.history === false ? { annotations: Transaction.addToHistory.of(false) } : {}),
+      });
+      view.dispatch(tr);
+      return tr.changes.invert(tr.startState.doc);
+    },
+    revert(changes) {
+      view.dispatch({ changes, annotations: Transaction.addToHistory.of(false), userEvent: 'input.chart' });
     },
     setText(text) {
       view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: text } });
@@ -227,7 +260,8 @@ export function createEditor(parent: HTMLElement, doc: string, handlers: EditorH
     },
     focusAt(offset) {
       view.focus();
-      view.dispatch({ selection: { anchor: offset }, scrollIntoView: true });
+      view.dispatch({ selection: { anchor: offset }, scrollIntoView: true, userEvent: 'select' });
     },
+    userSelection: () => view.state.field(userSelection) ?? undefined,
   };
 }

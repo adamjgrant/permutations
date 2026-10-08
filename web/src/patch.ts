@@ -174,9 +174,12 @@ function deleteLines(src: string, range: Range): Patch {
 }
 
 /** Add an alternative after alternative `after` (the last one when omitted). */
-export function addAlternative(src: string, node: ChoiceNode, text = 'new', after?: number): EditResult | undefined {
+export function addAlternative(src: string, node: ChoiceNode, text = 'new', after?: number, branches?: ReadonlySet<string>): EditResult | undefined {
   if (!isStructurallyEditable(node, src)) return undefined;
   const alts = alternatives(node);
+  // Added to the choice as a whole, a new alternative goes before a trailing empty one: [a|b|new|].
+  const isEmpty = (a: Alt | undefined): boolean => !!a && ['', 'nothing'].includes(src.slice(...trimRange(src, a.range)));
+  if (after === undefined && alts.length > 1 && isEmpty(alts[alts.length - 1])) after = alts.length - 2;
   const last = alts[after === undefined ? alts.length - 1 : Math.max(0, Math.min(after, alts.length - 1))];
   const first = alts[0];
   if (!last || !first) return undefined;
@@ -184,7 +187,7 @@ export function addAlternative(src: string, node: ChoiceNode, text = 'new', afte
   if (form === 'long') {
     const indent = indentOf(src, first.range[0]);
     const at = last.range[1];
-    const line = text === '' ? 'nothing' : longLine(text);
+    const line = text === '' ? 'nothing' : withReferences(longLine(text), branches);
     const insert = '\n' + indent + line;
     return { patches: [{ from: at, to: at, insert }], select: [at + 1 + indent.length, at + insert.length] };
   }
@@ -192,7 +195,7 @@ export function addAlternative(src: string, node: ChoiceNode, text = 'new', afte
   const sep = sepChar(node);
   const spaced = / [|&] /.test(src.slice(node.range[0], node.range[1])) || node.kind === 'anyorder' || (node.kind === 'group' && node.bare);
   const lead = spaced ? ` ${sep} ` : sep;
-  const insert = lead + escapeText(text, false);
+  const insert = lead + withReferences(escapeText(text, false), branches);
   return {
     patches: [{ from: at, to: at, insert }],
     select: [at + lead.length, at + insert.length],
@@ -273,7 +276,17 @@ export function moveAlternative(src: string, node: ChoiceNode, index: number, de
   const j = index + delta;
   if (index < 0 || j < 0 || index >= alts.length || j >= alts.length) return undefined;
   const long = choiceForm(src, node) === 'long';
-  const region = (r: Range): Range => (long ? [lineStart(src, r[0]), r[1]] : trimRange(src, r));
+  // In long form, comment lines right above an alternative are about it, so they move with it.
+  const withComments = (start: number): number => {
+    let s = start;
+    while (s > 0) {
+      const prev = lineStart(src, s - 1);
+      if (!/^[ \t]*#/.test(src.slice(prev, s - 1))) break;
+      s = prev;
+    }
+    return s;
+  };
+  const region = (r: Range): Range => (long ? [withComments(lineStart(src, r[0])), r[1]] : trimRange(src, r));
   const a = region((alts[index] as Alt).range);
   const b = region((alts[j] as Alt).range);
   const ta = src.slice(a[0], a[1]);
@@ -295,16 +308,25 @@ export function isRangeText(text: string): boolean {
   return RANGE_RE.test(text);
 }
 
-export function editText(src: string, node: TextNode, value: string): EditResult {
+/**
+ * Text typed into the chart is text, so `$` is escaped, except in `$name` where name is a branch:
+ * typing `$closing` there means the reference.
+ */
+export function withReferences(escaped: string, branches: ReadonlySet<string> | undefined): string {
+  if (!branches?.size) return escaped;
+  return escaped.replace(/\\\$([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)/g, (m, name: string) => (branches.has(name) ? '$' + name : m));
+}
+
+export function editText(src: string, node: TextNode, value: string, branches?: ReadonlySet<string>): EditResult {
   const [from, to] = node.range;
   const long = formAt(src, from) === 'long';
   const raw = src.slice(from, to);
   let insert: string;
   if (long && isAtLineStart(src, from) && isAtLineEnd(src, to)) {
     // The text is a whole long-form line: keep quotes if it had them, quote when a bare line would be misread.
-    insert = /^".*"$/.test(raw) && raw !== '"' ? quoteLong(value.replace(/\r?\n/g, ' ')) : longLine(value);
+    insert = /^".*"$/.test(raw) && raw !== '"' ? quoteLong(value.replace(/\r?\n/g, ' ')) : withReferences(longLine(value), branches);
   } else {
-    insert = escapeText(value, isAtLineStart(src, from));
+    insert = withReferences(escapeText(value, isAtLineStart(src, from)), branches);
   }
   return { patches: [{ from, to, insert }], select: [from, from + insert.length] };
 }
@@ -321,15 +343,15 @@ export function editRange(src: string, range: Range, value: string): EditResult 
  * Give text to an empty alternative. `optionRange` is the alternative's range; it may still
  * hold a guard or tags (`[@q|x]`), in which case the text goes after them.
  */
-export function fillEmpty(src: string, optionRange: Range, value: string): EditResult {
+export function fillEmpty(src: string, optionRange: Range, value: string, branches?: ReadonlySet<string>): EditResult {
   const r = trimRange(src, optionRange);
   if (formAt(src, r[0]) === 'long' && src.slice(r[0], r[1]) === 'nothing') {
-    const insert = longLine(value);
+    const insert = withReferences(longLine(value), branches);
     return { patches: [{ from: r[0], to: r[1], insert }], select: [r[0], r[0] + insert.length] };
   }
   const hasContent = r[1] > r[0];
   const lead = hasContent ? ' ' : '';
-  const insert = lead + escapeText(value, !hasContent && isAtLineStart(src, r[1]));
+  const insert = lead + withReferences(escapeText(value, !hasContent && isAtLineStart(src, r[1])), branches);
   return { patches: [{ from: r[1], to: r[1], insert }], select: [r[1] + lead.length, r[1] + insert.length] };
 }
 

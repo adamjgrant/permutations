@@ -746,7 +746,17 @@ export function layout(input: LayoutInput): Layout {
       const s0: Pt = { x: right ? pill.x + pill.w : pill.x, y: pill.y + pill.h / 2 };
       const t0: Pt = { x: right ? target.x : target.x + target.w, y: entryY };
       const mx = right ? Math.max(s0.x + 12, target.x - M.defGap / 2) : Math.min(s0.x - 12, target.x + target.w + M.defGap / 2);
-      pts = [s0, { x: mx, y: s0.y }, { x: mx, y: t0.y }, t0];
+      // A box between the pill and the edge of its card (the rest of the sentence) would sit on
+      // the line and look like the reference: leave from the bottom and pass under it instead.
+      const [lo, hi] = right ? [s0.x, mx] : [mx, s0.x];
+      const inTheWay = boxes.some((b) => b.id !== pill.id && LEAF_KINDS.has(b.kind) && b.y <= s0.y && b.y + b.h >= s0.y && b.x + b.w > lo && b.x < hi);
+      const card = boxes.find((d) => d.kind === 'def' && pill.x >= d.x && pill.y >= d.y && pill.x + pill.w <= d.x + d.w && pill.y + pill.h <= d.y + d.h);
+      if (inTheWay && card) {
+        const head = exitDown(pill);
+        const sx = head[head.length - 1]!.x;
+        const under = card.y + card.h - 7;
+        pts = [...head, { x: sx, y: under }, { x: mx, y: under }, { x: mx, y: t0.y }, t0];
+      } else pts = [s0, { x: mx, y: s0.y }, { x: mx, y: t0.y }, t0];
     } else if (to === from + 1 && atColumnTop) {
       // The next row down: drop into the gap above it, then into the top of the card.
       const head = exitDown(pill);
