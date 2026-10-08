@@ -52,7 +52,9 @@ How the web app works:
   your comments, spacing and indentation, and Cmd+Z undoes it from anywhere.
 - Big programs stay readable: each branch card says who uses it, and with many references the
   dashed lines show only for what you select. Help has a legend for the chart's shapes.
-- `npm run e2e`, `npm run e2e:more` and `npm run e2e:latest` drive the main flows in a Chrome started with `--remote-debugging-port=9333`.
+- `npm run e2e`, `npm run e2e:more` and `npm run e2e:latest` drive the main flows in a Chrome
+  started with `--remote-debugging-port=9333`. `scripts/gate.sh` runs everything (build, core
+  and web unit tests, the browser scenarios, and a check for em dashes) and prints GATE OK.
 - Imports (`use`, `from`) are not available in the browser.
 
 As a library:
