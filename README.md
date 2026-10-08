@@ -42,9 +42,11 @@ How the web app works:
 - **Click any box** in the chart to select it. The strip at the bottom of the chart names the
   selection and offers its actions: edit, vary some words, add, move or delete alternatives,
   make something optional, tags and guards, insert a reference, inline or extract a branch,
-  set a delimiter, and rename, convert or delete a branch. Nothing depends on hover.
+  set a delimiter, change or remove a repeat or transform, and rename, convert or delete a
+  branch. Nothing depends on hover, and the keyboard can do all of it (Help lists the keys).
 - **Click an example** to see the path that made it light up in the chart. While you edit,
-  the examples keep the same picks so you can see the effect of each change.
+  even when you add alternatives, the examples keep their picks everywhere else, so you see
+  the effect of each change.
 - **The chart edits the code, never regenerates it.** Every change is a text patch that keeps
   your comments, spacing and indentation, and Cmd+Z undoes it from anywhere.
 - Big programs stay readable: each branch card says who uses it, and with many references the
@@ -61,6 +63,7 @@ prog.count;                           // 2n
 prog.one();                           // { text, tags }
 prog.sample(5);                       // up to 5 distinct results
 prog.sample(5, seededRandom(42));     // the same 5 every time
+prog.sampleSteady(5, 42);             // 5 that stay put while the program is edited
 [...prog.all()];                      // everything, lazily
 prog.at(1n);                          // the result at an index
 prog.trace(1n);                       // how it was made: the choices taken and nodes walked

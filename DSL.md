@@ -192,6 +192,8 @@ greeting = Hello | Hi | Hey
 greeting = [Hello | Hi | Hey]     # same thing
 ```
 
+Ranges work there too: `hex = 0..9 | A..F` is the same as `hex = [0..9|A..F]`.
+
 Brackets are still required for a choice inside a sentence, such as `Say [Hello|Hi] now`.
 If a definition mixes text with a choice, bracket the choice. A `|` outside brackets on a
 definition line always splits the whole line into options.
@@ -229,6 +231,8 @@ main = $greeting, friend.
 - Names start with a letter or `_`, then use letters, digits and `_`.
 - `main` is the entry point. A file with no `main` and a single unnamed expression uses
   that expression as `main`.
+  If the file does define `main`, a line without a name is an error: it would never be used,
+  so it is almost always a missing `name =` or a line meant to continue `main`.
 - A reference is `$name`. The name ends at the first character that is not a letter,
   digit or `_`, so `$name's` and `$name.` work as written. To put a letter directly after
   a reference, use a transform-free group: `[$name]s`.
