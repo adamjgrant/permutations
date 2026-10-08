@@ -215,8 +215,8 @@ button.primary:hover:not(:disabled) { background: var(--accent-strong); }
 .k-range rect { fill: var(--accent-tint); stroke: var(--accent); stroke-width: 1.25; stroke-dasharray: 5 3; }
 .k-range text { fill: var(--accent-strong); font-weight: 500; }
 .k-range { cursor: pointer; }
-.k-anyorder.warn rect, .k-guard.warn rect { fill: var(--warn-fill); stroke: var(--warn-stroke); stroke-dasharray: 4 2; }
-.k-anyorder.warn text, .k-guard.warn text { fill: var(--warn); }
+.k-anyorder.warn rect, .k-guard.warn rect, .k-repeat.warn rect { fill: var(--warn-fill); stroke: var(--warn-stroke); stroke-dasharray: 4 2; }
+.k-anyorder.warn text, .k-guard.warn text, .k-repeat.warn text { fill: var(--warn); }
 .k-tag, .k-guard { cursor: pointer; }
 .chart-svg .edge-label { fill: var(--chip-misc); font-size: 10.5px; font-weight: 600; paint-order: stroke; stroke: var(--bg); stroke-width: 4px; stroke-linejoin: round; }
 

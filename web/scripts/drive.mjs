@@ -16,7 +16,9 @@ if (!scenarioPath) {
 }
 
 const browser = await chromium.connectOverCDP(process.env.CDP ?? 'http://127.0.0.1:9333');
-const ctx = browser.contexts()[0] ?? (await browser.newContext());
+// A context of its own per run: storage and permissions never leak between runs that share
+// the same Chrome (for example two people, or two agents, testing at once).
+const ctx = await browser.newContext();
 const page = await ctx.newPage();
 const width = Number(process.env.W ?? 1400);
 const height = Number(process.env.H ?? 860);
@@ -84,4 +86,5 @@ try {
 }
 if (errors.length) console.log('ERRORS:\n' + errors.join('\n'));
 await page.close();
+await ctx.close();
 process.exit(0);
