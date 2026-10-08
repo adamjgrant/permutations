@@ -163,4 +163,16 @@ export default async (t) => {
   await page.keyboard.type(' x');
   await t.settle(100);
   check(!(await page.$eval('#toast', (e) => e.classList.contains('show'))), 'a later change hides the Undo toast');
+
+  // A shared link never wins over later edits.
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write'], { origin: t.url });
+  await t.setCode('main = shared version\n');
+  await page.click('#b-share');
+  await t.settle(150);
+  check(page.url().includes('#code='), 'Share puts the code in the link');
+  await t.setCode('main = edited after sharing\n');
+  check(!page.url().includes('#code='), 'editing afterwards drops the shared code from the address bar');
+  await page.reload();
+  await t.settle(500);
+  check((await line1()) === 'main = edited after sharing', 'a reload keeps the latest edit');
 };

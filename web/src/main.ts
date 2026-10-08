@@ -938,6 +938,11 @@ function schedule(): void {
 }
 
 function persist(): void {
+  // A shared link's code is only the starting point: once you edit, drop it from the address
+  // bar, so a reload brings back your latest work instead of the shared version.
+  if (location.hash.startsWith('#code=') && decodeShare(location.hash.slice(6)) !== editor.getText()) {
+    history.replaceState(null, '', location.pathname + location.search);
+  }
   try {
     localStorage.setItem(STORAGE_KEY, editor.getText());
   } catch {
