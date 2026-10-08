@@ -796,6 +796,16 @@ function zoom(factor: number): void {
   rerender();
 }
 on('z-in', () => zoom(1.2));
+// Pinch on a trackpad, or Cmd/Ctrl and the scroll wheel, zooms the chart.
+$('chart').addEventListener(
+  'wheel',
+  (e) => {
+    if (!e.ctrlKey && !e.metaKey) return;
+    e.preventDefault();
+    safe(() => zoom(Math.exp(-e.deltaY * 0.002)))();
+  },
+  { passive: false },
+);
 on('z-out', () => zoom(1 / 1.2));
 on('z-fit', () => {
   chart.fit = true;

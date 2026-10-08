@@ -340,3 +340,26 @@ kbd { font: 11.5px ui-monospace, "SF Mono", Menlo, monospace; padding: 1px 5px; 
 .chart-svg.tracing .ref-end { opacity: 0.25; }
 .chart-svg.tracing .k-text.on-path > rect, .chart-svg.tracing .k-ref.on-path > rect, .chart-svg.tracing .k-range.on-path > rect, .chart-svg.tracing .k-empty.on-path > rect { stroke: var(--accent); stroke-width: 2; }
 .chart-svg.tracing .k-row.on-path > rect { fill: var(--ctx); }
+
+/* Help: chart legend */
+.help .legend li { display: grid; grid-template-columns: 64px 1fr; gap: 10px; align-items: center; padding: 8px 0; }
+.help .legend li span { grid-column: 2; grid-row: 1; color: var(--text-2); font-size: 12.5px; }
+.help .legend li strong { grid-column: auto; color: var(--text); }
+.help .legend svg { grid-column: 1; grid-row: 1; overflow: visible; }
+.lg-text { fill: var(--node-fill); stroke: var(--node-stroke); stroke-width: 1.2; }
+.lg-ref { fill: var(--accent-tint); stroke: var(--accent); stroke-width: 1.2; }
+.lg-empty { fill: var(--node-fill); stroke: var(--node-stroke); stroke-dasharray: 3 2; }
+.lg-range { fill: var(--accent-tint); stroke: var(--accent); stroke-dasharray: 4 2; }
+.lg-rail { fill: none; stroke: var(--edge); stroke-width: 1.4; }
+.lg-tag { fill: var(--chip-tag-bg); stroke: var(--chip-tag); }
+.lg-guard { fill: var(--chip-guard-bg); stroke: var(--chip-guard); }
+.lg-misc { fill: var(--chip-misc-bg); stroke: var(--chip-misc); }
+.lg-fn { fill: var(--chip-fn-bg); stroke: var(--chip-fn); }
+.lg-label { font: 500 11px -apple-system, BlinkMacSystemFont, sans-serif; fill: var(--text); text-anchor: middle; dominant-baseline: central; }
+.lg-chip { font: 500 9.5px -apple-system, BlinkMacSystemFont, sans-serif; text-anchor: middle; dominant-baseline: central; }
+.lg-ref-label { fill: var(--accent); }
+.lg-muted { fill: var(--text-2); font-style: italic; }
+.lg-tag-label { fill: var(--chip-tag); }
+.lg-guard-label { fill: var(--chip-guard); }
+.lg-misc-label { fill: var(--chip-misc); }
+.lg-fn-label { fill: var(--chip-fn); }
