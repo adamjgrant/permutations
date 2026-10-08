@@ -409,3 +409,8 @@ kbd { font: 11.5px ui-monospace, "SF Mono", Menlo, monospace; padding: 1px 5px; 
 .vary-words button { padding: 3px 10px; border-radius: 8px; }
 .vary-words button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
 @media (prefers-color-scheme: dark) { .vary-words button[aria-pressed="true"] { color: #0a0a0c; } }
+
+.editor-hint { position: absolute; right: 12px; bottom: 10px; margin: 0; padding: 6px 10px; border-radius: 8px; font-size: 12.5px; background: var(--text); color: var(--bg); z-index: 4; }
+.editor-hint[hidden] { display: none; }
+.editor-hint kbd { color: var(--text); }
+.help .intro { margin: 0 0 8px; font-size: 13px; line-height: 1.45; }

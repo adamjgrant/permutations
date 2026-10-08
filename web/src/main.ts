@@ -599,11 +599,19 @@ function relayout(keepTrace = false): void {
   });
   chart.render(lastLayout);
   const names = [...new Set(lastLayout.boxes.filter((b) => b.kind === 'guard' && b.warn && b.guard?.kind === 'tag').map((b) => (b.guard as { name: string }).name))];
+  const notes: string[] = [];
+  if (names.length) notes.push(`no alternative sets ${names.map((n) => `"${n}"`).join(', ')}, so ${names.length === 1 ? 'the guard on it has' : 'guards on them have'} nothing to test. Add the tag with @ on an earlier alternative.`);
+  // Two empty alternatives in one choice make leaving it out twice as likely: usually a slip.
+  let doubled = 0;
+  for (const d of [analysis.main, ...analysis.others]) {
+    visit(d.body, (n) => {
+      if (n.kind === 'group' && n.options.filter((o) => o.seq.pieces.every((p) => p.node.kind === 'text' && p.node.value === '')).length > 1) doubled++;
+    });
+  }
+  if (doubled) notes.push(`${doubled === 1 ? 'a choice has' : `${doubled} choices have`} more than one empty alternative, so leaving it out is more likely than any other alternative.`);
   const hints = $('chart-hints');
-  hints.hidden = names.length === 0;
-  hints.textContent = names.length
-    ? `Hint: no alternative sets ${names.map((n) => `"${n}"`).join(', ')}, so ${names.length === 1 ? 'the guard on it has' : 'guards on them have'} nothing to test. Add the tag with @ on an earlier alternative.`
-    : '';
+  hints.hidden = notes.length === 0;
+  hints.textContent = notes.length ? `Hint: ${notes.join(' Also, ')}` : '';
   selectedId = undefined;
   multi.clear();
   barOn = false;
@@ -804,6 +812,10 @@ function runAction(id: ActionId): void {
       return;
     case 'wrap':
     case 'optional':
+      if (id === 'optional' && box.kind === 'frame' && analysis && box.node) {
+        applyEdit(addAlternative(analysis.source, box.node as ChoiceNode, ''), { focus: box });
+        return;
+      }
       if (analysis && (box.node?.kind === 'text' || box.node?.kind === 'ref')) {
         applyEdit(wrapInChoice(analysis.source, box.node as WrapNode, id === 'wrap' ? 'new' : null), id === 'wrap' ? { startEdit: true } : { focus: box });
       }
@@ -1111,8 +1123,21 @@ const editor = createEditor($('editor'), loadInitial(), {
   }),
 });
 
+let lastKeyTab = false;
+document.addEventListener('keydown', (e) => (lastKeyTab = e.key === 'Tab'), true);
+document.addEventListener('pointerdown', () => (lastKeyTab = false), true);
+let tabHintTimer: number | undefined;
 editor.view.contentDOM.addEventListener('focus', () => {
   editorTouched = true;
+  // Reached with the keyboard: say that Tab indents here, and how to move on.
+  if (!lastKeyTab) return;
+  const h = $('editor-hint');
+  h.hidden = false;
+  window.clearTimeout(tabHintTimer);
+  tabHintTimer = window.setTimeout(() => (h.hidden = true), 6000);
+});
+editor.view.contentDOM.addEventListener('blur', () => {
+  $('editor-hint').hidden = true;
 });
 
 function schedule(): void {

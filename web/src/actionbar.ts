@@ -133,6 +133,9 @@ export function barActions(s: BarInput): ActionSpec[] {
     out.push({ id: 'optional', label: 'Make optional', title: 'Allow this to be left out: adds an empty alternative', group: 1 });
     if (s.piece?.deletable && !s.piece.sole) out.push({ id: 'delete-piece', label: 'Delete', title: `Delete “${b.full}” (Delete)`, group: 1, danger: true });
   }
+  if (b.kind === 'frame' && inChoice && !any && b.node?.kind === 'group' && !b.node.options.some((o) => o.seq.pieces.length === 0 || o.seq.pieces.every((p) => p.node.kind === 'text' && p.node.value === ''))) {
+    out.push({ id: 'optional', label: 'Make optional', title: 'Add an empty alternative, so this choice can be left out', group: 1 });
+  }
   if (b.kind === 'frame' && s.piece?.deletable && !s.piece.sole) {
     out.push({ id: 'delete-piece', label: 'Delete choice', title: 'Delete this whole choice (Delete)', group: 1, danger: true });
   }

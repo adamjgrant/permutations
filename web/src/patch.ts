@@ -184,7 +184,7 @@ export function addAlternative(src: string, node: ChoiceNode, text = 'new', afte
   if (form === 'long') {
     const indent = indentOf(src, first.range[0]);
     const at = last.range[1];
-    const line = longLine(text);
+    const line = text === '' ? 'nothing' : longLine(text);
     const insert = '\n' + indent + line;
     return { patches: [{ from: at, to: at, insert }], select: [at + 1 + indent.length, at + insert.length] };
   }
