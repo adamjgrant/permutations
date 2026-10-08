@@ -8,7 +8,8 @@
     "dev": "node build.mjs --serve",
     "test": "node build.mjs --test",
     "typecheck": "tsc --noEmit -p .",
-    "e2e": "node scripts/drive.mjs scripts/scenarios/regress.mjs"
+    "e2e": "node scripts/drive.mjs scripts/scenarios/regress.mjs",
+    "e2e:more": "node scripts/drive.mjs scripts/scenarios/regress2.mjs"
   },
   "devDependencies": {
     "@codemirror/commands": "^6.11.1",
