@@ -98,20 +98,24 @@ export function barActions(s: BarInput): ActionSpec[] {
   }
 
   const inChoice = !!s.frame && s.restructure;
+  const any = s.frame?.frameOf === 'anyorder';
   if (inChoice && s.row) {
     const idx = s.row.index ?? 0;
     const count = s.row.count ?? 1;
-    out.push({ id: 'add', label: '+ Alternative', title: 'Add an alternative after this one (+)', group: 1 });
-    out.push({ id: 'up', label: '↑', title: 'Move this alternative up (Alt+Up)', group: 1, disabled: !s.caps.move || idx <= 0 });
-    out.push({ id: 'down', label: '↓', title: 'Move this alternative down (Alt+Down)', group: 1, disabled: !s.caps.move || idx >= count - 1 });
+    out.push({ id: 'add', label: any ? '+ Item' : '+ Alternative', title: any ? 'Add an item after this one (+)' : 'Add an alternative after this one (+)', group: 1 });
+    // Any-order items are used in every order, so moving one changes nothing: no arrows.
+    if (!any) {
+      out.push({ id: 'up', label: '↑', title: 'Move this alternative up (Alt+Up)', group: 1, disabled: !s.caps.move || idx <= 0 });
+      out.push({ id: 'down', label: '↓', title: 'Move this alternative down (Alt+Down)', group: 1, disabled: !s.caps.move || idx >= count - 1 });
+    }
     if (b.kind !== 'tag' && b.kind !== 'guard') {
       const own = b.kind === 'text' || b.kind === 'ref' || b.kind === 'value';
       if (own && s.piece && !s.piece.sole && s.piece.deletable) {
         // The alternative holds more than this piece: say which one Delete removes.
         out.push({ id: 'delete-piece', label: 'Delete', title: `Delete “${b.full}” only (Delete)`, group: 1, danger: true });
-        out.push({ id: 'delete', label: 'Delete alternative', title: count < 2 ? 'The only alternative cannot be deleted' : 'Delete the whole alternative, everything in it', group: 1, danger: true, disabled: count < 2 });
+        out.push({ id: 'delete', label: any ? 'Delete item' : 'Delete alternative', title: count < 2 ? `The only ${any ? 'item' : 'alternative'} cannot be deleted` : `Delete the whole ${any ? 'item' : 'alternative'}, everything in it`, group: 1, danger: true, disabled: count < 2 });
       } else {
-        out.push({ id: 'delete', label: 'Delete', title: count < 2 ? 'The only alternative cannot be deleted' : 'Delete this alternative (Delete)', group: 1, danger: true, disabled: count < 2 });
+        out.push({ id: 'delete', label: 'Delete', title: count < 2 ? `The only ${any ? 'item' : 'alternative'} cannot be deleted` : `Delete this ${any ? 'item' : 'alternative'} (Delete)`, group: 1, danger: true, disabled: count < 2 });
       }
     }
     if (s.frame?.frameOf === 'group') {
@@ -119,7 +123,7 @@ export function barActions(s: BarInput): ActionSpec[] {
       if (s.caps.guard) out.push({ id: 'guard', label: '+ Guard', title: 'Only allow this alternative when a tag is set (g)', group: 2 });
     }
   } else if (inChoice && b.kind === 'frame') {
-    out.push({ id: 'add', label: '+ Alternative', title: 'Add an alternative at the end (+)', group: 1 });
+    out.push({ id: 'add', label: any ? '+ Item' : '+ Alternative', title: any ? 'Add an item at the end (+)' : 'Add an alternative at the end (+)', group: 1 });
   } else if (b.kind === 'text' || b.kind === 'ref') {
     // Not in a choice yet: offer to make one.
     out.push({ id: 'wrap', label: '+ Alternative', title: 'Turn this into a choice with another alternative (+)', group: 1 });

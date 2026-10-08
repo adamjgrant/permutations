@@ -85,7 +85,8 @@ export interface Pt {
   y: number;
 }
 
-export type EdgeKind = 'flow' | 'rail' | 'ref' | 'divider';
+/** `joiner` is a label between two any-order items: & or the delimiter that joins them. */
+export type EdgeKind = 'flow' | 'rail' | 'ref' | 'divider' | 'joiner';
 
 export interface Edge {
   id: string;
@@ -474,23 +475,17 @@ export function layout(input: LayoutInput): Layout {
           const rx = x + M.framePad;
           boxes.push({ id: nid('r'), kind: 'row', x: rx, y: ry, w: r.w, h: r.h, label: '', full: '', range: r.range, node, index: i, frameId: id, count: rows.length });
           const p = r.content.place(rx + M.rowPadX, ry + M.rowPadY);
+          if (isAny) {
+            // Not a choice: every item is used, in some order. No rails, only what joins them.
+            if (i > 0) edges.push({ id: nid('e'), kind: 'joiner', from: id, to: id, points: [{ x: rx + 14, y: ry - M.rowGap / 2 }], label: d !== undefined ? edgeText(d) : '&' });
+            return;
+          }
           const sy = ry + r.cy;
           edges.push({ id: nid('e'), kind: 'flow', from: id, to: p.first, points: [{ x, y: sy }, { x: rx + M.rowPadX, y: sy }] });
           edges.push({ id: nid('e'), kind: 'flow', from: p.last, to: id, points: [{ x: rx + M.rowPadX + r.content.w, y: sy }, { x: x + w, y: sy }] });
         });
-        if (rows.length > 1) {
-          if (isAny && d !== undefined) {
-            // The delimiter joins the items: label each stretch of the left rail between two rows.
-            rows.forEach((r, i) => {
-              if (i === 0) return;
-              const prev = rows[i - 1] as (typeof rows)[number];
-              const y0 = y + (offsets[i - 1] as number) + prev.cy;
-              const y1 = y + (offsets[i] as number) + r.cy;
-              edges.push({ id: nid('e'), kind: 'rail', from: id, to: id, points: [{ x, y: y0 }, { x, y: y1 }], label: edgeText(d) });
-            });
-          } else {
-            edges.push({ id: nid('e'), kind: 'rail', from: id, to: id, points: [{ x, y: y + firstCy }, { x, y: y + lastCy }] });
-          }
+        if (rows.length > 1 && !isAny) {
+          edges.push({ id: nid('e'), kind: 'rail', from: id, to: id, points: [{ x, y: y + firstCy }, { x, y: y + lastCy }] });
           edges.push({ id: nid('e'), kind: 'rail', from: id, to: id, points: [{ x: x + w, y: y + firstCy }, { x: x + w, y: y + lastCy }] });
         }
         return { first: id, last: id };

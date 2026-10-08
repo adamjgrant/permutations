@@ -709,7 +709,10 @@ function selectionLabel(b: Box): string {
                     : b.kind === 'transform'
                       ? `Transform ${b.label}`
                       : `“${short(b.full)}”`;
-  return ctx.row && b.kind !== 'row' ? `${what} · alternative ${(ctx.row.index ?? 0) + 1} of ${ctx.row.count ?? 1}` : ctx.row ? `${what} ${(ctx.row.index ?? 0) + 1} of ${ctx.row.count ?? 1}` : what;
+  const unit = ctx.frame?.frameOf === 'anyorder' ? 'item' : 'alternative';
+  const of = ctx.row ? `${(ctx.row.index ?? 0) + 1} of ${ctx.row.count ?? 1}` : '';
+  if (b.kind === 'row') return `${unit === 'item' ? 'Item' : 'Alternative'} ${of}`;
+  return ctx.row ? `${what} · ${unit} ${of}` : what;
 }
 
 function updateBar(): void {

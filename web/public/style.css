@@ -393,3 +393,9 @@ kbd { font: 11.5px ui-monospace, "SF Mono", Menlo, monospace; padding: 1px 5px; 
 
 .chart-svg .unused-badge rect { fill: var(--surface-2); stroke: var(--border); }
 .chart-svg .unused-badge text { fill: var(--text-2); font-size: 11px; font-weight: 500; }
+
+/* any order: not a choice, so no rails; a dashed frame and what joins the items */
+.chart-svg .k-frame.f-anyorder > rect { stroke: var(--chip-misc); stroke-width: 1.1; stroke-dasharray: 5 4; }
+.chart-svg .joiner { fill: var(--chip-misc); font-size: 12px; font-weight: 600; paint-order: stroke; stroke: var(--frame-fill); }
+.lg-any { fill: var(--frame-fill); stroke: var(--chip-misc); stroke-dasharray: 4 3; }
+.lg-amp { font: 600 10px -apple-system, BlinkMacSystemFont, sans-serif; fill: var(--chip-misc); dominant-baseline: central; }

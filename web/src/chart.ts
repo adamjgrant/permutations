@@ -246,6 +246,13 @@ export class ChartView {
       el('circle', { cx: end.x, cy: end.y, r: 3, class: 'ref-end' }, parent);
       return;
     }
+    if (e.kind === 'joiner') {
+      // Between two any-order items: what joins them (& when nothing but a space).
+      const t = el('text', { x: first.x, y: first.y, class: 'joiner', 'text-anchor': 'start', 'dominant-baseline': 'central' }, parent);
+      t.textContent = e.label ?? '&';
+      el('title', {}, t).textContent = 'Every item is used, in every order, joined like this';
+      return;
+    }
     const d = 'M' + p.map((q) => `${q.x},${q.y}`).join(' L');
     el('path', { d, class: 'edge ' + e.kind, fill: 'none' }, parent);
     if (e.label !== undefined) {
@@ -258,7 +265,7 @@ export class ChartView {
   }
 
   private drawBox(b: Box, parent: Element): void {
-    const g = el('g', { class: `box k-${b.kind}${b.warn ? ' warn' : ''}`, 'data-id': b.id }, parent);
+    const g = el('g', { class: `box k-${b.kind}${b.warn ? ' warn' : ''}${b.frameOf ? ' f-' + b.frameOf : ''}`, 'data-id': b.id }, parent);
     this.elements.set(b.id, g);
     if (focusable(b)) {
       g.setAttribute('tabindex', '-1');
