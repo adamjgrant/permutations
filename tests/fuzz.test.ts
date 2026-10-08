@@ -212,6 +212,12 @@ describe('engine versus an independent enumerator', () => {
       const got = Array.from({ length: Number(count) }, (_v, k) => prog.at(BigInt(k)));
       expect(got.map(key).sort()).toEqual(expected.map(key).sort());
       expect([...prog.all()].map(key).sort()).toEqual(expected.map(key).sort());
+      // Tracing walks the same path: same text and tags, and every pick names a real option.
+      for (let k = 0n; k < count && k < 40n; k++) {
+        const tr = prog.trace(k);
+        expect(key(tr)).toBe(key(prog.at(k)));
+        for (const pk of tr.picks) expect(pk.option >= 0 && pk.option < pk.group.options.length).toBe(true);
+      }
       if (src.includes('@')) withTags++;
       checked++;
     }
