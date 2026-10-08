@@ -209,4 +209,13 @@ export default async (t) => {
   await t.settle(100);
   check((await page.$$('.chart-svg.tracing')).length === 1, 'zooming keeps the traced example lit');
   await page.click('#z-fit');
+
+  // Vary some words of a text box.
+  await t.setCode('main = Hello dear world\n');
+  await page.locator('.k-text').first().click();
+  await act('vary').click();
+  await page.locator('.vary-words button', { hasText: 'dear' }).click();
+  await page.locator('.popover button', { hasText: 'Make optional' }).click();
+  await t.settle();
+  check((await line1()) === 'main = Hello [dear|] world', 'Vary words makes one word of a text optional');
 };

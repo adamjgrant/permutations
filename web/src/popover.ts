@@ -23,6 +23,8 @@ export interface PopoverOptions {
   message?: string;
   /** Values offered as completions for the field. */
   suggestions?: string[];
+  /** Custom content shown instead of a field (it must handle its own focus order). */
+  content?: HTMLElement;
 }
 
 let current: { close(): void } | undefined;
@@ -44,7 +46,9 @@ export function openPopover(o: PopoverOptions): { close(): void } {
   root.appendChild(h);
 
   let input: HTMLInputElement | undefined;
-  if (o.message !== undefined) {
+  if (o.content) {
+    root.appendChild(o.content);
+  } else if (o.message !== undefined) {
     const p = document.createElement('p');
     p.className = 'pop-message';
     p.textContent = o.message;
@@ -130,7 +134,7 @@ export function openPopover(o: PopoverOptions): { close(): void } {
       const first = o.actions[0];
       if (first) run(first);
     } else if (e.key === 'Tab') {
-      const items = [...root.querySelectorAll<HTMLElement>('input, button')];
+      const items = [...root.querySelectorAll<HTMLElement>('input, button:not(:disabled)')];
       const first = items[0];
       const last = items[items.length - 1];
       if (e.shiftKey && document.activeElement === first) {
@@ -164,6 +168,6 @@ export function openPopover(o: PopoverOptions): { close(): void } {
   if (input) {
     input.focus();
     input.select();
-  } else buttons[0]?.focus();
+  } else (o.content?.querySelector<HTMLElement>('button') ?? buttons[0])?.focus();
   return handle;
 }

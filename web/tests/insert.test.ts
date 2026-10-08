@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { analyze } from '../src/model';
-import { insertReference, pieceRange, wrapInChoice } from '../src/insert';
+import { insertReference, pieceRange, varyWords, wordsOf, wrapInChoice } from '../src/insert';
 import { meaning, refs, run, texts } from './helpers';
 
 const text = (src: string, s: string) => texts(src).find((t) => t.value === s)!;
@@ -60,4 +60,30 @@ test('inserting after a transformed reference goes after the transform', () => {
   const r = pieceRange(bodies(src), refs(src)[0]!)!;
   assert.equal(src.slice(r[0], r[1]), '$x:upper');
   assert.equal(run(src, insertReference(src, r, 'y')), 'main = $x:upper $y now\nx = a\ny = b');
+});
+
+test('vary words: some words of a text become a choice or optional, the rest stays', () => {
+  const src = 'main = Hello dear world';
+  const t0 = text(src, 'Hello dear world');
+  assert.deepEqual(wordsOf(t0.value), ['Hello', 'dear', 'world']);
+  const opt = run(src, varyWords(src, t0, 1, 1, null));
+  assert.equal(opt, 'main = Hello [dear|] world');
+  assert.match(meaning(opt), /"Hello world"/);
+  assert.match(meaning(opt), /"Hello dear world"/);
+  const r = varyWords(src, t0, 0, 1, 'Hi');
+  const choice = run(src, r);
+  assert.equal(choice, 'main = [Hello dear|Hi] world');
+  assert.equal(choice.slice(r!.select![0], r!.select![1]), 'Hi');
+  assert.equal(run(src, varyWords(src, t0, 2, 2, 'friend')), 'main = Hello dear [world|friend]');
+});
+
+test('vary words keeps specials escaped and works on a long-form line', () => {
+  const src = 'main = Save 50% \\[now\\] today';
+  const t0 = texts(src)[0]!;
+  assert.equal(wordsOf(t0.value).length, 4);
+  const out = run(src, varyWords(src, t0, 3, 3, null));
+  assert.match(meaning(out), /Save 50% \[now\] today/);
+  const long = 'branch main\n  Hello dear world\n';
+  const lt = text(long, 'Hello dear world');
+  assert.equal(run(long, varyWords(long, lt, 1, 1, null)), 'branch main\n  Hello [dear|] world\n');
 });

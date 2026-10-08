@@ -14,7 +14,7 @@ import {
 import { closePopover, openPopover } from './popover';
 import { HELP_ITEMS, insertionFor, SHORTCUTS } from './help';
 import { ActionBar, ActionId, barActions } from './actionbar';
-import { insertReference, pieceRange, WrapNode, wrapInChoice } from './insert';
+import { insertReference, pieceRange, varyWords, wordsOf, WrapNode, wrapInChoice } from './insert';
 import { pathBoxes } from './trace';
 import { deletePiece, isSolePiece, locatePiece } from './remove';
 import { setDelimiter } from './delim';
@@ -811,6 +811,9 @@ function runAction(id: ActionId): void {
     case 'insert-ref':
       insertRefDialog(box);
       return;
+    case 'vary':
+      varyDialog(box);
+      return;
     case 'delimiter': {
       const f = delimFrameFor(box);
       if (f) delimiterDialog(f, box);
@@ -906,6 +909,66 @@ function deleteUnused(name: string): void {
 function branchNames(): string[] {
   if (!analysis) return [];
   return [analysis.main.name === '<main>' ? 'main' : analysis.main.name, ...analysis.others.map((o) => o.name)];
+}
+
+/** Pick some words of a text box and make them a choice, or optional. */
+function varyDialog(box: Box): void {
+  if (!analysis || box.node?.kind !== 'text') return;
+  const node = box.node as TextNode;
+  const src = analysis.source;
+  const words = wordsOf(node.value);
+  let first = -1;
+  let last = -1;
+  const content = document.createElement('div');
+  content.className = 'vary';
+  const hint = document.createElement('p');
+  hint.className = 'pop-hint';
+  hint.textContent = 'Pick the words that should vary. Shift-click another word to take a run of words.';
+  const row = document.createElement('div');
+  row.className = 'vary-words';
+  row.setAttribute('role', 'group');
+  row.setAttribute('aria-label', 'Words');
+  const btns = words.map((w, i) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = w;
+    b.setAttribute('aria-pressed', 'false');
+    b.addEventListener('click', (e) => {
+      if (e.shiftKey && first !== -1) {
+        first = Math.min(first, i);
+        last = Math.max(last, i);
+      } else if (first === i && last === i) {
+        first = last = -1;
+      } else first = last = i;
+      btns.forEach((x, j) => x.setAttribute('aria-pressed', String(first !== -1 && j >= first && j <= last)));
+      for (const a of actionsEl()) a.disabled = first === -1;
+    });
+    row.appendChild(b);
+    return b;
+  });
+  content.append(hint, row);
+  const actionsEl = (): HTMLButtonElement[] => [...document.querySelectorAll<HTMLButtonElement>('.popover .pop-actions button')].filter((b) => b.dataset['needs'] === 'words');
+  const run = (alt: string | null): string | undefined => {
+    if (first === -1) return 'Pick a word first.';
+    return applyEdit(varyWords(src, node, first, last, alt), alt === null ? { focus: box } : { startEdit: true });
+  };
+  openPopover({
+    title: 'Vary words',
+    content,
+    anchor: anchorOf(box),
+    returnFocus: document.activeElement as HTMLElement | null,
+    actions: [
+      { label: 'Make a choice', kind: 'primary', run: () => run('new') },
+      { label: 'Make optional', run: () => run(null) },
+      { label: 'Cancel', run: () => undefined },
+    ],
+  });
+  document.querySelectorAll<HTMLButtonElement>('.popover .pop-actions button').forEach((b, i) => {
+    if (i < 2) {
+      b.dataset['needs'] = 'words';
+      b.disabled = true;
+    }
+  });
 }
 
 /** Branches a reference from inside `into` can point at without making a loop. */

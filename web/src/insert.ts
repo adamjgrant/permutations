@@ -3,7 +3,7 @@
 // set of text patches against the source; the source is never regenerated.
 
 import { visit } from '../../src/index';
-import type { Node, SeqNode } from '../../src/core/types';
+import type { Node, SeqNode, TextNode } from '../../src/core/types';
 import { EditResult, formAt, longLine } from './patch';
 import { escapeText, indentOf, indentUnit, isAtLineEnd, isAtLineStart, Range, trimRange } from './ranges';
 
@@ -73,4 +73,30 @@ export function insertReference(src: string, after: Range, name: string): EditRe
   }
   const insert = ` $${name}`;
   return { patches: [{ from: r[1], to: r[1], insert }], select: [r[1] + 1, r[1] + insert.length] };
+}
+
+/** The words of a text, as the Vary words dialog shows them. */
+export function wordsOf(text: string): string[] {
+  return text.split(/\s+/).filter((w) => w !== '');
+}
+
+/**
+ * Make some words of a text run vary: words first..last become `[those words|alt]`, or
+ * `[those words|]` when `alt` is null (optional), and the words around them stay as they were.
+ * `select` is the new alternative, for editing it straight away.
+ */
+export function varyWords(src: string, node: TextNode, first: number, last: number, alt: string | null): EditResult | undefined {
+  const parts = node.value.trim().split(/(\s+)/);
+  const words = parts.filter((_, i) => i % 2 === 0);
+  if (first < 0 || last >= words.length || first > last) return undefined;
+  const before = parts.slice(0, first * 2).join('').trimEnd();
+  const chosen = parts.slice(first * 2, last * 2 + 1).join('');
+  const after = parts.slice(last * 2 + 2).join('').trimStart();
+  const [from, to] = node.range;
+  const second = alt === null ? '' : escapeText(alt, false);
+  const group = `[${escapeText(chosen, false)}|${second}]`;
+  const head = before ? escapeText(before, isAtLineStart(src, from)) + ' ' : '';
+  const insert = head + group + (after ? ' ' + escapeText(after, false) : '');
+  const at = from + head.length + 1 + escapeText(chosen, false).length + 1;
+  return { patches: [{ from, to, insert }], select: [at, at + second.length] };
 }

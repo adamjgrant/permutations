@@ -404,3 +404,8 @@ kbd { font: 11.5px ui-monospace, "SF Mono", Menlo, monospace; padding: 1px 5px; 
 .chart-svg .usedby-chip text { fill: var(--accent-strong); font-size: 11px; font-weight: 500; }
 .chart-svg.many-refs .edge.ref:not(.active):not(.on-path), .chart-svg.many-refs .ref-end:not(.active):not(.on-path) { display: none; }
 .lg-usedby { fill: var(--accent-tint); }
+
+.vary-words { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.vary-words button { padding: 3px 10px; border-radius: 8px; }
+.vary-words button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+@media (prefers-color-scheme: dark) { .vary-words button[aria-pressed="true"] { color: #0a0a0c; } }

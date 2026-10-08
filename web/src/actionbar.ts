@@ -27,7 +27,8 @@ export type ActionId =
   | 'insert-ref'
   | 'inline'
   | 'delimiter'
-  | 'delete-piece';
+  | 'delete-piece'
+  | 'vary';
 
 export interface ActionSpec {
   id: ActionId;
@@ -87,6 +88,8 @@ export function barActions(s: BarInput): ActionSpec[] {
   if (TEXTUAL.has(b.kind)) {
     const label = b.kind === 'empty' ? 'Fill in' : b.kind === 'range' ? 'Edit range' : 'Edit';
     out.push({ id: 'edit', label, title: `${label} (Enter, or double-click)`, group: 0 });
+    // Several words in one box: let some of them vary without retyping the rest.
+    if (b.kind === 'text' && /\S\s+\S/.test(b.full)) out.push({ id: 'vary', label: 'Vary words…', title: 'Make some of these words a choice, or optional', group: 0 });
   } else if (b.kind === 'ref') {
     const name = b.target ?? b.full.replace(/^\$/, '');
     out.push({ id: 'goto', label: `Go to ${name}`, title: `Show the ${name} branch (Enter, or double-click)`, group: 0 });
