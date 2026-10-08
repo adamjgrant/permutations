@@ -1700,9 +1700,15 @@ function buildHelp(): void {
 buildHelp();
 
 function setHelp(open: boolean): void {
-  $('help').hidden = !open;
-  // Make room: the code wraps to the left of the open drawer instead of hiding under it.
-  document.querySelector('.editor-wrap')?.classList.toggle('help-open', open);
+  const help = $('help');
+  // Wide windows: the drawer sits beside the code, which wraps to its left. Narrower ones have
+  // no room for both, so the drawer covers the examples pane and leaves the code whole.
+  const narrow = window.innerWidth < 1200;
+  const home = narrow ? document.querySelector('.ex-pane') : document.querySelector('.editor-wrap');
+  if (open && home && help.parentElement !== home) home.appendChild(help);
+  help.classList.toggle('over-examples', narrow);
+  help.hidden = !open;
+  document.querySelector('.editor-wrap')?.classList.toggle('help-open', open && !narrow);
   $('b-help').setAttribute('aria-expanded', String(open));
   if (open) $('help-close').focus();
   else $('b-help').focus();

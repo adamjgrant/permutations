@@ -420,3 +420,6 @@ kbd { font: 11.5px ui-monospace, "SF Mono", Menlo, monospace; padding: 1px 5px; 
 .popover:has(.vary) { width: 400px; }
 .popover:has(.vary) .pop-actions { flex-wrap: nowrap; }
 .trace-note { margin: 0; padding: 6px 16px; border-bottom: 1px solid var(--border); background: var(--accent-tint); }
+
+.ex-pane { position: relative; }
+.help.over-examples { width: 100%; border-left: 0; border-top: 1px solid var(--border); box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.12); }
