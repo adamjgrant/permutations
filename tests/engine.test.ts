@@ -485,6 +485,38 @@ describe('steady sampling', () => {
     expect(kept / total).toBeGreaterThan(0.9);
   });
 
+  test('a new alternative changes only the rows it wins, wherever it is added', () => {
+    const before = compile('Dear [Sam|Alex|Jordan], thanks for [writing|getting in touch].');
+    for (const after of [
+      compile('Dear [Sam|Alex|Jordan|Robin], thanks for [writing|getting in touch].'),
+      compile('Dear [Robin|Sam|Alex|Jordan], thanks for [writing|getting in touch].'),
+    ]) {
+      let same = 0;
+      let rows = 0;
+      for (let seed = 0; seed < 60; seed++) {
+        const a = before.sampleSteady(5, seed).map((o) => o.text);
+        const b = after.sampleSteady(5, seed).map((o) => o.text);
+        for (let i = 0; i < 5; i++) {
+          if (b[i]?.includes('Robin') || a.some((t, j) => j < i && t === b[i])) continue;
+          rows++;
+          if (a[i] === b[i]) same++;
+        }
+      }
+      expect(same / rows).toBeGreaterThan(0.95);
+    }
+  });
+
+  test('a new any-order item keeps the order of the others', () => {
+    const before = compile('[a & b & c & d]');
+    const after = compile('[a & b & c & d & e]');
+    // The first row never redraws for a duplicate, so it shows the ordering itself.
+    for (let seed = 0; seed < 60; seed++) {
+      const a = before.sampleSteady(3, seed)[0]!.text;
+      const b = after.sampleSteady(3, seed)[0]!.text.replace(/ ?e ?/, ' ').trim().replace(/ +/g, ' ');
+      expect(b).toBe(a);
+    }
+  });
+
   test('tags and guards stay consistent', () => {
     const p = compile('Excuse me, [what @q|that] is really neat [@q: ?|@else: .]');
     const texts = new Set<string>();

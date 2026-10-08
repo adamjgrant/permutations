@@ -104,24 +104,64 @@ function allPermutations(n: number): number[][] {
   return out;
 }
 
-/** floor(u * n) for a number u in [0, 1) and a count n of any size. */
-function scaled(u: number, n: bigint): bigint {
-  const r = (BigInt(Math.floor(u * 2 ** 52)) * n) >> 52n;
-  return r < n ? r : n - 1n;
+/**
+ * Weighted rendezvous: each candidate draws a number keyed by its id, and the one whose draw is
+ * highest once scaled by its weight wins (ln(u) / w, the exponential race). A candidate wins
+ * with probability w / total, and adding or removing a candidate only changes the picks it wins
+ * or loses.
+ */
+function pickRendezvous(cands: { id: string; w: bigint }[], draw: (id: string) => number): number {
+  let best = -1;
+  let bestScore = -Infinity;
+  for (let i = 0; i < cands.length; i++) {
+    const c = cands[i] as { id: string; w: bigint };
+    if (c.w <= 0n) continue;
+    const score = Math.log(Math.max(draw(c.id), 1e-300)) / Number(c.w);
+    if (score > bestScore) {
+      bestScore = score;
+      best = i;
+    }
+  }
+  return best;
 }
 
-/** The index of the item a draw u in [0, 1) lands on, each item weighted by `w`. */
-function pickWeighted(items: { w: bigint }[], u: number): number {
-  let total = 0n;
-  for (const it of items) total += it.w;
-  if (total === 0n) return -1;
-  let k = scaled(u, total);
-  for (let i = 0; i < items.length; i++) {
-    const w = (items[i] as { w: bigint }).w;
-    if (k < w) return i;
-    k -= w;
+/**
+ * What an alternative or any-order item says at its own level: its words and references, not
+ * the choices inside it. Steady picks key on it, so editing a choice nested inside an
+ * alternative, or adding alternatives around it, does not change which one it is.
+ */
+function labelOf(node: Node): string {
+  switch (node.kind) {
+    case 'text':
+      return node.value;
+    case 'ref':
+      return '$' + node.path;
+    case 'seq':
+      return node.pieces.map((p) => labelOf(p.node)).filter((x) => x !== '').join(' ');
+    default:
+      return '';
   }
-  return items.length - 1;
+}
+
+function optionLabel(o: GroupNode['options'][number]): string {
+  const g = o.guard;
+  const guard = !g ? '' : g.kind === 'else' ? 'else' : `${g.negate ? '!' : ''}${g.name}=${g.value ?? ''}`;
+  return `${guard}:${labelOf(o.seq)}:${o.tags.map((t) => `${t.name}=${t.value ?? ''}`).join(',')}`;
+}
+
+/** Keys for the pieces of a sequence: references by name, other pieces by kind and their place among that kind. */
+function pieceKeys(pieces: SeqNode['pieces']): string[] {
+  return contentKeys(pieces.map((p) => (p.node.kind === 'ref' ? 'r' + p.node.path : p.node.kind)));
+}
+
+/** Keys for a list of content names: equal ones are told apart by their place among equals. */
+function contentKeys(names: string[]): string[] {
+  const seen = new Map<string, number>();
+  return names.map((n) => {
+    const k = seen.get(n) ?? 0;
+    seen.set(n, k + 1);
+    return k === 0 ? n : `${n}~${k}`;
+  });
 }
 
 /** A number in [0, 1) from a string: the same string always gives the same number. */
@@ -390,11 +430,13 @@ export class Evaluator {
   }
 
   /**
-   * Like `walk`, but each decision draws its own number from `draw(key)`, where the key names
-   * the decision's place in the program (the definition, the path of child indexes, and how
-   * many times that definition was entered). An edit in one place then leaves the decisions
-   * everywhere else alone, which keeps examples steady while you edit. Every decision is
-   * weighted by how many complete paths follow it, so the results stay uniform.
+   * Like `walk`, but each decision draws its own numbers from `draw(key)`, where the key names
+   * the decision by what the program says there rather than by position: the definition, the
+   * content of the pieces and alternatives on the way, and how many times that definition was
+   * entered. Each choice then picks by weighted rendezvous: every candidate draws a number keyed
+   * by its own content, and the highest, scaled by how many complete paths follow it, wins. So an
+   * edit in one place leaves the picks everywhere else alone, adding an alternative changes only
+   * the picks it wins, and the results stay uniform over complete paths.
    */
   walkKeyed(node: Node, sIn: string, sOut: string, delim: string, key: string, draw: (key: string) => number, visits: Map<string, number>, tr?: Trace): string {
     if (tr && node.kind !== 'seq' && node.kind !== 'group') tr.nodes.push(node);
@@ -413,59 +455,67 @@ export class Evaluator {
       case 'seq': {
         const outs: string[] = [];
         const scope = node.scopeDelim ?? delim;
+        const keys = pieceKeys(node.pieces);
         let s = sIn;
         for (let i = 0; i < node.pieces.length; i++) {
           const piece = node.pieces[i] as SeqNode['pieces'][number];
-          const cands: { s: string; w: bigint }[] = [];
+          const at = `${key}/${keys[i]}`;
+          const cands: { id: string; s: string; w: bigint }[] = [];
           for (const [sMid, c1] of this.table(piece.node, s)) {
             const r = this.seqFrom(node, i + 1, sMid).get(sOut) ?? 0n;
-            if (r > 0n) cands.push({ s: sMid, w: c1 * r });
+            if (r > 0n) cands.push({ id: sMid, s: sMid, w: c1 * r });
           }
-          const pick = cands.length === 1 ? cands[0] : cands[pickWeighted(cands, draw(`${key}/s${i}`))];
+          const pick = cands.length === 1 ? cands[0] : cands[pickRendezvous(cands, (id) => draw(`${at}/s/${id}`))];
           if (!pick) throw new PermError('Internal error: no way through a sequence');
-          outs[i] = this.walkKeyed(piece.node, s, pick.s, scope, `${key}/${i}`, draw, visits, tr);
+          outs[i] = this.walkKeyed(piece.node, s, pick.s, scope, at, draw, visits, tr);
           s = pick.s;
         }
         return joinOutputs(outs, node.pieces.map((p) => p.join), node.joinDelim ?? delim, node.lastDelim);
       }
       case 'group': {
         const d = node.delimiter ?? delim;
-        const cands: { o: (typeof node.options)[number]; s: string; w: bigint }[] = [];
+        const keys = contentKeys(node.options.map(optionLabel));
+        const cands: { o: (typeof node.options)[number]; k: string; id: string; s: string; w: bigint }[] = [];
         for (const o of this.eligible(node, sIn)) {
-          for (const [sMid, c] of this.seqFrom(o.seq, 0, sIn)) if (applyTags(sMid, o.tags) === sOut) cands.push({ o, s: sMid, w: c });
+          const k = keys[node.options.indexOf(o)] as string;
+          for (const [sMid, c] of this.seqFrom(o.seq, 0, sIn)) if (applyTags(sMid, o.tags) === sOut) cands.push({ o, k, id: `${k}|${sMid}`, s: sMid, w: c });
         }
-        const pick = cands[pickWeighted(cands, draw(`${key}/g`))];
+        const pick = cands[pickRendezvous(cands, (id) => draw(`${key}/g/${id}`))];
         if (!pick) throw new PermError('Internal error: no way through a choice');
         const index = node.options.indexOf(pick.o);
         tr?.picks.push({ group: node, option: index });
-        return this.walkKeyed(pick.o.seq, sIn, pick.s, d, `${key}/${index}`, draw, visits, tr);
+        return this.walkKeyed(pick.o.seq, sIn, pick.s, d, `${key}/${pick.k}`, draw, visits, tr);
       }
       case 'anyorder': {
         const d = node.delimiter ?? delim;
+        const keys = contentKeys(node.items.map(labelOf));
         if (!this.hasTags) {
-          const n = node.items.length;
-          const perms = factorial(n);
-          const perm = unrankPermutation(n, scaled(draw(`${key}/perm`), perms));
-          // Each item keeps the key of its place in the source, so its own picks stay put.
-          const outs = perm.map((i) => this.walkKeyed(node.items[i] as SeqNode, sIn, sOut, delim, `${key}/${i}`, draw, visits, tr));
+          // Each item draws a number keyed by its content and the items go in that order: a
+          // uniform ordering, and a new item slots in without reshuffling the others.
+          const order = node.items.map((_, i) => ({ i, u: draw(`${key}/p/${keys[i]}`) })).sort((a, b) => a.u - b.u);
+          const outs = order.map(({ i }) => this.walkKeyed(node.items[i] as SeqNode, sIn, sOut, delim, `${key}/${keys[i]}`, draw, visits, tr));
           return joinOutputs(outs, outs.map(() => true), d, node.last);
         }
         const seqs = this.orderings(node);
-        const cands = seqs.map((seq, i) => ({ i, w: this.table(seq, sIn).get(sOut) ?? 0n })).filter((c) => c.w > 0n);
-        const pick = cands[pickWeighted(cands, draw(`${key}/o`))];
+        const cands = seqs
+          .map((seq, i) => ({ i, id: seq.pieces.map((p) => keys[node.items.indexOf(p.node as SeqNode)]).join(','), w: this.table(seq, sIn).get(sOut) ?? 0n }))
+          .filter((c) => c.w > 0n);
+        const pick = cands[pickRendezvous(cands, (id) => draw(`${key}/o/${id}`))];
         if (!pick) throw new PermError('Internal error: no ordering fits');
-        return this.walkKeyed(seqs[pick.i] as SeqNode, sIn, sOut, delim, `${key}/o${pick.i}`, draw, visits, tr);
+        return this.walkKeyed(seqs[pick.i] as SeqNode, sIn, sOut, delim, `${key}/o`, draw, visits, tr);
       }
       case 'repeat': {
-        const cands = node.expanded.map((seq, i) => ({ i, w: this.table(seq, sIn).get(sOut) ?? 0n })).filter((c) => c.w > 0n);
-        const pick = cands[pickWeighted(cands, draw(`${key}/r`))];
+        const cands = node.expanded.map((seq, i) => ({ i, id: String(node.min + i), w: this.table(seq, sIn).get(sOut) ?? 0n })).filter((c) => c.w > 0n);
+        const pick = cands[pickRendezvous(cands, (id) => draw(`${key}/r/${id}`))];
         if (!pick) throw new PermError('Internal error: no repeat count fits');
-        // The copies of a repeat are pieces of the expanded sequence: each gets its own key.
+        // The copies are pieces of the expanded sequence, keyed by their place among equal pieces,
+        // so the first copies keep their picks when the count changes.
         return this.walkKeyed(node.expanded[pick.i] as SeqNode, sIn, sOut, delim, `${key}/r`, draw, visits, tr);
       }
       case 'transform': {
         const text = this.walkKeyed(node.inner, sIn, sOut, delim, `${key}/i`, draw, visits, tr);
-        const name = node.fns[Math.min(node.fns.length - 1, Math.floor(draw(`${key}/t`) * node.fns.length))] as string;
+        const fnCands = node.fns.map((name) => ({ id: name, w: 1n }));
+        const name = node.fns[Math.max(0, pickRendezvous(fnCands, (id) => draw(`${key}/t/${id}`)))] as string;
         const fn = this.fns[name];
         if (!fn) throw new PermError(`Unknown transform '${name}'`);
         return fn(text);
@@ -666,15 +716,20 @@ export class Program {
       }
       return out;
     }
-    const entries = [...this.ev.table(this.entry.body, '')].map(([s, w]) => ({ s, w }));
-    for (let i = 0; out.length < n && i < n * 40; i++) {
-      const draw = (key: string): number => hashUnit(`${seed}|${i}|${key}`);
-      const end = entries[pickWeighted(entries, draw('end'))] as { s: string };
-      const tr: Trace = { picks: [], nodes: [] };
-      const text = this.ev.walkKeyed(this.entry.body, '', end.s, this.opts.delimiter, 'main', draw, new Map(), tr);
-      if (seen.has(text)) continue;
-      seen.add(text);
-      out.push({ text, tags: tagsOf(end.s), ...tr });
+    const entries = [...this.ev.table(this.entry.body, '')].map(([s, w]) => ({ id: s, s, w }));
+    // Each row draws on its own. When it repeats an earlier row's text, only that row draws
+    // again, so one duplicate never moves the rows after it.
+    for (let row = 0; row < n; row++) {
+      for (let attempt = 0; attempt < 40; attempt++) {
+        const draw = (key: string): number => hashUnit(`${seed}|${row}|${attempt}|${key}`);
+        const end = entries[pickRendezvous(entries, (id) => draw(`end/${id}`))] as { s: string };
+        const tr: Trace = { picks: [], nodes: [] };
+        const text = this.ev.walkKeyed(this.entry.body, '', end.s, this.opts.delimiter, 'main', draw, new Map(), tr);
+        if (seen.has(text)) continue;
+        seen.add(text);
+        out.push({ text, tags: tagsOf(end.s), ...tr });
+        break;
+      }
     }
     return out;
   }
