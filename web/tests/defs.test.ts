@@ -328,7 +328,7 @@ test('inline replaces a reference with the branch content and keeps the meaning'
     assert.ok(!out.split('\n')[0]!.includes('$g'), `still references g: ${out}`);
   }
   const bare = 'main = Say $g\ng = a | b [c | d]';
-  assert.equal(run(bare, inlineReference(bare, refs(bare)[0]!)).split('\n')[0], 'main = Say [a|b [c | d]]');
+  assert.equal(run(bare, inlineReference(bare, refs(bare)[0]!)).split('\n')[0], 'main = Say [a|b [c|d]]');
 });
 
 test('inline a long-form ref line keeps the meaning and the file indent', () => {
