@@ -29,6 +29,8 @@ export interface PopoverOptions {
   second?: { label: string; value: string; placeholder?: string };
   /** A live line under the fields showing what the values will produce. */
   preview?: (value: string, second: string) => string;
+  /** Ready-made values, as buttons that fill the field: the common cases in plain words. */
+  picks?: { label: string; value: string }[];
 }
 
 let current: { close(): void } | undefined;
@@ -100,6 +102,26 @@ export function openPopover(o: PopoverOptions): { close(): void } {
     p.textContent = o.hint;
     root.appendChild(p);
     input?.setAttribute('aria-describedby', 'pop-hint');
+  }
+  if (o.picks?.length && input) {
+    const row = document.createElement('div');
+    row.className = 'pop-picks';
+    row.setAttribute('role', 'group');
+    row.setAttribute('aria-label', 'Suggestions');
+    for (const pk of o.picks) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'pick';
+      b.textContent = pk.label;
+      b.addEventListener('click', () => {
+        if (!input) return;
+        input.value = pk.value;
+        input.dispatchEvent(new Event('input'));
+        input.focus();
+      });
+      row.appendChild(b);
+    }
+    root.appendChild(row);
   }
   if (o.preview && input) {
     const p = document.createElement('p');

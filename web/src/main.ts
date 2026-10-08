@@ -584,12 +584,15 @@ const actions: ChartActions = {
     const a = altOf(row);
     if (!a || !analysis || !canEdit()) return;
     const src = analysis.source;
+    const known = [...analysis.knownTags];
     openPopover({
       title: 'Add a tag',
       label: 'Tag',
       value: '',
-      hint: 'A name, or name=value. Example: q or severity=5. Later guards can test it.',
-      placeholder: 'q',
+      hint: 'A name for picking this alternative, such as casual, or name=value, such as severity=5. A later choice can depend on it with a guard, and results carry it as a label.',
+      placeholder: known[0] ?? 'casual',
+      // Tags already in use, so the same name is used again where it is meant.
+      ...(known.length ? { picks: known.slice(0, 6).map((k) => ({ label: k, value: k })) } : {}),
       anchor: anchorOf(row),
       returnFocus: document.activeElement as HTMLElement | null,
       actions: [
@@ -627,6 +630,14 @@ const actions: ChartActions = {
       hint: `A tag name, !name for "not set", name=value, or else. The alternative is only available when the guard holds.${hintTags}${later.length ? ` (${later.join(', ')} ${later.length === 1 ? 'is' : 'are'} only set later, so ${later.length === 1 ? 'it cannot' : 'they cannot'} guard this.)` : ''}`,
       placeholder: usable[0] ?? 'tag name',
       suggestions: [...usable, ...usable.map((k) => '!' + k), 'else'],
+      // The usual guards in words: when a tag is set, when it is not, and for everything else.
+      picks: [
+        ...usable.slice(0, 3).flatMap((k) => [
+          { label: `Only when ${k}`, value: k },
+          { label: `Only when not ${k}`, value: '!' + k },
+        ]),
+        { label: 'Otherwise', value: 'else' },
+      ],
       anchor: anchorOf(row),
       returnFocus: document.activeElement as HTMLElement | null,
       actions: [
@@ -1546,7 +1557,9 @@ function insertRefDialog(box: Box): void {
       if ('error' in m) return m.error;
       if ('ref' in m) return `Inserts $${m.ref}, a reference to the branch ${m.ref}.`;
       const refs = [...m.text.matchAll(/\$([A-Za-z_][\w.]*)/g)].map((x) => x[1] as string).filter((n) => all.has(n));
-      return `Inserts the text “${m.text}”${refs.length ? `, with a reference to ${refs.join(', ')}` : ''}.`;
+      // After text, new text becomes part of the same box.
+      const joins = !atBranch && box.kind === 'text' && !refs.length;
+      return `Inserts the text “${m.text}”${refs.length ? `, with a reference to ${refs.join(', ')}` : ''}${joins ? `, which becomes part of “${shown(box.full).slice(0, 30)}${box.full.length > 30 ? '…' : ''}”` : ''}.`;
     },
     anchor: anchorOf(box),
     returnFocus: document.activeElement as HTMLElement | null,
