@@ -15,6 +15,7 @@ import { closePopover, openPopover } from './popover';
 import { HELP_ITEMS, insertionFor, SHORTCUTS } from './help';
 import { ActionBar, ActionId, barActions } from './actionbar';
 import { insertReference, pieceRange, WrapNode, wrapInChoice } from './insert';
+import { pathBoxes } from './trace';
 import { redo, undo } from '@codemirror/commands';
 
 const STORAGE_KEY = 'permutations.v3.source';
@@ -532,6 +533,7 @@ const chart = new ChartView($('chart'), actions);
 
 function relayout(): void {
   if (!analysis) return;
+  clearTrace();
   lastLayout = layout({
     main: analysis.main,
     others: analysis.others,
@@ -925,10 +927,50 @@ function escapeHtml(s: string): string {
   return s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] as string);
 }
 
-function item(n: number, text: string, tags: Record<string, string | number | true>): string {
+function item(n: number, text: string, tags: Record<string, string | number | true>, index: bigint): string {
   const shown = text === '' ? '<span class="note">(empty text)</span>' : escapeHtml(text);
-  return `<li><span class="n">${n}</span><span class="t">${shown}</span><span class="chips">${chipsFor(tags)}</span></li>`;
+  return `<li><button type="button" class="ex-row" data-index="${index}" aria-pressed="false" title="Show how this one is made, in the chart"><span class="n">${n}</span><span class="t">${shown}</span><span class="chips">${chipsFor(tags)}</span></button></li>`;
 }
+
+// --- tracing an example through the chart ----------------------------------------
+
+let traced: string | undefined;
+
+function clearTrace(): void {
+  if (traced === undefined) return;
+  traced = undefined;
+  chart.setTrace(null);
+  document.querySelectorAll('.ex-row[aria-pressed="true"]').forEach((b) => b.setAttribute('aria-pressed', 'false'));
+  $('trace-note').hidden = true;
+}
+
+function toggleTrace(btn: HTMLElement): void {
+  if (!analysis || btn.dataset['index'] === undefined) return;
+  const key = `${btn.closest('ol')?.id}:${btn.dataset['index']}`;
+  if (traced === key) {
+    clearTrace();
+    return;
+  }
+  clearTrace();
+  const tr = analysis.program.trace(BigInt(btn.dataset['index']));
+  chart.setTrace(pathBoxes(chart.boxes, tr));
+  traced = key;
+  btn.setAttribute('aria-pressed', 'true');
+  const note = $('trace-note');
+  note.hidden = false;
+  $('trace-text').textContent = `The chart shows how “${tr.text.length > 60 ? tr.text.slice(0, 59) + '…' : tr.text}” is made.`;
+}
+
+for (const id of ['samples', 'all-list']) {
+  $(id).addEventListener(
+    'click',
+    safe((e: Event) => {
+      const btn = (e.target as HTMLElement).closest<HTMLElement>('.ex-row');
+      if (btn) toggleTrace(btn);
+    }),
+  );
+}
+on('trace-stop', clearTrace);
 
 function renderCount(): void {
   if (!analysis) return;
@@ -944,9 +986,13 @@ function renderSamples(): void {
   if (!analysis) return;
   const p = analysis.program;
   try {
-    const rows = p.sample(5);
-    list.innerHTML = rows.map((o, i) => item(i + 1, o.text, o.tags)).join('');
-    note.textContent = p.count <= 5n ? 'That is every permutation.' : `${rows.length} distinct random outputs`;
+    clearTrace();
+    const idx = p.sampleIndices(5);
+    list.innerHTML = idx.map((ix, i) => {
+      const o = p.at(ix);
+      return item(i + 1, o.text, o.tags, ix);
+    }).join('');
+    note.textContent = p.count <= 5n ? 'That is every permutation. Click one to see how it is made.' : `${idx.length} distinct random outputs. Click one to see how it is made.`;
   } catch (e) {
     list.innerHTML = `<li><span class="empty-state">${escapeHtml(describeError(e).message)}</span></li>`;
     note.textContent = '';
@@ -973,7 +1019,10 @@ function listAll(): void {
   const p = analysis.program;
   const rows: string[] = [];
   let i = 0;
-  for (const o of p.all({ limit: ALL_LIMIT })) rows.push(item(++i, o.text, o.tags));
+  for (const o of p.all({ limit: ALL_LIMIT })) {
+    rows.push(item(i + 1, o.text, o.tags, BigInt(i)));
+    i++;
+  }
   $('all-list').innerHTML = rows.join('');
   $('all-note').textContent = p.count > BigInt(ALL_LIMIT) ? `Showing the first ${formatCount(BigInt(ALL_LIMIT))} of ${formatCount(p.count)} permutations. The rest are not listed.` : `Showing all ${formatCount(p.count)}.`;
   $('b-list').hidden = true;
@@ -1118,7 +1167,9 @@ $('help').addEventListener('keydown', (e) => {
 // --- start -----------------------------------------------------------------
 
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') closePopover();
+  if (e.key !== 'Escape') return;
+  if (document.querySelector('.popover')) closePopover();
+  else clearTrace();
 });
 
 // Undo and redo work everywhere, so a change made in the chart can be undone from the chart.

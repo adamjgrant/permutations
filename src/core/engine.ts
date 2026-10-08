@@ -11,6 +11,14 @@ import {
   SeqNode,
 } from './types';
 
+/** How one result was made: every choice taken and every node the walk went through. */
+export interface Trace {
+  /** Each choice made, as the group and the index of the option taken in `group.options`. */
+  picks: { group: GroupNode; option: number }[];
+  /** Text, references, any-order groups, repeats and transforms on the path, in walk order. */
+  nodes: Node[];
+}
+
 type Table = Map<string, bigint>;
 
 const CLOSING = /^[.,;:!?)\]'’%…]/;
@@ -244,18 +252,19 @@ export class Evaluator {
   }
 
   /** Text of the k-th path through `node` that starts in state sIn and ends in state sOut. */
-  walk(node: Node, sIn: string, sOut: string, k: bigint, delim: string): string {
+  walk(node: Node, sIn: string, sOut: string, k: bigint, delim: string, tr?: Trace): string {
+    if (tr && node.kind !== 'seq' && node.kind !== 'group') tr.nodes.push(node);
     switch (node.kind) {
       case 'text':
         return node.value;
       case 'ref': {
         const target = node.target;
         if (!target) throw new PermError(`Unresolved reference $${node.path}`);
-        return target.kind === 'def' ? this.walk(target.def.body, sIn, sOut, k, delim) : target.value;
+        return target.kind === 'def' ? this.walk(target.def.body, sIn, sOut, k, delim, tr) : target.value;
       }
       case 'seq': {
         const outs: string[] = [];
-        this.walkSeq(node, 0, sIn, sOut, k, node.scopeDelim ?? delim, outs);
+        this.walkSeq(node, 0, sIn, sOut, k, node.scopeDelim ?? delim, outs, tr);
         return joinOutputs(outs, node.pieces.map((p) => p.join), node.joinDelim ?? delim);
       }
       case 'group': {
@@ -263,7 +272,10 @@ export class Evaluator {
         for (const o of this.eligible(node, sIn)) {
           for (const [sMid, c] of this.seqFrom(o.seq, 0, sIn)) {
             if (applyTags(sMid, o.tags) !== sOut) continue;
-            if (k < c) return this.walk(o.seq, sIn, sMid, k, d);
+            if (k < c) {
+              tr?.picks.push({ group: node, option: node.options.indexOf(o) });
+              return this.walk(o.seq, sIn, sMid, k, d, tr);
+            }
             k -= c;
           }
         }
@@ -282,12 +294,12 @@ export class Evaluator {
             rest /= c;
             return ki;
           });
-          const outs = perm.map((i) => this.walk(node.items[i] as SeqNode, sIn, sOut, ks[i] as bigint, d));
+          const outs = perm.map((i) => this.walk(node.items[i] as SeqNode, sIn, sOut, ks[i] as bigint, d, tr));
           return joinOutputs(outs, outs.map(() => true), d);
         }
         for (const seq of this.orderings(node)) {
           const c = this.table(seq, sIn).get(sOut) ?? 0n;
-          if (k < c) return this.walk(seq, sIn, sOut, k, delim);
+          if (k < c) return this.walk(seq, sIn, sOut, k, delim, tr);
           k -= c;
         }
         break;
@@ -295,14 +307,14 @@ export class Evaluator {
       case 'repeat': {
         for (const seq of node.expanded) {
           const c = this.table(seq, sIn).get(sOut) ?? 0n;
-          if (k < c) return this.walk(seq, sIn, sOut, k, delim);
+          if (k < c) return this.walk(seq, sIn, sOut, k, delim, tr);
           k -= c;
         }
         break;
       }
       case 'transform': {
         const n = BigInt(node.fns.length);
-        const text = this.walk(node.inner, sIn, sOut, k / n, delim);
+        const text = this.walk(node.inner, sIn, sOut, k / n, delim, tr);
         const name = node.fns[Number(k % n)] as string;
         const fn = this.fns[name];
         if (!fn) throw new PermError(`Unknown transform '${name}'`);
@@ -312,7 +324,7 @@ export class Evaluator {
     throw new PermError('Internal error: index out of range while walking');
   }
 
-  private walkSeq(seq: SeqNode, i: number, sIn: string, sOut: string, k: bigint, delim: string, outs: string[]): void {
+  private walkSeq(seq: SeqNode, i: number, sIn: string, sOut: string, k: bigint, delim: string, outs: string[], tr?: Trace): void {
     if (i >= seq.pieces.length) return;
     const piece = seq.pieces[i] as SeqNode['pieces'][number];
     for (const [sMid, c1] of this.table(piece.node, sIn)) {
@@ -320,8 +332,8 @@ export class Evaluator {
       if (r === 0n) continue;
       const block = c1 * r;
       if (k < block) {
-        outs[i] = this.walk(piece.node, sIn, sMid, k / r, delim);
-        this.walkSeq(seq, i + 1, sMid, sOut, k % r, delim, outs);
+        outs[i] = this.walk(piece.node, sIn, sMid, k / r, delim, tr);
+        this.walkSeq(seq, i + 1, sMid, sOut, k % r, delim, outs, tr);
         return;
       }
       k -= block;
@@ -387,11 +399,22 @@ export class Program {
 
   /** The permutation at a given index, 0 <= index < count. */
   at(index: bigint): Output {
+    return this.walkAt(index);
+  }
+
+  /** How the permutation at `index` was made: the choices taken and the nodes on its path. */
+  trace(index: bigint): Trace & Output {
+    const tr: Trace = { picks: [], nodes: [] };
+    const out = this.walkAt(index, tr);
+    return { ...out, ...tr };
+  }
+
+  private walkAt(index: bigint, tr?: Trace): Output {
     if (index < 0n || index >= this.count) throw new RangeError('Permutation index out of range');
     let k = index;
     for (const [sOut, c] of this.ev.table(this.entry.body, '')) {
       if (k < c) {
-        const text = this.ev.walk(this.entry.body, '', sOut, k, this.opts.delimiter);
+        const text = this.ev.walk(this.entry.body, '', sOut, k, this.opts.delimiter, tr);
         return { text, tags: tagsOf(sOut) };
       }
       k -= c;
@@ -411,9 +434,14 @@ export class Program {
 
   /** Up to n distinct random permutations (distinct by text). Everything, shuffled, if n covers them all. */
   sample(n: number): Output[] {
+    return this.sampleIndices(n).map((i) => this.at(i));
+  }
+
+  /** Indexes of up to n random permutations with distinct text, for `at` or `trace`. */
+  sampleIndices(n: number): bigint[] {
     this.requireAny();
     const seenText = new Set<string>();
-    const out: Output[] = [];
+    const out: bigint[] = [];
     const count = this.count;
     if (count <= 5000n) {
       const idx = Array.from({ length: Number(count) }, (_v, i) => BigInt(i));
@@ -423,10 +451,10 @@ export class Program {
       }
       for (const i of idx) {
         if (out.length >= n) break;
-        const o = this.at(i);
-        if (seenText.has(o.text)) continue;
-        seenText.add(o.text);
-        out.push(o);
+        const text = this.at(i).text;
+        if (seenText.has(text)) continue;
+        seenText.add(text);
+        out.push(i);
       }
       return out;
     }
@@ -436,13 +464,13 @@ export class Program {
       const i = randBelow(count, this.rng);
       if (seenIdx.has(i)) continue;
       seenIdx.add(i);
-      const o = this.at(i);
-      if (seenText.has(o.text)) {
+      const text = this.at(i).text;
+      if (seenText.has(text)) {
         misses++;
         continue;
       }
-      seenText.add(o.text);
-      out.push(o);
+      seenText.add(text);
+      out.push(i);
     }
     return out;
   }

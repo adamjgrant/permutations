@@ -383,6 +383,36 @@ describe('sampling', () => {
   });
 });
 
+describe('tracing a result', () => {
+  test('trace reports the option taken in every choice and the text on the path', () => {
+    const src = 'main = [Hello|Hi] $g\ng = [there|you [all|two]]';
+    const p = compile(src);
+    for (let i = 0n; i < p.count; i++) {
+      const tr = p.trace(i);
+      expect(tr.text).toBe(p.at(i).text);
+      const texts = tr.nodes.filter((n) => n.kind === 'text').map((n) => (n as { value: string }).value);
+      expect(texts.join(' ')).toBe(tr.text);
+      // One pick per choice the path passed through.
+      expect(tr.picks.length).toBe(tr.text.split(' ').length === 2 ? 2 : 3);
+      for (const pk of tr.picks) expect(pk.option).toBeGreaterThanOrEqual(0);
+    }
+    expect(p.trace(0n).nodes.some((n) => n.kind === 'ref')).toBe(true);
+  });
+
+  test('a repeated choice is picked once per copy', () => {
+    const p = compile('main = [a|b]{3}');
+    const tr = p.trace(5n);
+    expect(tr.picks).toHaveLength(3);
+    expect(tr.picks.map((x) => ['a', 'b'][x.option]).join('')).toBe(tr.text);
+  });
+
+  test('sampleIndices gives distinct texts that at() reproduces', () => {
+    const p = compile('[a|b|c|d|e|f]', { rng: lcg(11) });
+    const idx = p.sampleIndices(4);
+    expect(new Set(idx.map((i) => p.at(i).text)).size).toBe(4);
+  });
+});
+
 describe('ported v1 and v2 examples', () => {
   test('weather', () => {
     const src =

@@ -18,7 +18,7 @@ Hello friend!
 |---|---|
 | Parser (short form), engine, counting, uniform sampling, CLI | working, tested |
 | Long form, `perm fmt` | working, tested (round trips checked) |
-| Web app: flow chart, code, examples; chart edits are text patches in both short and long form; rename, extract to branch, new/delete branch, tag and guard chips, range boxes, Expand and Collapse, syntax help, keyboard access | working (`web/`) |
+| Web app: flow chart, code, examples; click to select with a selection strip of actions; chart edits are text patches in short and long form; trace an example through the chart | working (`web/`) |
 
 ## Use
 
@@ -37,10 +37,13 @@ npm test                               # layout, patch, definition and navigatio
 npm run typecheck && npm run build     # checks, then dist/
 ```
 
-The chart edits the code, never regenerates it: every change is a text patch (one undo step) that
-keeps your comments, spacing and indentation. Keyboard: arrows move between boxes, Enter edits,
-Delete removes, Alt+Up/Down reorders, `+` adds, `t` and `g` add a tag or guard, Space selects for
-Extract to branch. Imports (`use`, `from`) need a loader and are not available in the browser.
+Click any box in the chart to select it; the strip at the bottom of the chart names the
+selection and offers its actions (edit, add or move alternatives, tags and guards, make a choice
+or make it optional, insert a reference, extract to a branch, rename or convert a branch). Click
+an example to see the path that made it light up in the chart. The chart edits the code, never
+regenerates it: every change is a text patch that keeps your comments, spacing and indentation,
+and Cmd+Z undoes it from anywhere. `npm run e2e` drives the main flows in a Chrome started with
+`--remote-debugging-port=9333`. Imports (`use`, `from`) are not available in the browser.
 
 As a library:
 

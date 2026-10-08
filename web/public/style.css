@@ -319,3 +319,21 @@ kbd { font: 11.5px ui-monospace, "SF Mono", Menlo, monospace; padding: 1px 5px; 
   .pane-head button { padding: 2px 8px; font-size: 13px; }
   .selbar { padding: 6px 10px; }
 }
+
+/* examples are buttons: click one to see its path through the chart */
+.samples li { padding: 0; }
+.ex-row {
+  display: flex; gap: 8px; align-items: baseline; width: 100%; padding: 7px 8px; margin: 0 -8px; width: calc(100% + 16px);
+  border: 0; border-radius: 8px; background: transparent; text-align: left; font: inherit; color: inherit; min-height: 0; cursor: pointer;
+}
+.ex-row:hover:not(:disabled) { background: var(--surface); }
+.ex-row[aria-pressed="true"] { background: var(--accent-tint); box-shadow: inset 3px 0 0 var(--accent); }
+.trace-note { margin: 8px 0 0; font-size: 12.5px; color: var(--text-2); }
+.trace-note[hidden] { display: none; }
+.chart-svg.tracing .box { opacity: 0.25; }
+.chart-svg.tracing .box.on-path { opacity: 1; }
+.chart-svg.tracing .edge { opacity: 0.25; }
+.chart-svg.tracing .edge.ref.on-path { opacity: 1; stroke-width: 2.2; }
+.chart-svg.tracing .ref-end { opacity: 0.25; }
+.chart-svg.tracing .k-text.on-path > rect, .chart-svg.tracing .k-ref.on-path > rect, .chart-svg.tracing .k-range.on-path > rect, .chart-svg.tracing .k-empty.on-path > rect { stroke: var(--accent); stroke-width: 2; }
+.chart-svg.tracing .k-row.on-path > rect { fill: var(--ctx); }

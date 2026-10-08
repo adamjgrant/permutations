@@ -124,4 +124,15 @@ export default async (t) => {
   await page.locator('.error-fix').click();
   await t.settle();
   check(await page.$eval('#error', (e) => e.hidden), 'the Create branch fix resolves the error');
+
+  // Tracing an example through the chart.
+  await t.setCode("main = [Hello|Oh, Hi] $greeting\ngreeting = [How [are you|'s [it|everything]]|What [is new|is going on]]\n");
+  await page.locator('#samples .ex-row').first().click();
+  await t.settle(150);
+  check((await page.$$('.chart-svg.tracing')).length === 1, 'clicking an example traces it through the chart');
+  const lit = await page.$$eval('.box.on-path.k-text', (b) => b.map((x) => x.textContent));
+  const shown = await page.$eval('#samples .ex-row', (e) => e.querySelector('.t').textContent);
+  check(lit.every((w) => shown.includes(w.replace(/^'s$/, "'s"))) && lit.length >= 2, 'the lit text boxes are the words of that example');
+  await page.locator('#samples .ex-row').first().click();
+  check((await page.$$('.chart-svg.tracing')).length === 0, 'clicking it again stops');
 };

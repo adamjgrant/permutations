@@ -669,6 +669,17 @@ export class ChartView {
     this.host.appendChild(content);
   }
 
+  /** Show how one result was made: light the boxes on its path and dim the rest. */
+  setTrace(ids: Set<string> | null): void {
+    this.svg?.classList.toggle('tracing', !!ids);
+    for (const [id, e] of this.elements) e.classList.toggle('on-path', !!ids && ids.has(id));
+    this.svg?.querySelectorAll<SVGPathElement>('.edge.ref').forEach((p) => p.classList.toggle('on-path', !!ids && ids.has(p.dataset['from'] ?? '')));
+    if (ids) {
+      const first = readingOrder(this.boxes).find((b) => ids.has(b.id) && b.kind !== 'defLabel');
+      if (first) this.scrollTo(first.id);
+    }
+  }
+
   isEditing(): boolean {
     return !!this.input;
   }
