@@ -11,7 +11,7 @@
 // or guard, Space adds the alternative to a multi-selection, Escape clears the selection, and Tab
 // moves into the action bar.
 
-import { Box, BoxKind, Edge, Layout, LEAF_KINDS, Measure } from './layout';
+import { Box, BoxKind, Edge, Layout, LEAF_KINDS, Measure, usedByText } from './layout';
 import { Dir, focusable, inside, navigate, readingOrder, rowContext } from './nav';
 import type { Range } from './ranges';
 
@@ -172,6 +172,13 @@ export class ChartView {
     return this.host;
   }
 
+  private measureCtx: CanvasRenderingContext2D | undefined;
+  private measureText(text: string): number {
+    this.measureCtx ??= document.createElement('canvas').getContext('2d') as CanvasRenderingContext2D;
+    this.measureCtx.font = FONTS.tag ?? '500 11px sans-serif';
+    return this.measureCtx.measureText(text).width;
+  }
+
   get boxes(): Box[] {
     return this.layout?.boxes ?? [];
   }
@@ -211,6 +218,8 @@ export class ChartView {
       'aria-label': 'Flow chart of the program. Arrow keys move between boxes, Enter edits, Delete removes.',
     });
     this.svg = svg;
+    // With many references the lines tangle: then they show only for the selection or a trace.
+    if (layout.edges.filter((e) => e.kind === 'ref').length > 8) svg.classList.add('many-refs');
     const back = el('g', { class: 'back' }, svg);
     const edgeLayer = el('g', { class: 'edges' }, svg);
     const refLayer = el('g', { class: 'refs' }, svg);
@@ -243,7 +252,9 @@ export class ChartView {
       const path = el('path', { d: roundedPath(p, 10), class: 'edge ref', fill: 'none' }, parent);
       path.dataset['from'] = e.from ?? '';
       path.dataset['to'] = e.to ?? '';
-      el('circle', { cx: end.x, cy: end.y, r: 3, class: 'ref-end' }, parent);
+      const dot = el('circle', { cx: end.x, cy: end.y, r: 3, class: 'ref-end' }, parent);
+      dot.dataset['from'] = e.from ?? '';
+      dot.dataset['to'] = e.to ?? '';
       return;
     }
     if (e.kind === 'joiner') {
@@ -324,6 +335,16 @@ export class ChartView {
           el('text', { x: bx + 32, y: b.y + b.h / 2 + 0.5, 'text-anchor': 'middle', 'dominant-baseline': 'central' }, badge).textContent = 'not used';
           el('title', {}, g).textContent = 'Nothing refers to this branch, so it never appears in the results. Insert a reference to it, or delete it.';
         }
+        if (b.usedBy?.length) {
+          // Who refers to this branch, so you need not follow the dashed lines to find out.
+          const label = usedByText(b.usedBy);
+          const tw = Math.min(208, this.measureText(label));
+          const bx = b.x + b.w + 10;
+          const chip = el('g', { class: 'usedby-chip' }, g);
+          el('rect', { x: bx, y: b.y + 2, width: tw + 14, height: b.h - 4, rx: (b.h - 4) / 2 }, chip);
+          el('text', { x: bx + 7, y: b.y + b.h / 2 + 0.5, 'dominant-baseline': 'central' }, chip).textContent = label;
+          el('title', {}, g).textContent = `Used by ${b.usedBy.join(', ')}`;
+        }
         break;
       }
       case 'sectionLabel': {
@@ -384,7 +405,7 @@ export class ChartView {
     const one = this.selected.size === 1 ? this.byId([...this.selected][0]) : undefined;
     // A selected branch lights up the references into it; a selected pill, its own edge.
     const branch = one && (one.kind === 'def' || one.kind === 'defLabel') ? this.boxes.find((x) => x.kind === 'def' && x.name === one.name) : undefined;
-    this.svg?.querySelectorAll<SVGPathElement>('.edge.ref').forEach((p) => {
+    this.svg?.querySelectorAll<SVGElement>('.edge.ref, .ref-end').forEach((p) => {
       p.classList.toggle('active', !!one && (p.dataset['from'] === one.id || (!!branch && p.dataset['to'] === branch.id)));
     });
   }
@@ -714,7 +735,7 @@ export class ChartView {
   setTrace(ids: Set<string> | null, scroll = true): void {
     this.svg?.classList.toggle('tracing', !!ids);
     for (const [id, e] of this.elements) e.classList.toggle('on-path', !!ids && ids.has(id));
-    this.svg?.querySelectorAll<SVGPathElement>('.edge.ref').forEach((p) => p.classList.toggle('on-path', !!ids && ids.has(p.dataset['from'] ?? '')));
+    this.svg?.querySelectorAll<SVGElement>('.edge.ref, .ref-end').forEach((p) => p.classList.toggle('on-path', !!ids && ids.has(p.dataset['from'] ?? '')));
     if (ids && scroll) {
       const first = readingOrder(this.boxes).find((b) => ids.has(b.id) && b.kind !== 'defLabel');
       if (first) this.scrollTo(first.id);

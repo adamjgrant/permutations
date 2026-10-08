@@ -78,6 +78,8 @@ export interface Box {
   values?: number;
   /** Definition labels: nothing refers to this branch, so its text never appears. */
   unused?: boolean;
+  /** Definition labels: the branches that refer to this one. */
+  usedBy?: string[];
 }
 
 export interface Pt {
@@ -155,6 +157,12 @@ export const M = {
   unusedW: 74,
   maxTextW: 300,
 };
+
+/** "← main, opener" for a branch's card: who refers to it, at most two names and a count. */
+export function usedByText(users: string[]): string {
+  const shown = users.slice(0, 2).join(', ');
+  return `← ${shown}${users.length > 2 ? `, +${users.length - 2}` : ''}`;
+}
 
 /** Rough text width for 13px UI text. The browser passes a canvas-based measure instead. */
 export const estimateMeasure: Measure = (text, kind) => {
@@ -505,8 +513,16 @@ export function layout(input: LayoutInput): Layout {
   const defBlock = (def: LDef, label: string): DefBlock => {
     const body = nodeBlock(def.body);
     const unused = def !== input.main && !usedNames.has(def.name);
-    const title = leaf('defLabel', label, { name: def.name, range: def.range, ...(def.form ? { form: def.form } : {}), ...(unused ? { unused: true } : {}) });
-    const w = Math.max(title.w + 24 + M.defControlsW + (unused ? M.unusedW : 0), body.w) + M.defPad * 2;
+    const users = def === input.main ? [] : (usedBy.get(def.name) ?? []);
+    const title = leaf('defLabel', label, {
+      name: def.name,
+      range: def.range,
+      ...(def.form ? { form: def.form } : {}),
+      ...(unused ? { unused: true } : {}),
+      ...(users.length ? { usedBy: users } : {}),
+    });
+    const usedW = users.length ? Math.min(220, measure(usedByText(users), 'tag') + 22) : 0;
+    const w = Math.max(title.w + 24 + M.defControlsW + (unused ? M.unusedW : 0) + usedW, body.w) + M.defPad * 2;
     const h = M.defPad + title.h + 10 + body.h + M.defPad;
     return {
       name: def.name,
@@ -524,9 +540,16 @@ export function layout(input: LayoutInput): Layout {
 
   // Which branches something refers to (main always runs, so it counts as used).
   const usedNames = new Set<string>();
+  const usedBy = new Map<string, string[]>();
   for (const d of [input.main, ...input.others]) {
+    const user = d.name === '<main>' ? 'main' : d.name;
     visit(d.body, (n) => {
-      if (n.kind === 'ref' && n.target?.kind === 'def') usedNames.add(n.target.def.name);
+      if (n.kind !== 'ref' || n.target?.kind !== 'def') return;
+      const name = n.target.def.name;
+      usedNames.add(name);
+      const list = usedBy.get(name) ?? [];
+      if (!list.includes(user)) list.push(user);
+      usedBy.set(name, list);
     });
   }
   const mainName = input.main.name === '<main>' ? 'main' : input.main.name;

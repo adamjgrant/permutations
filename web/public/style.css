@@ -399,3 +399,8 @@ kbd { font: 11.5px ui-monospace, "SF Mono", Menlo, monospace; padding: 1px 5px; 
 .chart-svg .joiner { fill: var(--chip-misc); font-size: 12px; font-weight: 600; paint-order: stroke; stroke: var(--frame-fill); }
 .lg-any { fill: var(--frame-fill); stroke: var(--chip-misc); stroke-dasharray: 4 3; }
 .lg-amp { font: 600 10px -apple-system, BlinkMacSystemFont, sans-serif; fill: var(--chip-misc); dominant-baseline: central; }
+
+.chart-svg .usedby-chip rect { fill: var(--accent-tint); stroke: none; }
+.chart-svg .usedby-chip text { fill: var(--accent-strong); font-size: 11px; font-weight: 500; }
+.chart-svg.many-refs .edge.ref:not(.active):not(.on-path), .chart-svg.many-refs .ref-end:not(.active):not(.on-path) { display: none; }
+.lg-usedby { fill: var(--accent-tint); }
