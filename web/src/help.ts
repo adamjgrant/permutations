@@ -49,5 +49,8 @@ export const SHORTCUTS: [string, string][] = [
   ['Delete', 'Delete the selected alternative, tag or guard.'],
   ['t / g', 'Add a tag or a guard to the selected alternative.'],
   ['Space', 'Add the alternative to a multi-selection.'],
-  ['Escape', 'Clear the selection, or close a dialog.'],
+  ['Escape', 'Clear the selection, stop showing an example, or close a dialog.'],
+  ['⌘Z / ⇧⌘Z', 'Undo or redo, also for changes made in the chart.'],
+  ['In the code: Tab', 'Indent. Press Escape first to move focus out of the editor instead.'],
+  ['In the code: ⌘/', 'Comment or uncomment the line.'],
 ];

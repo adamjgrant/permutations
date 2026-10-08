@@ -85,7 +85,7 @@ export default async (t) => {
 
   await page.click('.cm-content');
   await page.keyboard.press('Meta+End');
-  await page.keyboard.type(' [oops');
+  await page.keyboard.type(' ]');
   await t.settle();
   await txt('Hello').click();
   check((await strip()).includes('Fix the error'), 'with an error in the code the strip explains why nothing can be edited');

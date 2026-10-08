@@ -848,6 +848,7 @@ function showBlank(): void {
   barOn = false;
   $('error').hidden = true;
   $('stale').hidden = true;
+  $('ex-stale').hidden = true;
   $('chart-hints').hidden = true;
   editor.error(null);
   const box = document.createElement('div');
@@ -891,6 +892,7 @@ function refresh(): void {
     showError(w.message, offset, w.fix);
     editor.error(offset ?? null);
     $('stale').hidden = !analysis;
+    $('ex-stale').hidden = !analysis;
     if (!analysis) chart.render(emptyLayout());
     updateTools();
     return;
@@ -899,6 +901,7 @@ function refresh(): void {
   analysis = next;
   $('error').hidden = true;
   $('stale').hidden = true;
+  $('ex-stale').hidden = true;
   editor.error(null);
   try {
     relayout();

@@ -165,6 +165,9 @@ button.primary:hover:not(:disabled) { background: var(--accent-strong); }
 .cm-err { text-decoration: underline wavy var(--danger); text-underline-offset: 3px; background: var(--danger-bg); }
 .tok-comment { color: var(--text-2); font-style: italic; }
 .tok-def { color: var(--accent-strong); font-weight: 600; }
+.tok-kw { color: var(--chip-fn); font-weight: 600; }
+.editor .cm-matchingBracket { background: var(--ctx); outline: 1px solid var(--accent); border-radius: 2px; }
+.editor .cm-nonmatchingBracket { background: var(--danger-bg); color: var(--danger); }
 .tok-ref { color: var(--accent); }
 .tok-tag { color: var(--chip-tag); }
 .tok-fn { color: var(--chip-fn); }

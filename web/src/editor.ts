@@ -1,8 +1,9 @@
 // CodeMirror 6 editor for the DSL: light syntax colouring, a highlight range driven by the
 // chart, and an error mark driven by the compiler.
 
-import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
-import { EditorState, Range as CMRange, StateEffect, StateField } from '@codemirror/state';
+import { defaultKeymap, history, historyKeymap, indentWithTab, toggleComment } from '@codemirror/commands';
+import { bracketMatching, indentService, indentUnit } from '@codemirror/language';
+import { EditorSelection, EditorState, Range as CMRange, StateEffect, StateField } from '@codemirror/state';
 import { Decoration, DecorationSet, drawSelection, EditorView, highlightActiveLine, keymap, lineNumbers, ViewPlugin, ViewUpdate } from '@codemirror/view';
 import type { Range } from './ranges';
 
@@ -55,12 +56,28 @@ const TOKENS: [RegExp, string][] = [
   [/(?<!\\)[\[\]|]|(?<=\s)&(?=\s)/g, 'tok-punct'],
 ];
 
+// Long form: the keyword part of a line that is a keyword construct (DSL.md section 3.1).
+const LONG_KEYWORD = /^([ \t]*)(branch|one of|sequence|tight|any order|nothing|otherwise|ref|members of|repeat|transform|tag|when(?: not)?|delimiter)(?=$|[ \t])/;
+const LONG_WHOLE = /^[ \t]*(?:one of|sequence|tight|any order|nothing|otherwise)[ \t]*$/;
+const LONG_ARGS = /^[ \t]*(?:branch|ref|members of|repeat|transform|tag|when(?: not)?|delimiter)[ \t]+\S/;
+
 function tokenize(doc: string): DecorationSet {
   const out: CMRange<Decoration>[] = [];
   let pos = 0;
   for (const line of doc.split('\n')) {
+    const kw = LONG_KEYWORD.exec(line);
     if (/^[ \t]*#/.test(line)) {
       out.push(Decoration.mark({ class: 'tok-comment' }).range(pos, pos + line.length));
+    } else if (kw && (LONG_WHOLE.test(line) || LONG_ARGS.test(line))) {
+      const s = pos + (kw[1] as string).length;
+      out.push(Decoration.mark({ class: 'tok-kw' }).range(s, s + (kw[2] as string).length));
+      const name = /^[ \t]*branch[ \t]+([A-Za-z_][\w.]*)/.exec(line);
+      if (name) out.push(Decoration.mark({ class: 'tok-def' }).range(pos + line.indexOf(name[1] as string, (kw[1] as string).length + 6), pos + line.indexOf(name[1] as string, (kw[1] as string).length + 6) + (name[1] as string).length));
+      const ref = /^[ \t]*(?:ref|members of)[ \t]+([A-Za-z_][\w.]*)/.exec(line);
+      if (ref) {
+        const at = pos + line.lastIndexOf(ref[1] as string);
+        out.push(Decoration.mark({ class: 'tok-ref' }).range(at, at + (ref[1] as string).length));
+      }
     } else {
       const def = /^[ \t]*([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)(?=[ \t]*=)/.exec(line);
       if (def) {
@@ -97,6 +114,41 @@ const syntax = ViewPlugin.fromClass(
   { decorations: (v) => v.decorations },
 );
 
+// A new line keeps the indent of the line above, one level deeper after a long-form block header.
+const BLOCK_HEADER = /^[ \t]*(?:branch[ \t]+\S+|one of|sequence|tight|any order|otherwise|when(?: not)?[ \t]+\S.*|repeat[ \t]+\S+|transform[ \t]+\S.*)[ \t]*$/;
+const longFormIndent = indentService.of((ctx, pos) => {
+  const line = ctx.state.doc.lineAt(pos);
+  for (let n = line.number - (pos > line.from ? 0 : 1); n >= 1; n--) {
+    const prev = ctx.state.doc.line(n);
+    const text = n === line.number ? prev.text.slice(0, pos - prev.from) : prev.text;
+    if (text.trim() === '') continue;
+    const lead = /^[ \t]*/.exec(text)![0].replace(/\t/g, '  ').length;
+    return BLOCK_HEADER.test(text) ? lead + ctx.unit : lead;
+  }
+  return 0;
+});
+
+// Typing [ adds the matching ]; typing ] in front of one just steps over it.
+const closeBracket = EditorView.inputHandler.of((view, from, to, text) => {
+  if (text !== '[' && text !== ']') return false;
+  const state = view.state;
+  if (state.selection.ranges.length !== 1) return false;
+  const before = state.sliceDoc(Math.max(0, from - 1), from);
+  if (before === '\\') return false;
+  if (text === ']') {
+    if (from === to && state.sliceDoc(from, from + 1) === ']') {
+      view.dispatch({ selection: EditorSelection.cursor(from + 1), userEvent: 'input.type' });
+      return true;
+    }
+    return false;
+  }
+  const next = state.sliceDoc(to, to + 1);
+  if (from === to && next !== '' && /\w/.test(next)) return false;
+  const inner = state.sliceDoc(from, to);
+  view.dispatch({ changes: { from, to, insert: `[${inner}]` }, selection: EditorSelection.range(from + 1, from + 1 + inner.length), userEvent: 'input.type' });
+  return true;
+});
+
 export interface EditorHandlers {
   onChange(): void;
   onCursor(pos: number): void;
@@ -126,7 +178,13 @@ export function createEditor(parent: HTMLElement, doc: string, handlers: EditorH
         history(),
         drawSelection(),
         highlightActiveLine(),
-        keymap.of([...defaultKeymap, ...historyKeymap]),
+        bracketMatching(),
+        indentUnit.of('  '),
+        longFormIndent,
+        closeBracket,
+        EditorState.languageData.of(() => [{ commentTokens: { line: '#' } }]),
+        // Tab indents; Escape then Tab moves focus out of the editor, as CodeMirror documents.
+        keymap.of([{ key: 'Mod-/', run: toggleComment }, indentWithTab, ...defaultKeymap, ...historyKeymap]),
         EditorView.lineWrapping,
         EditorView.contentAttributes.of({ 'aria-label': 'Permutations code', spellcheck: 'false', autocapitalize: 'off', autocorrect: 'off' }),
         syntax,
