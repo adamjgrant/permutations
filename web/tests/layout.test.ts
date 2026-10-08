@@ -270,3 +270,20 @@ test('a reference to a card beside it runs sideways into the card', () => {
   assert.ok(Math.abs(e.points[3]!.x - db.x) < 1e-6, 'enters the left side of the card');
   assert.ok(e.points[3]!.y > db.y && e.points[3]!.y < db.y + db.h);
 });
+
+test('a reference line does not run through the box under its pill', () => {
+  const src = 'main = [$a|$b] end\na = x\nb = y';
+  const an = analyze(src);
+  const l = layout({ main: an.main, others: an.others, source: src, defaultDelimiter: an.delimiter, knownTags: an.knownTags, wrapWidth: 900 });
+  const pa = l.boxes.find((b) => b.kind === 'ref' && b.full === '$a')!;
+  const pb = l.boxes.find((b) => b.kind === 'ref' && b.full === '$b')!;
+  const e = l.edges.find((x) => x.kind === 'ref' && x.from === pa.id)!;
+  // No segment of a's line passes through b's pill.
+  for (let i = 1; i < e.points.length; i++) {
+    const p = e.points[i - 1]!;
+    const q = e.points[i]!;
+    const minX = Math.min(p.x, q.x), maxX = Math.max(p.x, q.x), minY = Math.min(p.y, q.y), maxY = Math.max(p.y, q.y);
+    const crosses = maxX >= pb.x && minX <= pb.x + pb.w && maxY >= pb.y && minY <= pb.y + pb.h;
+    assert.ok(!crosses, `segment ${i} crosses $b`);
+  }
+});

@@ -632,6 +632,23 @@ export function layout(input: LayoutInput): Layout {
     }
     return -1;
   };
+  // Leaving a pill downward: straight down, unless another box sits under it in the same card,
+  // in which case the line steps out to the right of the choice first, so it does not run
+  // through that box and look like a link between the two.
+  const exitDown = (pill: Box): Pt[] => {
+    const cx = pill.x + pill.w / 2;
+    const card = boxes.find((d) => d.kind === 'def' && pill.x >= d.x && pill.y >= d.y && pill.x + pill.w <= d.x + d.w && pill.y + pill.h <= d.y + d.h);
+    const blocked = boxes.some(
+      (b) => b.id !== pill.id && LEAF_KINDS.has(b.kind) && b.y >= pill.y + pill.h - 1 && b.x <= cx && b.x + b.w >= cx && (!card || (b.y + b.h <= card.y + card.h && b.x >= card.x && b.x + b.w <= card.x + card.w)),
+    );
+    if (!blocked) return [{ x: cx, y: pill.y + pill.h }];
+    const frame = boxes
+      .filter((f) => f.kind === 'frame' && pill.x >= f.x && pill.y >= f.y && pill.x + pill.w <= f.x + f.w && pill.y + pill.h <= f.y + f.h)
+      .sort((a, b) => a.w * a.h - b.w * b.h)[0];
+    const y = pill.y + pill.h / 2;
+    const ex = frame ? frame.x + frame.w + 6 : pill.x + pill.w + 10;
+    return [{ x: pill.x + pill.w, y }, { x: ex, y }];
+  };
   const targetOrder = new Map<string, number>();
   for (const p of pills) {
     const pill = byId.get(p.id) as Box;
@@ -655,22 +672,24 @@ export function layout(input: LayoutInput): Layout {
       pts = [s0, { x: mx, y: s0.y }, { x: mx, y: t0.y }, t0];
     } else if (to === from + 1 && atColumnTop) {
       // The next row down: drop into the gap above it, then into the top of the card.
-      const p0: Pt = { x: pill.x + pill.w / 2, y: pill.y + pill.h };
+      const head = exitDown(pill);
+      const sx = head[head.length - 1]!.x;
       const tx = target.x + Math.min(28, target.w / 2);
       const ly = lane(to);
-      pts = [p0, { x: p0.x, y: ly }, { x: tx, y: ly }, { x: tx, y: target.y }];
+      pts = [...head, { x: sx, y: ly }, { x: tx, y: ly }, { x: tx, y: target.y }];
     } else if (to > from) {
       // Further down: through the gap under this row, down the left margin, along the gap above
       // the target's row, and into the card from above (or from beside, inside a namespace column).
-      const p0: Pt = { x: pill.x + pill.w / 2, y: pill.y + pill.h };
+      const head = exitDown(pill);
+      const sx = head[head.length - 1]!.x;
       const l1 = lane(from + 1);
       const l2 = lane(to);
       if (atColumnTop) {
         const tx = target.x + Math.min(28, target.w / 2);
-        pts = [p0, { x: p0.x, y: l1 }, { x: gutter, y: l1 }, { x: gutter, y: l2 }, { x: tx, y: l2 }, { x: tx, y: target.y }];
+        pts = [...head, { x: sx, y: l1 }, { x: gutter, y: l1 }, { x: gutter, y: l2 }, { x: tx, y: l2 }, { x: tx, y: target.y }];
       } else {
         const gx = target.x - Math.min(M.defGap / 2, 10);
-        pts = [p0, { x: p0.x, y: l1 }, { x: gutter, y: l1 }, { x: gutter, y: l2 }, { x: gx, y: l2 }, { x: gx, y: entryY }, { x: target.x, y: entryY }];
+        pts = [...head, { x: sx, y: l1 }, { x: gutter, y: l1 }, { x: gutter, y: l2 }, { x: gx, y: l2 }, { x: gx, y: entryY }, { x: target.x, y: entryY }];
       }
     } else {
       // Up to an earlier row (or to main): through the gap above this row, up the left margin,
