@@ -101,3 +101,11 @@ test('adding an alternative after a given one, in short and long form', () => {
   assert.equal(run(long, addAlternative(long, choices(long)[0]!, 'new', 0)), 'branch main\n  one of\n    a\n    new\n    b\n');
   assert.equal(run(src, addAlternative(src, choices(src)[0]!, 'new')), 'main = [a|b|c|new]');
 });
+
+test('a choice frame or its any-order chip offers Delimiter when a frame can carry one', () => {
+  const src = 'main = Pets: [cat & dog]';
+  const i = input(src, (b) => b.kind === 'anyorder');
+  const frame = (() => { const bs = layout({ main: analyze(src).main, others: [], source: src }).boxes; return bs.find((b) => b.kind === 'frame' && b.frameOf === 'anyorder'); })();
+  assert.ok(ids({ ...i, delimFrame: frame }).includes('delimiter'));
+  assert.ok(!ids({ ...i, delimFrame: undefined }).includes('delimiter'));
+});

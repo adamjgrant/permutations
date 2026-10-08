@@ -135,4 +135,20 @@ export default async (t) => {
   check(lit.every((w) => shown.includes(w.replace(/^'s$/, "'s"))) && lit.length >= 2, 'the lit text boxes are the words of that example');
   await page.locator('#samples .ex-row').first().click();
   check((await page.$$('.chart-svg.tracing')).length === 0, 'clicking it again stops');
+
+  // Delimiter from the chart.
+  await t.setCode('main = Pets: [cat & dog & fox]\n');
+  await page.locator('.k-anyorder').first().click();
+  await act('delimiter').click();
+  await page.keyboard.press('Meta+a');
+  await page.keyboard.type(', ');
+  await page.keyboard.press('Enter');
+  await t.settle();
+  check((await line1()) === 'main = Pets: [cat & dog & fox; delimiter=", "]', 'Delimiter sets what joins an any-order group');
+  // Inline a branch.
+  await t.setCode('main = Say $g\ng = [hi|yo]\n');
+  await page.locator('.k-ref').first().click();
+  await act('inline').click();
+  await t.settle();
+  check((await line1()) === 'main = Say [hi|yo]', 'Inline replaces a reference with the branch content');
 };

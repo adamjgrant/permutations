@@ -268,8 +268,8 @@ comments or your choice of short versus long form. So:
 - Edits built: change text; add (after the selected one), delete and reorder alternatives;
   turn text into a choice or make it optional; insert a reference; extract alternatives or
   a piece into a new named branch; create, rename (with every reference) and delete
-  branches; add, edit and remove tags and guards; expand or collapse a branch between
-  forms. Not built yet: inline a branch, change a delimiter from the chart.
+  branches; inline a branch (the inverse of extract); add, edit and remove tags and guards;
+  set a choice's delimiter; expand or collapse a branch between forms.
 - **Undo** works from anywhere (Cmd+Z), and deletions offer Undo in a toast.
 - **Tracing.** Clicking an example lights the path that made it through the chart.
 - **Invalid code** keeps the last good chart and shows the error inline, like the old

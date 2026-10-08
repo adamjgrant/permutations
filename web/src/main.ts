@@ -16,6 +16,8 @@ import { HELP_ITEMS, insertionFor, SHORTCUTS } from './help';
 import { ActionBar, ActionId, barActions } from './actionbar';
 import { insertReference, pieceRange, WrapNode, wrapInChoice } from './insert';
 import { pathBoxes } from './trace';
+import { setDelimiter } from './delim';
+import { inside } from './nav';
 import { redo, undo } from '@codemirror/commands';
 
 const STORAGE_KEY = 'permutations.v3.source';
@@ -646,7 +648,15 @@ function selectionLabel(b: Box): string {
             ? 'Empty alternative'
             : b.kind === 'tag' || b.kind === 'guard'
               ? `${b.kind === 'tag' ? 'Tag' : 'Guard'} ${b.label}`
-              : `“${short(b.full)}”`;
+              : b.kind === 'anyorder'
+                ? `Any order (${b.label.replace(/^any order · /, '')})`
+                : b.kind === 'delimiter'
+                  ? `Delimiter ${b.label.replace(/^delimiter /, '')}`
+                  : b.kind === 'repeat'
+                    ? `Repeat ${b.label}`
+                    : b.kind === 'transform'
+                      ? `Transform ${b.label}`
+                      : `“${short(b.full)}”`;
   return ctx.row && b.kind !== 'row' ? `${what} · alternative ${(ctx.row.index ?? 0) + 1} of ${ctx.row.count ?? 1}` : ctx.row ? `${what} ${(ctx.row.index ?? 0) + 1} of ${ctx.row.count ?? 1}` : what;
 }
 
@@ -673,6 +683,7 @@ function updateBar(): void {
     caps: ctx.row ? actions.rowCaps(ctx.row) : { tag: false, guard: false, move: false },
     canExtract: ok && !!currentExtraction(),
     branches: branchNames().length,
+    delimFrame: delimFrameFor(box),
   });
   bar.show(specs, selectionLabel(box));
 }
@@ -739,6 +750,11 @@ function runAction(id: ActionId): void {
     case 'insert-ref':
       insertRefDialog(box);
       return;
+    case 'delimiter': {
+      const f = delimFrameFor(box);
+      if (f) delimiterDialog(f, box);
+      return;
+    }
     case 'inline':
       if (analysis && box.node?.kind === 'ref') {
         const name = box.node.path;
@@ -757,6 +773,39 @@ function runAction(id: ActionId): void {
       return;
     }
   }
+}
+
+/** The choice or any-order group whose delimiter a selection stands for. */
+function delimFrameFor(box: Box): Box | undefined {
+  const ok = (f: Box | undefined): Box | undefined =>
+    f && f.kind === 'frame' && (f.frameOf === 'group' || f.frameOf === 'anyorder') && f.node && analysis && setDelimiter(analysis.source, f.node as ChoiceNode, ' ') ? f : undefined;
+  if (box.kind === 'frame') return ok(box);
+  if (box.kind !== 'anyorder' && box.kind !== 'delimiter') return undefined;
+  // A chip sits in the header of the frame it describes; the any-order group is the frame inside.
+  const around = chart.boxes.filter((f) => f.kind === 'frame' && inside(box, f)).sort((a, b) => a.w * a.h - b.w * b.h);
+  const inner = chart.boxes.filter((f) => f.kind === 'frame' && f.frameOf === 'anyorder' && around[0] && inside(f, around[0])).sort((a, b) => b.w * b.h - a.w * a.h);
+  return ok(box.kind === 'anyorder' ? (inner[0] ?? around[0]) : around[0]);
+}
+
+function delimiterDialog(frame: Box, anchor: Box): void {
+  if (!analysis || !frame.node) return;
+  const node = frame.node as ChoiceNode;
+  const src = analysis.source;
+  const current = node.kind === 'group' || node.kind === 'anyorder' ? node.delimiter : undefined;
+  const around = analysis.delimiter;
+  openPopover({
+    title: 'Delimiter',
+    label: 'What joins the parts here',
+    value: current ?? around,
+    hint: `Leave it empty for no space at all. Use default goes back to the delimiter around this choice (${JSON.stringify(around)}).`,
+    anchor: anchorOf(anchor),
+    returnFocus: document.activeElement as HTMLElement | null,
+    actions: [
+      { label: 'Set', kind: 'primary', run: (v) => applyEdit(setDelimiter(src, node, v), { focus: anchor }) },
+      ...(current !== undefined ? [{ label: 'Use default', run: () => applyEdit(setDelimiter(src, node, null), { focus: anchor }) }] : []),
+      { label: 'Cancel', run: () => undefined },
+    ],
+  });
 }
 
 function deleteUnused(name: string): void {
