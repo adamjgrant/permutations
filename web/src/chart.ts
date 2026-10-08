@@ -601,7 +601,8 @@ export class ChartView {
 
   // --- inline text editing -------------------------------------------------
 
-  beginEdit(b: Box): void {
+  /** Edit a box's text in place. `onCancel` runs when Escape abandons the edit. */
+  beginEdit(b: Box, opts: { onCancel?: () => void } = {}): void {
     if (!this.actions.canEdit()) {
       this.actions.select(b, false);
       return;
@@ -639,6 +640,10 @@ export class ChartView {
       }
       if (this.input === input) this.input = undefined;
       if (input.isConnected) input.remove();
+      if (!commit && !fromBlur && opts.onCancel) {
+        opts.onCancel();
+        return;
+      }
       if (!fromBlur) this.restoreFocus(b);
     };
     input.addEventListener('keydown', (e) => {
@@ -675,11 +680,11 @@ export class ChartView {
   }
 
   /** Show how one result was made: light the boxes on its path and dim the rest. */
-  setTrace(ids: Set<string> | null): void {
+  setTrace(ids: Set<string> | null, scroll = true): void {
     this.svg?.classList.toggle('tracing', !!ids);
     for (const [id, e] of this.elements) e.classList.toggle('on-path', !!ids && ids.has(id));
     this.svg?.querySelectorAll<SVGPathElement>('.edge.ref').forEach((p) => p.classList.toggle('on-path', !!ids && ids.has(p.dataset['from'] ?? '')));
-    if (ids) {
+    if (ids && scroll) {
       const first = readingOrder(this.boxes).find((b) => ids.has(b.id) && b.kind !== 'defLabel');
       if (first) this.scrollTo(first.id);
     }
@@ -714,7 +719,7 @@ export class ChartView {
   }
 
   /** Re-focus the box nearest the key, after a re-render. */
-  restoreKey(key: FocusKey, mapStart: (n: number) => number): Box | undefined {
+  restoreKey(key: FocusKey, mapStart: (n: number) => number, fallback = true): Box | undefined {
     const want = key.start < 0 ? -1 : mapStart(key.start);
     let best: Box | undefined;
     let bestD = Infinity;
@@ -727,7 +732,7 @@ export class ChartView {
         bestD = d;
       }
     }
-    if (!best) best = readingOrder(this.boxes)[0];
+    if (!best && fallback) best = readingOrder(this.boxes)[0];
     if (best) this.focusBox(best.id, false);
     return best;
   }

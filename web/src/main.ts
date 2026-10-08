@@ -172,6 +172,7 @@ function applyEdit(result: EditOrError | EditResult | undefined, opts: { startEd
   }
   clearNotice();
   const barFocus = bar.contains(document.activeElement) ? (document.activeElement as HTMLElement).dataset['action'] : undefined;
+  const chartArea = chart.hasFocus() || !!barFocus;
   const keepBar = barOn;
   const selected = chart.boxes.find((b) => b.id === selectedId);
   const key: FocusKey | undefined = opts.focus
@@ -186,19 +187,26 @@ function applyEdit(result: EditOrError | EditResult | undefined, opts: { startEd
   editor.patch(result.patches);
   refresh();
   const map = (n: number): number => (opts.map ?? mapOffset)(result.patches, n);
+  const sel = result.select;
   let landed: Box | undefined;
-  if (key) landed = barFocus ? chart.boxForKey(key, map) : chart.restoreKey(key, map);
-  if (landed && keepBar) {
-    selectBox(landed, { bar: true });
+  if (!opts.focus && sel && !opts.startEdit) {
+    // The edit says where its result is (an inlined branch, an inserted reference): go there.
+    landed = chart.boxAtOffset(sel[0]);
+    if (landed && chartArea && !barFocus) chart.focusBox(landed.id, true, true);
+  } else if (key) {
+    landed = barFocus ? chart.boxForKey(key, map) : chart.restoreKey(key, map, false);
+  }
+  if (landed && (keepBar || chartArea)) {
+    selectBox(landed, { bar: true, reveal: false });
     if (barFocus) bar.focusAction(barFocus);
   }
   opts.then?.(result.patches);
-  const sel = result.select;
   if (sel && opts.startEdit) {
     const box = chart.findByRange('text', sel);
     if (box) {
       selectBox(box, { reveal: false, bar: true });
-      chart.beginEdit(box);
+      // Escape right away means "I did not want that": take the new alternative back out.
+      chart.beginEdit(box, { onCancel: () => void historyStep(undo, true) });
     }
   }
   return undefined;
@@ -571,9 +579,9 @@ function runConvert(mode: 'short' | 'long', names: string[] | undefined, label: 
 
 const chart = new ChartView($('chart'), actions);
 
-function relayout(): void {
+function relayout(keepTrace = false): void {
   if (!analysis) return;
-  clearTrace();
+  if (!keepTrace) clearTrace();
   lastLayout = layout({
     main: analysis.main,
     others: analysis.others,
@@ -604,7 +612,8 @@ function relayoutKeepingSelection(): void {
   const key = sel ? chart.focusKey(sel) : undefined;
   const keep = barOn;
   const focusInChart = chart.hasFocus();
-  relayout();
+  relayout(true);
+  reapplyTrace();
   if (!key) return;
   const box = chart.boxForKey(key, (n) => n);
   if (!box) return;
@@ -617,6 +626,7 @@ function rerender(): void {
   if (!lastLayout) return;
   chart.render(lastLayout);
   chart.setSelected(multi.size ? [...multi] : selectedId ? [selectedId] : []);
+  reapplyTrace();
   updateTools();
 }
 
@@ -1111,10 +1121,18 @@ function item(n: number, text: string, tags: Record<string, string | number | tr
 // --- tracing an example through the chart ----------------------------------------
 
 let traced: string | undefined;
+let tracedIndex: bigint | undefined;
+
+/** Light the traced path again after the chart was drawn anew (zoom, resize). */
+function reapplyTrace(): void {
+  if (traced === undefined || tracedIndex === undefined || !analysis) return;
+  chart.setTrace(pathBoxes(chart.boxes, analysis.program.trace(tracedIndex)), false);
+}
 
 function clearTrace(): void {
   if (traced === undefined) return;
   traced = undefined;
+  tracedIndex = undefined;
   chart.setTrace(null);
   document.querySelectorAll('.ex-row[aria-pressed="true"]').forEach((b) => b.setAttribute('aria-pressed', 'false'));
   $('trace-note').hidden = true;
@@ -1131,6 +1149,10 @@ function toggleTrace(btn: HTMLElement): void {
   const tr = analysis.program.trace(BigInt(btn.dataset['index']));
   chart.setTrace(pathBoxes(chart.boxes, tr));
   traced = key;
+  tracedIndex = BigInt(btn.dataset['index']);
+  // On a narrow screen the chart may be scrolled out of sight: bring it into view.
+  const r = $('chart').getBoundingClientRect();
+  if (r.bottom < 40 || r.top > window.innerHeight - 40) $('chart').scrollIntoView({ block: 'start', behavior: 'smooth' });
   btn.setAttribute('aria-pressed', 'true');
   const note = $('trace-note');
   note.hidden = false;
@@ -1396,7 +1418,24 @@ document.addEventListener('keydown', (e) => {
 // Undo and redo work everywhere, so a change made in the chart can be undone from the chart.
 // Inside the code editor and text fields their own undo applies.
 function undoOnce(): void {
-  if (undo(editor.view)) refresh();
+  historyStep(undo);
+}
+
+/**
+ * Undo or redo, then put the selection (and keyboard focus, if it was in the chart, the strip
+ * or a toast) on the box where the change happened, instead of dropping focus to the page.
+ */
+function historyStep(step: typeof undo, focusChart = false): boolean {
+  const a = document.activeElement;
+  const inChartArea = focusChart || chart.hasFocus() || bar.contains(a) || !!a?.closest('.toast, .inline-edit');
+  if (!step(editor.view)) return false;
+  refresh();
+  const box = chart.boxAtOffset(editor.view.state.selection.main.head);
+  if (box && inChartArea) {
+    chart.focusBox(box.id, true, true);
+    selectBox(box, { bar: true, reveal: false });
+  }
+  return true;
 }
 const UNDO = { label: 'Undo', run: undoOnce };
 document.addEventListener('keydown', (e) => {
@@ -1409,8 +1448,7 @@ document.addEventListener('keydown', (e) => {
   if (t?.closest('.cm-editor, input, textarea, [contenteditable="true"]')) return;
   e.preventDefault();
   safe(() => {
-    const did = isUndo ? undo(editor.view) : redo(editor.view);
-    if (did) refresh();
+    const did = historyStep(isUndo ? undo : redo);
     toast(did ? (isUndo ? 'Undone' : 'Redone') : isUndo ? 'Nothing to undo' : 'Nothing to redo');
   })();
 });

@@ -188,4 +188,25 @@ export default async (t) => {
   await act('delete-piece').click();
   await t.settle();
   check((await line1()) === "main = [[are you|'s it]|What]", 'Delete on one word keeps the rest of its alternative');
+
+  // Focus and traces survive history steps, cancelled adds and zoom.
+  await t.setCode("main = [Hello|Oh, Hi] $greeting\ngreeting = [How|What]\n");
+  await txt('Oh, Hi').click();
+  await page.keyboard.press('Delete');
+  await t.settle();
+  await page.keyboard.press('Meta+z');
+  await t.settle();
+  check(await page.evaluate(() => document.activeElement?.closest('.chart-svg') !== null), 'after Cmd+Z the keyboard focus is back in the chart');
+  await txt('Oh, Hi').click();
+  await page.keyboard.press('+');
+  await t.settle(300);
+  await page.keyboard.press('Escape');
+  await t.settle();
+  check((await line1()) === 'main = [Hello|Oh, Hi] $greeting', 'Escape right after + Alternative takes the new alternative back out');
+  await page.locator('#samples .ex-row').first().click();
+  await t.settle(100);
+  await page.click('#z-in');
+  await t.settle(100);
+  check((await page.$$('.chart-svg.tracing')).length === 1, 'zooming keeps the traced example lit');
+  await page.click('#z-fit');
 };
