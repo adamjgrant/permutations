@@ -179,6 +179,14 @@ export function deleteDefinition(src: string, name: string): EditOrError {
     return { error: `Cannot delete "${name}" because ${who.join(', ')} ${who.length === 1 ? 'refers' : 'refer'} to it. Change those references first.` };
   }
   let from = lineStart(src, def.range[0]);
+  // A comment right above a branch is about it: it goes too, unless it heads the file.
+  let c = from;
+  while (c > 0) {
+    const prevStart = lineStart(src, c - 1);
+    if (!/^[ \t]*#/.test(src.slice(prevStart, c - 1))) break;
+    c = prevStart;
+  }
+  if (c < from && src.slice(0, c).trim() !== '') from = c;
   let to = lineEnd(src, def.range[1]);
   if (to < src.length) to++;
   // Swallow blank lines that followed it, or the ones before it when it was last.

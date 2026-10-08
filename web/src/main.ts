@@ -416,7 +416,8 @@ const actions: ChartActions = {
   },
   deleteAlternative(row) {
     if (!analysis || !canEdit()) return;
-    if (!applyEdit(deleteAlternative(analysis.source, row.node as ChoiceNode, row.index ?? 0))) toast('Alternative deleted.', UNDO);
+    const what = (row.node as ChoiceNode).kind === 'anyorder' ? 'Item' : 'Alternative';
+    if (!applyEdit(deleteAlternative(analysis.source, row.node as ChoiceNode, row.index ?? 0))) toast(`${what} deleted.`, UNDO);
   },
   moveAlternative(row, delta) {
     if (!analysis || !canEdit()) return;
@@ -901,8 +902,25 @@ function runAction(id: ActionId): void {
 
 /** The choice or any-order group whose delimiter a selection stands for. */
 function delimFrameFor(box: Box): Box | undefined {
+  // A choice's delimiter only goes between the pieces inside its alternatives, never between
+  // alternatives: offer it only when some alternative has pieces to join.
+  const joins = (n: Node): boolean => {
+    let any = false;
+    visit(n, (m) => {
+      if (m.kind === 'seq' && m.pieces.some((p, i) => i > 0 && p.join)) any = true;
+    });
+    return any;
+  };
   const ok = (f: Box | undefined): Box | undefined =>
-    f && f.kind === 'frame' && (f.frameOf === 'group' || f.frameOf === 'anyorder' || f.frameOf === 'repeat') && f.node && analysis && setDelimiter(analysis.source, f.node as DelimTarget, ' ') ? f : undefined;
+    f &&
+    f.kind === 'frame' &&
+    (f.frameOf === 'group' || f.frameOf === 'anyorder' || f.frameOf === 'repeat') &&
+    f.node &&
+    (f.frameOf !== 'group' || joins(f.node)) &&
+    analysis &&
+    setDelimiter(analysis.source, f.node as DelimTarget, ' ')
+      ? f
+      : undefined;
   if (box.kind === 'frame') return ok(box);
   if (box.kind !== 'anyorder' && box.kind !== 'delimiter' && box.kind !== 'repeat') return undefined;
   // A chip sits in the header of the frame it describes; the any-order group is the frame inside.
@@ -1098,7 +1116,7 @@ function insertRefDialog(box: Box): void {
         label: 'Insert',
         kind: 'primary',
         run(v) {
-          const name = v.trim();
+          const name = v.trim().replace(/^\$/, '');
           if (!name) return 'Type the name of a branch.';
           if (!names.includes(name)) {
             return branchNames().includes(name)
@@ -1120,7 +1138,7 @@ const on = (id: string, fn: () => void): void => $(id).addEventListener('click',
 on('t-new', () => {
   if (!analysis || !canEdit()) return;
   const src = analysis.source;
-  nameDialog('New branch', 'Name', uniqueName(src), 'Letters, digits and underscores. It is added at the end of the code in the same style as the rest.', undefined, (v) => {
+  nameDialog('New branch', 'Name', uniqueName(src), 'Letters, digits and underscores; a dot groups branches, like letters.A. It is added at the end of the code in the same style as the rest.', undefined, (v) => {
     const r = createDefinition(src, v);
     if (failed(r)) return r.error;
     return applyEdit(r, { then: () => gotoBranch(v) });
@@ -1390,7 +1408,14 @@ function renderCount(): void {
   const c = analysis.program.count;
   $('count').textContent = formatCount(c);
   $('count').title = c.toString().length > 15 ? `${new Intl.NumberFormat('en-US').format(c)} permutations` : '';
-  $('count-unit').textContent = c === 1n ? 'permutation' : 'permutations';
+  // The count is of paths: when some print the same text, say how many different texts.
+  let note = '';
+  if (c > 1n && c <= 5000n) {
+    const texts = new Set<string>();
+    for (const o of analysis.program.all()) texts.add(o.text);
+    if (BigInt(texts.size) < c) note = `, ${formatCount(BigInt(texts.size))} different`;
+  }
+  $('count-unit').textContent = (c === 1n ? 'permutation' : 'permutations') + note;
 }
 
 function renderSamples(): void {
@@ -1500,8 +1525,8 @@ function copyTexts(list: string): void {
   if (!texts.length) return;
   const n = texts.length;
   navigator.clipboard.writeText(texts.join('\n')).then(
-    () => toast(`Copied ${n} ${n === 1 ? 'example' : 'examples'}`),
-    () => toast('Copy failed: the browser did not allow it'),
+    () => toast(`Copied ${n} ${n === 1 ? 'example' : 'examples'}.`),
+    () => toast('Copy failed: the browser did not allow it.'),
   );
 }
 
@@ -1547,7 +1572,7 @@ $('b-share').addEventListener(
     history.replaceState(null, '', url);
     try {
       await navigator.clipboard.writeText(url);
-      toast('Link copied');
+      toast('Link copied.');
     } catch {
       const ta = document.createElement('textarea');
       ta.value = url;
@@ -1555,7 +1580,7 @@ $('b-share').addEventListener(
       ta.select();
       const ok = document.execCommand('copy');
       ta.remove();
-      toast(ok ? 'Link copied' : 'Copy failed. The link is in the address bar.');
+      toast(ok ? 'Link copied.' : 'Copy failed. The link is in the address bar.');
     }
   }),
 );
@@ -1606,7 +1631,7 @@ function buildHelp(): void {
           userEvent: 'input.snippet',
         });
         editor.highlight(ins.select);
-        toast(`Inserted ${h.title.toLowerCase()}. It is highlighted in the code.`);
+        toast(`Inserted ${h.at === 'end' ? 'a new branch' : h.title.toLowerCase()}. It is highlighted in the code.`);
       }),
     );
     li.append(title, text, code, btn);
@@ -1717,7 +1742,7 @@ document.addEventListener('keydown', (e) => {
   e.preventDefault();
   safe(() => {
     const did = historyStep(isUndo ? undo : redo);
-    toast(did ? (isUndo ? 'Undone' : 'Redone') : isUndo ? 'Nothing to undo' : 'Nothing to redo');
+    toast(did ? (isUndo ? 'Undone.' : 'Redone.') : isUndo ? 'Nothing to undo.' : 'Nothing to redo.');
   })();
 });
 refresh();

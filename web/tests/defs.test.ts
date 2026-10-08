@@ -353,3 +353,10 @@ test('inline keeps ranges and spacing as written, and adds brackets only when ne
   assert.equal(run(r4, inlineReference(r4, refs(r4)[0]!)).split('\n')[0], 'main = [b|$c]');
   for (const src of [r1, r2, r3, r4]) assert.equal(meaning(run(src, inlineReference(src, refs(src)[0]!))), meaning(src));
 });
+
+test('deleting a branch takes the comment right above it, but not a file header', () => {
+  const src = 'main = x\n# about spare\nspare = [a|b]\n';
+  assert.equal(run(src, deleteDefinition(src, 'spare')), 'main = x\n');
+  const head = '# file header\nspare = [a|b]\nmain = x\n';
+  assert.equal(run(head, deleteDefinition(head, 'spare')), '# file header\nmain = x\n');
+});

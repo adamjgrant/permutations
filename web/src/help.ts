@@ -11,15 +11,15 @@ export interface HelpItem {
 }
 
 export const HELP_ITEMS: HelpItem[] = [
-  { id: 'choice', title: 'Choice', text: 'Square brackets with | between the options. One is picked each time.', snippet: '[red|green|blue]', at: 'cursor' },
-  { id: 'empty', title: 'Empty option', text: 'Leave an option empty to make the thing optional.', snippet: '[Good morning! |]', at: 'cursor' },
+  { id: 'choice', title: 'Choice', text: 'Square brackets with | between the alternatives. One is picked each time.', snippet: '[red|green|blue]', at: 'cursor' },
+  { id: 'empty', title: 'Empty alternative', text: 'Leave an alternative empty to make the choice optional.', snippet: '[Good morning! |]', at: 'cursor' },
   { id: 'reference', title: 'Reference', text: 'Give a piece a name, then use it anywhere with $name.', snippet: 'greeting = [Hello|Hi]\n', at: 'end' },
   { id: 'use', title: 'Use a reference', text: 'The name ends at the first character that is not a letter, digit or underscore.', snippet: '$greeting', at: 'cursor' },
   { id: 'anyorder', title: 'Any order', text: 'Every ordering of the items. n items give n! results, so keep it small.', snippet: '[foo & bar & baz]', at: 'cursor' },
   { id: 'repeat', title: 'Repeat', text: 'Repeat the piece before it n times, or between n and m times.', snippet: '[0..9|A..F]{6}', at: 'cursor' },
   { id: 'range', title: 'Range', text: 'A range of numbers or characters, shown as one box in the chart.', snippet: '[1..6]', at: 'cursor' },
-  { id: 'tag', title: 'Tag', text: 'Write @name after an option to set a tag when it is chosen.', snippet: '[what @q|that]', at: 'cursor' },
-  { id: 'guard', title: 'Guard', text: 'Start an option with @name: so it is only eligible when the tag is set. @else: catches the rest.', snippet: '[@q: ?|@else: .]', at: 'cursor' },
+  { id: 'tag', title: 'Tag', text: 'Write @name after an alternative to set a tag when it is chosen.', snippet: '[what @q|that]', at: 'cursor' },
+  { id: 'guard', title: 'Guard', text: 'Start an alternative with @name: so it is only available when the tag is set. @else: catches the rest.', snippet: '[@q: ?|@else: .]', at: 'cursor' },
   { id: 'delimiter', title: 'Delimiter', text: 'What joins the pieces of one group. The default is a space.', snippet: '[A & T; delimiter="-"]', at: 'cursor' },
   { id: 'transform', title: 'Transform', text: 'Change the text of one piece: lower, upper, capitalize, title, trim.', snippet: '[hello]:upper', at: 'cursor' },
   { id: 'long', title: 'Long form', text: 'The same constructs, one per line. To convert a branch, select its name and choose Expand to long form.', snippet: 'branch pick\n  one of\n    first\n    second\n', at: 'end' },

@@ -415,3 +415,8 @@ kbd { font: 11.5px ui-monospace, "SF Mono", Menlo, monospace; padding: 1px 5px; 
 .help .intro { margin: 0 0 8px; font-size: 13px; line-height: 1.45; }
 
 .help .examples-list li { grid-template-columns: 1fr auto; }
+
+.help h4 { scroll-margin-top: 56px; }
+.popover:has(.vary) { width: 400px; }
+.popover:has(.vary) .pop-actions { flex-wrap: nowrap; }
+.trace-note { margin: 0; padding: 6px 16px; border-bottom: 1px solid var(--border); background: var(--accent-tint); }

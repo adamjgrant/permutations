@@ -122,8 +122,8 @@ export function barActions(s: BarInput): ActionSpec[] {
       }
     }
     if (s.frame?.frameOf === 'group') {
-      if (s.caps.tag) out.push({ id: 'tag', label: '+ Tag', title: 'Set a tag when this alternative is chosen (t)', group: 2 });
-      if (s.caps.guard) out.push({ id: 'guard', label: '+ Guard', title: 'Only allow this alternative when a tag is set (g)', group: 2 });
+      if (s.caps.tag) out.push({ id: 'tag', label: '+ Tag…', title: 'Set a tag when this alternative is chosen (t)', group: 2 });
+      if (s.caps.guard) out.push({ id: 'guard', label: '+ Guard…', title: 'Only allow this alternative when a tag is set (g)', group: 2 });
     }
   } else if (inChoice && b.kind === 'frame') {
     out.push({ id: 'add', label: any ? '+ Item' : '+ Alternative', title: any ? 'Add an item at the end (+)' : 'Add an alternative at the end (+)', group: 1 });

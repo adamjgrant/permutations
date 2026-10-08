@@ -113,8 +113,10 @@ export function varyWords(src: string, node: TextNode, first: number, last: numb
   const [from, to] = node.range;
   const second = alt === null ? '' : escapeText(alt, false);
   const group = `[${escapeText(chosen, false)}|${second}]`;
-  const head = before ? escapeText(before, isAtLineStart(src, from)) + ' ' : '';
-  const insert = head + group + (after ? ' ' + escapeText(after, false) : '');
+  // Outside the brackets a standalone & is plain text, so leave the words around as they were.
+  const plain = (t: string, atStart: boolean): string => escapeText(t, atStart).replace(/\\&/g, '&');
+  const head = before ? plain(before, isAtLineStart(src, from)) + ' ' : '';
+  const insert = head + group + (after ? ' ' + plain(after, false) : '');
   const at = from + head.length + 1 + escapeText(chosen, false).length + 1;
   return { patches: [{ from, to, insert }], select: [at, at + second.length] };
 }

@@ -23,7 +23,7 @@
       <h2 id="chart-title">Flow chart</h2>
       <span id="stale" class="badge warn" hidden>Last valid chart</span>
       <div class="tools" role="toolbar" aria-label="Chart tools">
-        <button id="t-new" type="button" title="Add a new branch at the end of the code">New branch</button>
+        <button id="t-new" type="button" title="Add a new branch at the end of the code">New branch…</button>
         <span class="sep" aria-hidden="true"></span>
         <button id="z-out" type="button" aria-label="Zoom out" title="Zoom out">&minus;</button>
         <button id="z-fit" type="button" title="Fit the whole chart in the pane">Fit</button>
@@ -86,9 +86,10 @@
       </div>
       <p class="count" aria-live="polite"><strong id="count">0</strong> <span id="count-unit">permutations</span></p>
     </header>
+    <p id="trace-note" class="trace-note" role="status" hidden><span id="trace-text"></span> <button id="trace-stop" type="button" class="linkish">Stop showing</button></p>
     <div id="view-random" class="ex-body" role="tabpanel" aria-labelledby="tab-random">
       <ol id="samples" class="samples"></ol>
-      <p id="trace-note" class="trace-note" role="status" hidden><span id="trace-text"></span> <button id="trace-stop" type="button" class="linkish">Stop showing</button></p>
+
       <div class="ex-foot"><button id="b-new" type="button" class="primary">Make a new 5</button><button id="b-copy5" type="button" title="Copy these examples, one per line">Copy</button><span id="sample-note" class="note"></span></div>
     </div>
     <div id="view-all" class="ex-body" role="tabpanel" aria-labelledby="tab-all" hidden>
