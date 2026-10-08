@@ -1,6 +1,7 @@
 // Warnings: code that parses but probably does not do what it looks like. They never stop a
 // program; the CLI prints them and the web app shows them as hints.
 
+import { eligibleOptions } from './engine';
 import { lineCol } from './parser';
 import { Def, GroupNode, Module, Node } from './types';
 
@@ -61,14 +62,30 @@ const TEXT_TRAPS: { re: RegExp; message: (m: RegExpExecArray) => string }[] = [
   },
 ];
 
-function groupWarnings(g: GroupNode, add: (message: string, offset: number) => void): void {
+const DEAD_END = 'When none of these guards holds, this choice has nothing to pick and the result is dropped. Add an @else: alternative (otherwise, in long form)';
+
+/**
+ * `states` are the tag states the walk reaches this choice in, when it reaches it at all (from
+ * the entry point). With them the guard warnings are exact; without them (a branch nothing uses)
+ * they fall back to what the code says on its own.
+ */
+function groupWarnings(g: GroupNode, add: (message: string, offset: number) => void, states: string[] | undefined): void {
   const guards = g.options.map((o) => o.guard);
   const elseAt = guards.findIndex((x) => x?.kind === 'else');
   if (elseAt !== -1 && guards.slice(elseAt + 1).some((x) => x?.kind === 'tag')) {
     add('@else: (otherwise, in long form) only looks at the guards before it, so the ones after it still compete with it. Put it last', g.options[elseAt]?.range[0] ?? g.range[0]);
   }
-  if (g.options.length > 0 && g.options.every((o) => o.guard?.kind === 'tag')) {
-    add('When none of these guards holds, this choice has nothing to pick and the result is dropped. Add an @else: alternative (otherwise, in long form)', g.range[0]);
+  if (states) {
+    const open = states.map((s) => eligibleOptions(g, s));
+    if (open.some((o) => o.length === 0)) add(DEAD_END, g.range[0]);
+    for (const o of g.options) {
+      const guard = o.guard;
+      if (guard?.kind !== 'tag' || open.some((list) => list.includes(o))) continue;
+      const label = `@${guard.negate ? '!' : ''}${guard.name}${guard.value !== undefined ? '=' + guard.value : ''}:`;
+      add(`The guard ${label} never holds when this choice is reached, so this alternative is never picked. A guard only sees tags set before it (to its left)`, o.range[0]);
+    }
+  } else if (g.options.length > 0 && g.options.every((o) => o.guard?.kind === 'tag')) {
+    add(DEAD_END, g.range[0]);
   }
   for (const o of g.options) {
     for (const t of o.tags) {
@@ -83,7 +100,7 @@ function groupWarnings(g: GroupNode, add: (message: string, offset: number) => v
   }
 }
 
-export function findWarnings(modules: Module[], root: Module): Warning[] {
+export function findWarnings(modules: Module[], root: Module, reach?: Map<number, string[]>): Warning[] {
   const out: Warning[] = [];
   for (const module of modules) {
     const add = (message: string, offset: number): void => {
@@ -106,7 +123,7 @@ export function findWarnings(modules: Module[], root: Module): Warning[] {
               break;
             }
           }
-        } else if (n.kind === 'group') groupWarnings(n, add);
+        } else if (n.kind === 'group') groupWarnings(n, add, reach?.get(n.id));
       });
     }
   }

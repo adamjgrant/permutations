@@ -187,10 +187,13 @@ given, `$hex{6; delimiter=" "}`.
 **Configuring it.** The delimiter is a property that nests:
 
 - **Global**: a header line, `delimiter = " "`, or `perm --delimiter`.
-- **Local**: on any group, reference or long-form block. The innermost setting wins.
-- **Any-order groups use it too**, so `join` is just the delimiter of that group.
-  `All personnel [must have a parents signature & ages 18 and younger]` joins with the
-  global space. `[[A & T][G & C]; delimiter=""]` joins tightly throughout.
+- **Local**: on a group or long-form block. The innermost setting wins. On a choice it
+  reaches everything inside; on an any-order group or a repeat it goes only between the
+  items or copies, and the inside of each item keeps the delimiter around the group.
+- **Any-order groups use it too**, so `join` is just the delimiter of that group, and
+  `last` sets the final join (`a, b and c`). `[[A & T][G & C]; delimiter=""]` joins tightly
+  throughout, because the clause is on the choice around both groups.
+- **Imported branches** keep their own file's `delimiter` setting, if it has one.
 - **Chart**: an edge shows a label only when its delimiter is not the default.
 
 ```

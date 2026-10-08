@@ -528,13 +528,22 @@ const actions: ChartActions = {
     if (!a || !analysis || !canEdit()) return;
     const src = analysis.source;
     const known = analysis.knownTags;
+    // Only tags set before this choice can guard it; the walk knows which ones those are.
+    const before = analysis.program.tagsBefore(a.node);
+    const usable = before ? [...known].filter((k) => before.has(k)) : [...known];
+    const later = before ? [...known].filter((k) => !before.has(k)) : [];
+    const hintTags = usable.length
+      ? ` Tags set before this choice: ${usable.join(', ')}.`
+      : known.size
+        ? ' No tag is set before this choice yet.'
+        : ' No alternative sets a tag yet.';
     openPopover({
       title: 'Add a guard',
       label: 'Guard',
       value: '',
-      hint: `A tag name, !name for "not set", name=value, or else. The alternative is only available when the guard holds, and the tag must be set earlier.${known.size ? ` Tags so far: ${[...known].join(', ')}.` : ' No alternative sets a tag yet.'}`,
-      placeholder: [...known][0] ?? 'tag name',
-      suggestions: [...known, ...[...known].map((k) => '!' + k), 'else'],
+      hint: `A tag name, !name for "not set", name=value, or else. The alternative is only available when the guard holds.${hintTags}${later.length ? ` (${later.join(', ')} ${later.length === 1 ? 'is' : 'are'} only set later, so ${later.length === 1 ? 'it cannot' : 'they cannot'} guard this.)` : ''}`,
+      placeholder: usable[0] ?? 'tag name',
+      suggestions: [...usable, ...usable.map((k) => '!' + k), 'else'],
       anchor: anchorOf(row),
       returnFocus: document.activeElement as HTMLElement | null,
       actions: [
@@ -546,7 +555,9 @@ const actions: ChartActions = {
             if ('error' in p) return p.error;
             const err = applyEdit(addGuard(src, a.node, a.index, p.spec));
             if (!err && p.spec.kind === 'tag' && !known.has(p.spec.name)) {
-              notify(`No alternative sets the tag "${p.spec.name}" yet, so this guard has nothing to test. Add the tag with @ on an earlier alternative.`, 'warn');
+              notify(`No alternative sets the tag “${p.spec.name}” yet, so this guard has nothing to test. Add the tag with @ on an earlier alternative.`, 'warn');
+            } else if (!err && p.spec.kind === 'tag' && later.includes(p.spec.name)) {
+              notify(`“${p.spec.name}” is only set after this choice, so this guard never holds. A guard only sees tags set before it.`, 'warn');
             }
             return err;
           },

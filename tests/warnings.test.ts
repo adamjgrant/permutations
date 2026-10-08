@@ -33,6 +33,18 @@ describe('warnings for code that does not do what it looks like', () => {
     expect(warn('[x @q|y] [@q: yes|@else: no]')).toEqual([]);
   });
 
+  test('guards are judged by what can really come before them', () => {
+    // Every opening sets one of the two tags, so the fully guarded choice always has a pick.
+    expect(warn('opening = [Hi @casual|Dear Sir @formal]\nmain = $opening, [@casual: cheers|@formal: regards]')).toEqual([]);
+    expect(warn('[x @q|y @q] [@q: yes]')).toEqual([]);
+    // A guard on a tag that is only set later never holds.
+    expect(warn('[@q: Excuse me,|Hey,] [what @q|that] is it')[0]).toMatch(/The guard @q: never holds.*never picked/);
+    expect(warn('[a @k=1|b @k=2] [@k=3: three|@else: other]')[0]).toMatch(/The guard @k=3: never holds/);
+    expect(warn('[a @q] [@!q: never|always]')[0]).toMatch(/The guard @!q: never holds/);
+    // A branch nothing uses is judged by its code alone.
+    expect(warn('main = hi\nunused = [@q: yes]')[0]).toMatch(/nothing to pick/);
+  });
+
   test('positions are reported', () => {
     const w = compile('main = fine\nother = very{2}').warnings[0]!;
     expect(w.line).toBe(2);

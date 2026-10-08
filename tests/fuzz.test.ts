@@ -90,7 +90,8 @@ function enumNode(n: Node, st: State, delim: string): Path[] {
         let acc: { outs: string[]; st: State }[] = [{ outs: [], st }];
         for (const item of perm) {
           const next: { outs: string[]; st: State }[] = [];
-          for (const a of acc) for (const r of enumNode(item, a.st, d)) next.push({ outs: [...a.outs, r.text], st: r.st });
+          // The group's delimiter joins the items; inside each item the outer one applies.
+          for (const a of acc) for (const r of enumNode(item, a.st, delim)) next.push({ outs: [...a.outs, r.text], st: r.st });
           acc = next;
         }
         for (const a of acc) out.push({ text: joinAll(a.outs, a.outs.map(() => true), d, n.last), st: a.st });

@@ -159,7 +159,16 @@ export function compile(source: string, opts: CompileOptions = {}): Program {
       }
     }
   }
-  program.warnings = findWarnings(all, root);
+  // With tags, which guards can hold depends on what came before, so the walk's own reach is used.
+  let reach: Map<number, string[]> | undefined;
+  if (all.some((m) => m.hasTags)) {
+    try {
+      reach = program.reachStates();
+    } catch {
+      reach = undefined;
+    }
+  }
+  program.warnings = findWarnings(all, root, reach);
   for (const key of Object.keys(opts.values ?? {})) {
     if (!usedValues.has(key)) program.warnings.push({ message: `The host value ${key} is not used: nothing in the program refers to $${key}`, offset: -1, line: 0, col: 0 });
   }

@@ -459,8 +459,10 @@ export function layout(input: LayoutInput): Layout {
     const isAny = node.kind === 'anyorder';
     const d = effective(node.delimiter, inherited);
     const alts = alternatives(node);
+    // A choice's delimiter reaches inside its alternatives; an any-order group's only joins its
+    // items, and the pieces inside each item keep the delimiter around the group.
     const rows = alts.map((a) => {
-      const content = rowContent(a, d);
+      const content = rowContent(a, isAny ? inherited : d);
       return { content, w: content.w + M.rowPadX * 2, h: content.h + M.rowPadY * 2, cy: content.cy + M.rowPadY, range: trim(a.range) };
     });
     const chips: Block[] = [];

@@ -176,6 +176,30 @@ function joinOutputs(outs: string[], joins: boolean[], delim: string, last?: str
   return res;
 }
 
+/** The options of a choice that can be taken when the walk arrives in tag state `s`. */
+export function eligibleOptions(group: GroupNode, s: string): GroupNode['options'] {
+  const st = decode(s);
+  const out: GroupNode['options'] = [];
+  let matched = false;
+  for (const o of group.options) {
+    const g = o.guard;
+    if (!g) {
+      out.push(o);
+    } else if (g.kind === 'else') {
+      if (!matched) out.push(o);
+    } else {
+      const has = st.has(g.name);
+      let ok = g.value !== undefined ? has && st.get(g.name) === g.value : has;
+      if (g.negate) ok = !ok;
+      if (ok) {
+        matched = true;
+        out.push(o);
+      }
+    }
+  }
+  return out;
+}
+
 // --- evaluator -------------------------------------------------------------
 
 export class Evaluator {
@@ -212,24 +236,19 @@ export class Evaluator {
   }
 
   private eligible(group: GroupNode, s: string) {
-    const st = decode(s);
-    const out = [];
-    let matched = false;
-    for (const o of group.options) {
-      const g = o.guard;
-      if (!g) {
-        out.push(o);
-      } else if (g.kind === 'else') {
-        if (!matched) out.push(o);
-      } else {
-        const has = st.has(g.name);
-        let ok = g.value !== undefined ? has && st.get(g.name) === g.value : has;
-        if (g.negate) ok = !ok;
-        if (ok) {
-          matched = true;
-          out.push(o);
-        }
-      }
+    return eligibleOptions(group, s);
+  }
+
+  /** The tag states each node has been entered with so far: after counting, every reachable one. */
+  entryStates(): Map<number, string[]> {
+    const out = new Map<number, string[]>();
+    for (const key of this.memo.keys()) {
+      const bar = key.indexOf('|');
+      const id = Number(key.slice(0, bar));
+      const state = key.slice(bar + 1);
+      const list = out.get(id);
+      if (list) list.push(state);
+      else out.set(id, [state]);
     }
     return out;
   }
@@ -246,8 +265,8 @@ export class Evaluator {
         kind: 'seq' as const,
         id: newId(),
         pieces: perm.map((idx, j) => ({ node: node.items[idx] as SeqNode, join: j > 0 })),
+        // The group's delimiter goes between its items; inside an item, the one around the group.
         joinDelim: node.delimiter,
-        scopeDelim: node.delimiter,
         lastDelim: node.last,
         range: node.range,
       }));
@@ -340,7 +359,7 @@ export class Evaluator {
             rest /= c;
             return ki;
           });
-          const outs = perm.map((i) => this.walk(node.items[i] as SeqNode, sIn, sOut, ks[i] as bigint, d, tr));
+          const outs = perm.map((i) => this.walk(node.items[i] as SeqNode, sIn, sOut, ks[i] as bigint, delim, tr));
           return joinOutputs(outs, outs.map(() => true), d, node.last);
         }
         for (const seq of this.orderings(node)) {
@@ -428,7 +447,7 @@ export class Evaluator {
           const perms = factorial(n);
           const perm = unrankPermutation(n, scaled(draw(`${key}/perm`), perms));
           // Each item keeps the key of its place in the source, so its own picks stay put.
-          const outs = perm.map((i) => this.walkKeyed(node.items[i] as SeqNode, sIn, sOut, d, `${key}/${i}`, draw, visits, tr));
+          const outs = perm.map((i) => this.walkKeyed(node.items[i] as SeqNode, sIn, sOut, delim, `${key}/${i}`, draw, visits, tr));
           return joinOutputs(outs, outs.map(() => true), d, node.last);
         }
         const seqs = this.orderings(node);
@@ -517,6 +536,24 @@ export class Program {
 
   get delimiter(): string {
     return this.opts.delimiter;
+  }
+
+  /** For each node the walk reaches (by id), the tag states it is reached in. Counts first. */
+  reachStates(): Map<number, string[]> {
+    void this.count;
+    return this.ev.entryStates();
+  }
+
+  /**
+   * The tags that can be set when the walk reaches `node` (a choice, say): every name in any of
+   * the states it is reached in. Undefined when the walk never reaches it.
+   */
+  tagsBefore(node: Node): Set<string> | undefined {
+    const states = this.reachStates().get(node.id);
+    if (!states) return undefined;
+    const out = new Set<string>();
+    for (const s of states) for (const k of decode(s).keys()) out.add(k);
+    return out;
   }
 
   /** Number of paths (permutations). Two paths can print the same text. */

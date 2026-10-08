@@ -293,7 +293,9 @@ equal odds, exactly as if you had written `[A|B|C]`.
 
 The items are joined with the group's delimiter (section 7), and `last` sets what joins the
 final two, which makes natural lists (two items give `tent and stove`). Items can be any
-piece, not only text.
+piece, not only text. The delimiter goes only between items: inside an item, the words keep
+the spacing around the group, so `[a [big|small] tent & a map; delimiter=", "]` gives
+`a big tent, a map`.
 
 `n` items give `n!` results, so the editor warns above 7 items. In a program that uses tags,
 an any-order group can have at most 8 items.
@@ -535,10 +537,14 @@ How [are you|'s [it|everything]]    ->  How are you / How's it / How's everythin
 **Changing the delimiter.**
 
 - Globally: `delimiter = ", "` in the file, or `perm --delimiter ", "`.
-- Locally: a clause on a group, `[ ... ; delimiter="" ]`. The innermost setting wins, and
-  it applies to everything inside that group, including nested groups.
-- Any-order groups use the delimiter of their own scope, so `[a & b]` gives `a b`, and
-  `[a & b; delimiter=" and "]` gives `a and b` or `b and a`.
+- Locally: a clause on a choice, `[ ... ; delimiter="" ]`. The innermost setting wins, and
+  it applies to everything inside that choice, including nested groups.
+- On an any-order group or a repeat, the clause goes only between the items (or copies).
+  The pieces inside each item keep the delimiter around the group, so
+  `[the [red|blue] tent & a map; delimiter=", "]` gives `the red tent, a map`, not
+  `the, red, tent, a map`.
+- Without a clause, any-order groups use the delimiter around them, so `[a & b]` gives
+  `a b`, and `[a & b; delimiter=" and "]` gives `a and b` or `b and a`.
 
 ```
 delimiter = " AND "

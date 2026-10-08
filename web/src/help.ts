@@ -108,7 +108,7 @@ export const EXAMPLE_PROGRAMS: { title: string; text: string; source: string }[]
   {
     title: 'Packing list in any order',
     text: 'Every item is used, in every order, joined with commas and a final and.',
-    source: 'main = Pack [the tent & the stove & the map; delimiter=", "] and the [torch|lamp].\n',
+    source: 'main = Pack [the tent & the stove & the map & the [torch|lamp]; delimiter=", " last=" and "].\n',
   },
   {
     title: 'A letter in long form',

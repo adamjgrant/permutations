@@ -540,3 +540,13 @@ describe('ranges, quotes and host values', () => {
   });
 });
 
+
+describe('the delimiter of an any-order group', () => {
+  test('goes between the items only, like a repeat between its copies', () => {
+    expect(texts('[x [1|2] & y; delimiter=" and "]')).toEqual(['x 1 and y', 'x 2 and y', 'y and x 1', 'y and x 2']);
+    expect(texts('[[a @t] [b|c] & d; delimiter=", "]')).toContain('a b, d');
+    expect(texts('[cat [1|2]]{2; delimiter=", "}')).toContain('cat 1, cat 2');
+    // A choice's delimiter still reaches everything inside it.
+    expect(texts('[[x [1|2] & y]; delimiter="-"]')).toContain('x-1-y');
+  });
+});
