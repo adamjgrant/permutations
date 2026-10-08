@@ -95,6 +95,8 @@ export type EdgeKind = 'flow' | 'rail' | 'ref' | 'divider' | 'joiner';
 export interface Edge {
   id: string;
   kind: EdgeKind;
+  /** A flow edge between pieces written touching. */
+  glued?: boolean;
   from: string | null;
   to: string | null;
   /** Polyline, or for kind 'ref' four points of a cubic Bezier. */
@@ -141,6 +143,8 @@ export interface LayoutInput {
 export const M = {
   margin: 28,
   gap: 24,
+  /** Between pieces written touching (glued, with no delimiter): close, so they read as one word. */
+  glueGap: 6,
   chipGap: 8,
   rowPadX: 4,
   rowPadY: 3,
@@ -192,6 +196,8 @@ interface ChainItem {
   b: Block;
   gapBefore: number;
   link: boolean;
+  /** Written touching the piece before it, so nothing joins them. */
+  glued?: boolean;
   /** Delimiter drawn on the link edge that joins this item to the previous one. */
   label?: string;
 }
@@ -268,6 +274,7 @@ export function layout(input: LayoutInput): Layout {
               ],
             };
             if (it.label !== undefined) e.label = it.label;
+            if (it.glued) e.glued = true;
             edges.push(e);
           }
           last = p.last;
@@ -363,7 +370,8 @@ export function layout(input: LayoutInput): Layout {
     const here = effective(seq.joinDelim, d);
     const inner = effective(seq.scopeDelim, d);
     return seq.pieces.map((p, i) => {
-      const item: ChainItem = { b: nodeBlock(p.node, inner), gapBefore: M.gap, link: i > 0 };
+      const item: ChainItem = { b: nodeBlock(p.node, inner), gapBefore: i > 0 && !p.join ? M.glueGap : M.gap, link: i > 0 };
+      if (i > 0 && !p.join) item.glued = true;
       if (i > 0 && p.join && here !== undefined) {
         const label = edgeText(here);
         item.label = label;

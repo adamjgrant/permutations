@@ -280,7 +280,8 @@ export class ChartView {
       return;
     }
     const d = 'M' + p.map((q) => `${q.x},${q.y}`).join(' L');
-    el('path', { d, class: 'edge ' + e.kind, fill: 'none' }, parent);
+    const path = el('path', { d, class: 'edge ' + e.kind + (e.glued ? ' glued' : ''), fill: 'none' }, parent);
+    if (e.glued) el('title', {}, path).textContent = 'Written touching, so nothing goes between these two';
     if (e.label !== undefined) {
       const last = p[p.length - 1] ?? first;
       const rail = e.kind === 'rail';

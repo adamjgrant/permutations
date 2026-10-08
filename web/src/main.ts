@@ -33,13 +33,15 @@ const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) 
 
 // --- never white-screen --------------------------------------------------------
 
-function showError(message: string, offset?: number, fix?: { label: string; run: () => void }): void {
+type Fix = { label: string; run: () => void };
+
+function showError(message: string, offset?: number, fixes: Fix[] = []): void {
   const box = $('error');
   box.hidden = false;
   box.textContent = message;
   box.title = offset === undefined ? '' : 'Click to jump to the error';
   box.onclick = offset === undefined ? null : () => editor.focusAt(offset);
-  if (fix) {
+  for (const fix of fixes) {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'error-fix';
@@ -52,26 +54,48 @@ function showError(message: string, offset?: number, fix?: { label: string; run:
   }
 }
 
+/** Replace the reference the error points at with `insert` (the reference is `$path` at `offset`). */
+const replaceRef = (offset: number, path: string, insert: string): Fix['run'] => () => {
+  const src = editor.getText();
+  if (src.slice(offset, offset + path.length + 1) !== `$${path}`) return;
+  applyEdit({ patches: [{ from: offset, to: offset + path.length + 1, insert }] });
+};
+
 /** Compiler messages written for the command line, said the way the web app works. */
-function webError(message: string): { message: string; fix?: { label: string; run: () => void } } {
-  const unknown = /^Unknown reference \$([A-Za-z_][\w.]*) \((line \d+, column \d+)\)/.exec(message);
+function webError(message: string, offset?: number): { message: string; fixes: Fix[] } {
+  const unknown = /^Unknown reference \$([A-Za-z_][\w.]*) \((line \d+, column \d+)\)\.?\s*(.*)$/s.exec(message);
   if (unknown) {
     const name = unknown[1] as string;
-    return {
-      message: `There is no branch named ${name} (${unknown[2]}). Fix the name, or create the branch.`,
-      fix: {
-        label: `Create branch ${name}`,
-        run: () => {
-          const r = createDefinition(editor.getText(), name);
-          if (failed(r)) notify(r.error, 'warn');
-          else applyEdit(r, { then: () => gotoBranch(name) });
-        },
+    const where = unknown[2] as string;
+    const rest = unknown[3] ?? '';
+    const create: Fix = {
+      label: `Create branch ${name}`,
+      run: () => {
+        const r = createDefinition(editor.getText(), name);
+        if (failed(r)) notify(r.error, 'warn');
+        else applyEdit(r, { then: () => gotoBranch(name) });
       },
     };
+    const near = /Did you mean \$([\w.]+)\?/.exec(rest);
+    if (near && offset !== undefined) {
+      const to = near[1] as string;
+      return { message: `There is no branch named ${name} (${where}). Did you mean ${to}?`, fixes: [{ label: `Use ${to}`, run: replaceRef(offset, name, `$${to}`) }, create] };
+    }
+    const letters = /use brackets: (\[\$([\w.]+)\]\w+)/.exec(rest);
+    if (letters && offset !== undefined) {
+      const fixed = letters[1] as string;
+      return {
+        message: `There is no branch named ${name} (${where}). To put letters right after $${letters[2]}, write ${fixed}.`,
+        fixes: [{ label: `Write ${fixed}`, run: replaceRef(offset, name, fixed) }, create],
+      };
+    }
+    const group = /is a group of branches, so pick one: (.*)$/.exec(rest);
+    if (group) return { message: `${name} is a group of branches, not one branch (${where}). Pick one: ${group[1]}.`, fixes: [] };
+    return { message: `There is no branch named ${name} (${where}). Fix the name, or create the branch.`, fixes: [create] };
   }
   const mod = /^Cannot find module '([^']+)' \((line \d+, column \d+)\)/.exec(message);
-  if (mod) return { message: `Imports do not work in the web app, so '${mod[1]}' cannot be loaded (${mod[2]}). Copy its branches into this code instead.` };
-  return { message };
+  if (mod) return { message: `Imports do not work in the web app, so '${mod[1]}' cannot be loaded (${mod[2]}). Copy its branches into this code instead.`, fixes: [] };
+  return { message, fixes: [] };
 }
 
 function showFatal(e: unknown): void {
@@ -1391,8 +1415,8 @@ function refresh(): void {
     // Any error, not only the compiler's own, lands here and keeps the last good chart.
     const { message, offset } = describeError(e);
     hasError = true;
-    const w = webError(message);
-    showError(w.message, offset, w.fix);
+    const w = webError(message, offset);
+    showError(w.message, offset, w.fixes);
     editor.error(offset ?? null);
     $('stale').hidden = !analysis;
     $('ex-stale').hidden = !analysis;
