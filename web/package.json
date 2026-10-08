@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit -p .",
     "e2e": "node scripts/drive.mjs scripts/scenarios/regress.mjs",
     "e2e:more": "node scripts/drive.mjs scripts/scenarios/regress2.mjs",
-    "e2e:latest": "node scripts/drive.mjs scripts/scenarios/regress3.mjs"
+    "e2e:latest": "node scripts/drive.mjs scripts/scenarios/regress3.mjs && node scripts/drive.mjs scripts/scenarios/regress4.mjs"
   },
   "devDependencies": {
     "@codemirror/commands": "^6.11.1",

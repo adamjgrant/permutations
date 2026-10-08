@@ -15,7 +15,7 @@ npx tsc --noEmit -p .
 web_out=$(npm test 2>&1) || true
 echo "$web_out" | grep -q "^ℹ fail 0" || { echo "$web_out" | grep -B2 -A12 "✖" | head -40; exit 1; }
 all=""
-for s in regress regress2 regress3; do
+for s in regress regress2 regress3 regress4; do
   # A connection refused by the sandbox now and then is not a test failure: try once more.
   out=$(node scripts/drive.mjs "scripts/scenarios/$s.mjs" 2>&1) || true
   for retry in 1 2 3; do
