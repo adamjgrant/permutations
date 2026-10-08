@@ -18,7 +18,7 @@ Hello friend!
 |---|---|
 | Parser (short form), engine, counting, uniform sampling, CLI | working, tested |
 | Long form, `perm fmt` | working, tested (round trips checked) |
-| Web app: flow chart, code, examples; click to select with a selection strip of actions; chart edits are text patches in short and long form; trace an example through the chart | working (`web/`) |
+| Web app: editable flow chart, code, examples; select-and-act strip; tracing; steady examples | working, tested (`web/`, unit and browser tests) |
 
 ## Use
 
@@ -37,26 +37,39 @@ npm test                               # layout, patch, definition and navigatio
 npm run typecheck && npm run build     # checks, then dist/
 ```
 
-Click any box in the chart to select it; the strip at the bottom of the chart names the
-selection and offers its actions (edit, add or move alternatives, tags and guards, make a choice
-or make it optional, insert a reference, extract to a branch, rename or convert a branch). Click
-an example to see the path that made it light up in the chart. The chart edits the code, never
-regenerates it: every change is a text patch that keeps your comments, spacing and indentation,
-and Cmd+Z undoes it from anywhere. `npm run e2e` drives the main flows in a Chrome started with
-`--remote-debugging-port=9333`. Imports (`use`, `from`) are not available in the browser.
+How the web app works:
+
+- **Click any box** in the chart to select it. The strip at the bottom of the chart names the
+  selection and offers its actions: edit, vary some words, add, move or delete alternatives,
+  make something optional, tags and guards, insert a reference, inline or extract a branch,
+  set a delimiter, and rename, convert or delete a branch. Nothing depends on hover.
+- **Click an example** to see the path that made it light up in the chart. While you edit,
+  the examples keep the same picks so you can see the effect of each change.
+- **The chart edits the code, never regenerates it.** Every change is a text patch that keeps
+  your comments, spacing and indentation, and Cmd+Z undoes it from anywhere.
+- Big programs stay readable: each branch card says who uses it, and with many references the
+  dashed lines show only for what you select. Help has a legend for the chart's shapes.
+- `npm run e2e` drives the main flows in a Chrome started with `--remote-debugging-port=9333`.
+- Imports (`use`, `from`) are not available in the browser.
 
 As a library:
 
 ```js
-const { compile } = require('permutations');
+const { compile, seededRandom } = require('permutations');
 const prog = compile('Hello [world|friend]!');
-prog.count;      // 2n
-prog.one();      // { text, tags }
-prog.sample(5);  // up to 5 distinct results
-[...prog.all()]; // everything, lazily
+prog.count;                           // 2n
+prog.one();                           // { text, tags }
+prog.sample(5);                       // up to 5 distinct results
+prog.sample(5, seededRandom(42));     // the same 5 every time
+[...prog.all()];                      // everything, lazily
+prog.at(1n);                          // the result at an index
+prog.trace(1n);                       // how it was made: the choices taken and nodes walked
 ```
 
 `CompileOptions` accepts `load` (to resolve imports), `values`, `fns` (custom
 transforms), `delimiter`, `entry` and `rng`.
+
+On the command line, `--seed N` makes the random choices repeatable, and `-` reads the
+program from standard input: `echo 'Hi [there|you]' | perm - --all`.
 
 Versions 1 (JSON, permy.link) and 2 (`$$flag` / `${js}` DSL) are in git history.
