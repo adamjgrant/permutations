@@ -16,6 +16,7 @@ export type ActionId =
   | 'tag'
   | 'guard'
   | 'more'
+  | 'toggle-ns'
   | 'chip-edit'
   | 'chip-remove'
   | 'extract'
@@ -89,7 +90,10 @@ export function barActions(s: BarInput): ActionSpec[] {
       { id: 'delete-def', label: 'Delete branch…', title: isMain ? 'main is where the program starts, so it cannot be deleted' : 'Delete this branch (only when nothing refers to it)', group: 1, danger: true, disabled: isMain },
     ];
   }
-  if (b.kind === 'nsHeader' || b.kind === 'sectionLabel') return [];
+  if (b.kind === 'nsHeader') {
+    return [{ id: 'toggle-ns', label: b.collapsed ? 'Expand' : 'Collapse', title: b.collapsed ? 'Show the branches of this group (Enter)' : 'Hide the branches of this group (Enter)', group: 0 }];
+  }
+  if (b.kind === 'sectionLabel') return [];
 
   const out: ActionSpec[] = [];
   if (TEXTUAL.has(b.kind)) {

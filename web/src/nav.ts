@@ -101,6 +101,12 @@ export function navigate(boxes: Box[], from: Box, dir: Dir): Box | undefined {
       }
       return direct ? enterChoice(boxes, from, direct, dir) : undefined;
     };
+    // From a branch's name, Right goes into the branch: its first piece.
+    if (from.kind === 'defLabel' && dir === 'right') {
+      const card = boxes.find((d) => d.kind === 'def' && d.name === from.name);
+      const firstIn = card ? readingOrder(boxes).find((b) => b.id !== from.id && b.kind !== 'defLabel' && inside(b, card)) : undefined;
+      if (firstIn) return firstIn;
+    }
     const next = step(from, Math.max(from.h, 34) / 2 + 2);
     if (next) return next;
     // Nothing in this alternative's line: leave the choice and continue from its connector.
@@ -110,7 +116,14 @@ export function navigate(boxes: Box[], from: Box, dir: Dir): Box | undefined {
       const hit = step(f, f.h / 2);
       if (hit && !inside(hit, f)) return hit;
     }
-    return undefined;
+    // At the end of a wrapped line of a branch, Right goes on to the start of the next line,
+    // and Left from the start of a line goes back to the end of the one above.
+    const at = from.wrapLine;
+    if (at === undefined) return undefined;
+    const card = boxes.filter((d) => d.kind === 'def' && inside(from, d)).sort((p, q) => area(p) - area(q))[0];
+    const line = leaves.filter((b) => b.wrapLine === at + (dir === 'right' ? 1 : -1) && (!card || inside(b, card)));
+    if (dir === 'right') return line.sort((p, q) => p.x - q.x || Math.abs(cy(p) - cy(from)) - Math.abs(cy(q) - cy(from)))[0];
+    return line.sort((p, q) => q.x + q.w - (p.x + p.w))[0];
   }
   const down = dir === 'down';
   // Sibling alternatives first.

@@ -63,8 +63,9 @@ const errField = StateField.define<DecorationSet>({
 
 const TOKENS: [RegExp, string][] = [
   [/\\./g, 'tok-escape'],
-  [/\*?\$[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*/g, 'tok-ref'],
-  [/@(?:else|!?[A-Za-z_]\w*)(?:=[^\s:|\]&;]+)?:?/g, 'tok-tag'],
+  // Not after a backslash: \$name and \@name are text.
+  [/(?<!\\)\*?\$[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*/g, 'tok-ref'],
+  [/(?<!\\)@(?:else|!?[A-Za-z_]\w*)(?:=[^\s:|\]&;]+)?:?/g, 'tok-tag'],
   [/(?<=\$[\w.]+|[\]}]):(?:[A-Za-z_]\w*|\[[^\]]*\])/g, 'tok-fn'],
   [/\{\d+(?:\.\.\d+)?(?:\s*;[^}]*)?\}/g, 'tok-repeat'],
   [/;\s*(?:(?:delimiter|last)\s*=\s*"(?:[^"\\]|\\.)*"\s*)+/g, 'tok-setting'],
@@ -238,6 +239,10 @@ export function createEditor(parent: HTMLElement, doc: string, handlers: EditorH
     },
     setText(text) {
       view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: text } });
+      // A whole new text (an example, a share link) can change the layout under the editor:
+      // measure again so the gutter's line numbers sit beside their lines.
+      view.requestMeasure();
+      window.requestAnimationFrame(() => view.requestMeasure());
     },
     highlight(range) {
       view.dispatch({ effects: setHighlight.of(range) });

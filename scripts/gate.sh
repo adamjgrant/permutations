@@ -18,7 +18,11 @@ all=""
 for s in regress regress2 regress3; do
   # A connection refused by the sandbox now and then is not a test failure: try once more.
   out=$(node scripts/drive.mjs "scripts/scenarios/$s.mjs" 2>&1) || true
-  if echo "$out" | grep -q "EPERM"; then sleep 2; out=$(node scripts/drive.mjs "scripts/scenarios/$s.mjs" 2>&1) || true; fi
+  for retry in 1 2 3; do
+    echo "$out" | grep -q "EPERM" || break
+    sleep 3
+    out=$(node scripts/drive.mjs "scripts/scenarios/$s.mjs" 2>&1) || true
+  done
   if echo "$out" | grep -q "SCENARIO FAILED\|ERRORS:" || ! echo "$out" | grep -q "^ok"; then echo "$s:"; echo "$out" | grep -v "^ok" | head -30; exit 1; fi
   all="$all
 $out"

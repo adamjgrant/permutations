@@ -127,12 +127,10 @@ export function findWarnings(modules: Module[], root: Module, reach?: Map<number
           // quoted long-form line is literal on purpose.
           const raw = module.source.slice(n.range[0], n.range[1]);
           if (raw.trimStart().startsWith('"')) return;
+          // Every trap, every time it occurs, at the place it occurs.
           for (const trap of TEXT_TRAPS) {
-            const m = trap.re.exec(raw);
-            if (m) {
-              add(trap.message(m), n.range[0]);
-              break;
-            }
+            const re = new RegExp(trap.re.source, trap.re.flags.includes('g') ? trap.re.flags : trap.re.flags + 'g');
+            for (const m of raw.matchAll(re)) add(trap.message(m), n.range[0] + (m.index ?? 0));
           }
         } else if (n.kind === 'group') groupWarnings(n, add, reach?.get(n.id), { source: module.source, tested });
         else if (n.kind === 'anyorder' && n.items.length > 7) {

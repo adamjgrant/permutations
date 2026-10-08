@@ -14,13 +14,14 @@ import {
 import { closePopover, openPopover } from './popover';
 import { EXAMPLE_PROGRAMS, HELP_ITEMS, insertionFor, SHORTCUTS } from './help';
 import { ActionBar, ActionId, barActions } from './actionbar';
-import { appendToBranch, insertReference, insertText, pieceRange, varyWords, wordsOf, WrapNode, wrapInChoice } from './insert';
+import { appendToBranch, insertReference, insertText, pieceRange, splitEdges, varyWords, wordsOf, WrapNode, wrapInChoice } from './insert';
 import { anyOrderSequence, pathBoxes } from './trace';
 import { deletePiece, isSolePiece, locatePiece } from './remove';
 import { setDelimiter, setSettings } from './delim';
 import { parseCount, removeRepeat, removeTransform, setRepeatCount, setTransforms } from './wrappers';
 type DelimTarget = Parameters<typeof setDelimiter>[1];
 import { focusable, inside, selectable } from './nav';
+import { shown } from './visible';
 import { redo, undo } from '@codemirror/commands';
 import { builtinTransforms, seededRandom, visit } from '../../src/index';
 import type { Output, Trace } from '../../src/index';
@@ -246,6 +247,7 @@ function applyEdit(
   // the undo history: naming it makes the whole change again, as one step, and cancelling takes
   // it out without leaving anything for Redo to bring back.
   const placeholder = !!(opts.startEdit && opts.fresh);
+  samplesHeld = placeholder;
   const inverse = editor.patch(result.patches, undefined, placeholder ? { history: false } : undefined);
   refresh();
   const map = (n: number): number => (opts.map ?? mapOffset)(result.patches, n);
@@ -275,11 +277,15 @@ function applyEdit(
       const fresh = opts.fresh;
       chart.beginEdit(box, {
         placeholder: true,
-        onCancel: () => void historyStep(placeholder ? () => (editor.revert(inverse), true) : undo, true),
+        onCancel: () => {
+          samplesHeld = false;
+          historyStep(placeholder ? () => (editor.revert(inverse), true) : undo, true);
+        },
         ...(fresh
           ? {
               onCommit: (value: string) => {
                 // Take the placeholder back out, then make the whole change again with your text.
+                samplesHeld = false;
                 editor.revert(inverse);
                 const err = applyEdit(fresh(value));
                 if (err) editor.patch(result.patches, undefined, { history: false });
@@ -316,7 +322,12 @@ function clearSelection(): void {
   editor.highlight(null);
   hlActive = false;
   updateTools();
-  if (hadBarFocus && prev) chart.focusBox(prev, false, true);
+  if (hadBarFocus && prev) {
+    // An alternative selected by its background cannot take focus itself: its first box does.
+    const box = chart.boxes.find((b) => b.id === prev);
+    const target = box && box.kind === 'row' ? firstIn(box) : box;
+    if (target) chart.focusBox(target.id, false, true);
+  }
 }
 
 /** Scroll to a branch, select its name and outline its card. */
@@ -465,7 +476,10 @@ const actions: ChartActions = {
     if (box.kind === 'text') result = editText(src, box.node as TextNode, value, branches);
     else if (box.kind === 'empty') result = box.node?.kind === 'text' ? editText(src, box.node, value, branches) : box.range ? fillEmpty(src, box.range, value, branches) : undefined;
     else if (box.kind === 'range' && box.range) result = editRange(src, box.range, value);
-    else if (box.kind === 'ref' && box.node?.kind === 'ref') result = retargetReference(src, box.node as RefNode, value);
+    else if (box.kind === 'ref' && box.node?.kind === 'ref') {
+      const card = chart.boxes.find((d) => d.kind === 'def' && inside(box, d));
+      result = retargetReference(src, box.node as RefNode, value, safeTargets(card?.name ?? analysis.main.name));
+    }
     const err = applyEdit(result, { focus: box });
     if (!err && (box.kind === 'text' || box.kind === 'empty')) {
       const named = [...value.matchAll(/\$([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)/g)].map((m) => m[1] as string);
@@ -488,8 +502,17 @@ const actions: ChartActions = {
       return;
     }
     if (ctx.row && ctx.frame && actions.canRestructure(ctx.frame) && box.kind !== 'frame') {
-      if ((ctx.row.count ?? 1) < 2) notify('The only alternative of a choice cannot be deleted. Delete the choice, or change its text.', 'warn');
-      else actions.deleteAlternative(ctx.row);
+      if ((ctx.row.count ?? 1) < 2) {
+        // Suggest deleting the choice only when that is possible.
+        const whole = pieceInfo(ctx.frame);
+        const branch = chart.boxes.find((d) => d.kind === 'def' && inside(box, d))?.name;
+        notify(
+          whole?.deletable && !whole.sole
+            ? 'The only alternative of a choice cannot be deleted. Delete the choice, or change its text.'
+            : `This is all ${branch === '<main>' || !branch ? 'main' : branch} holds, so it cannot be deleted. Change its text${branch && branch !== '<main>' && branch !== 'main' ? ', or delete the branch' : ''}.`,
+          'warn',
+        );
+      } else actions.deleteAlternative(ctx.row);
       return;
     }
     notify(
@@ -603,7 +626,7 @@ const actions: ChartActions = {
   toggleNamespace(ns) {
     if (collapsed.has(ns)) collapsed.delete(ns);
     else collapsed.add(ns);
-    relayout();
+    relayoutKeepingSelection();
   },
   defAction: (def, action) => defAction(def, action),
   announce: (m) => {
@@ -763,6 +786,9 @@ function runConvert(mode: 'short' | 'long', names: string[] | undefined, label: 
 
 const chart = new ChartView($('chart'), actions);
 
+/** True once Show more was clicked under the chart: every warning is listed. */
+let showAllWarnings = false;
+
 /** Set by Fit: the width the branch cards wrap at, so a zoomed-out chart uses the whole pane. */
 let fitWrap: number | undefined;
 
@@ -805,7 +831,7 @@ function relayout(keepTrace = false): void {
   }
   // The compiler's warnings: code that parses but probably does not do what it looks like.
   const warnings = analysis.program.warnings.filter((w) => !w.path && w.line > 0);
-  for (const w of warnings.slice(0, 3)) {
+  for (const w of warnings.slice(0, showAllWarnings ? warnings.length : 3)) {
     const row = document.createElement('span');
     row.className = 'warning-item';
     const go = document.createElement('button');
@@ -817,7 +843,20 @@ function relayout(keepTrace = false): void {
     row.append(go, `: ${w.message}. `);
     hints.appendChild(row);
   }
-  if (warnings.length > 3) hints.append(`And ${warnings.length - 3} more.`);
+  if (warnings.length > 3 && !showAllWarnings) {
+    const more = document.createElement('button');
+    more.type = 'button';
+    more.className = 'linkish';
+    more.textContent = `Show ${warnings.length - 3} more`;
+    more.addEventListener(
+      'click',
+      safe(() => {
+        showAllWarnings = true;
+        relayoutKeepingSelection();
+      }),
+    );
+    hints.append(more);
+  }
   hints.hidden = notes.length === 0 && warnings.length === 0;
   selectedId = undefined;
   multi.clear();
@@ -902,6 +941,7 @@ function updateTools(): void {
 function selectionLabel(b: Box): string {
   if (multi.size > 1) return `${multi.size} alternatives`;
   if (b.kind === 'def' || b.kind === 'defLabel') return `Branch ${b.name === '<main>' ? 'main' : b.name}`;
+  if (b.kind === 'nsHeader') return `Group ${b.ns ?? ''}${b.collapsed ? ' (collapsed)' : ''}`;
   const ctx = chart.contextFor(b.id);
   const short = (t: string): string => (t.length > 28 ? t.slice(0, 27) + '…' : t);
   const what =
@@ -929,7 +969,7 @@ function selectionLabel(b: Box): string {
                     ? `Repeat ${b.label}`
                     : b.kind === 'transform'
                       ? `Transform ${b.label}`
-                      : `“${short(b.full)}”`;
+                      : `“${short(shown(b.full))}”`;
   const unit = ctx.frame?.frameOf === 'anyorder' ? 'item' : 'alternative';
   const of = ctx.row ? `${(ctx.row.index ?? 0) + 1} of ${ctx.row.count ?? 1}` : '';
   if (b.kind === 'row') return `${unit === 'item' ? 'Item' : 'Alternative'} ${of}`;
@@ -1047,6 +1087,9 @@ function runAction(id: ActionId): void {
     case 'insert-ref':
       insertRefDialog(box);
       return;
+    case 'toggle-ns':
+      if (box.ns !== undefined) actions.toggleNamespace(box.ns);
+      return;
     case 'vary':
       varyDialog(box);
       return;
@@ -1133,7 +1176,17 @@ function delimiterDialog(frame: Box, anchor: Box): void {
           ? `Spaces count, so type " and " with a space on each side. Use default goes back to the delimiter around this group (${JSON.stringify(around)}).`
           : `Leave it empty for no space at all. Use default goes back to the delimiter around this choice (${JSON.stringify(around)}).`,
     ...(list ? { second: { label: 'Before the last one (optional)', value: last ?? '' } } : {}),
-    ...(list ? { preview: (d: string, l: string) => `Gives: “${sample(d, l)}”` } : {}),
+    ...(list
+      ? {
+          // Beside what the fields give, what it is now (copies of a repeat are glued by default).
+          preview: (d: string, l: string) => {
+            const nowD = current ?? (node.kind === 'repeat' ? '' : around);
+            const now = sample(nowD, last ?? '');
+            const then = sample(d, l);
+            return then === now ? `Gives: “${then}” (as now)` : `Gives: “${then}” (now: “${now}”)`;
+          },
+        }
+      : {}),
     anchor: anchorOf(anchor),
     returnFocus: document.activeElement as HTMLElement | null,
     actions: [
@@ -1171,7 +1224,8 @@ function removePiece(box: Box): string | undefined {
   const r = deletePiece(analysis.source, loc);
   if (failed(r)) return r.error;
   const err = applyEdit(r);
-  const what = box.kind === 'frame' ? 'the choice' : `“${box.full.length > 30 ? box.full.slice(0, 29) + '…' : box.full}”`;
+  const full = shown(box.full);
+  const what = box.kind === 'frame' ? 'the choice' : `“${full.length > 30 ? full.slice(0, 29) + '…' : full}”`;
   if (!err) toast(`Deleted ${what}.`, UNDO);
   return err;
 }
@@ -1280,10 +1334,20 @@ function varyDialog(box: Box): void {
   row.className = 'vary-words';
   row.setAttribute('role', 'group');
   row.setAttribute('aria-label', 'Words');
+  // What the choice will look like, in the code: the punctuation at its edges stays outside.
+  const preview = document.createElement('p');
+  preview.className = 'pop-preview';
+  preview.setAttribute('aria-live', 'polite');
+  const showPreview = (): void => {
+    const r = first === -1 ? undefined : varyWords(src, node, first, last, '…');
+    preview.textContent = r && r.patches[0] ? `Becomes: ${r.patches[0].insert}` : 'Pick a word to see what it becomes.';
+  };
   const btns = words.map((w, i) => {
+    // The punctuation around a word is shown beside its button: it is not part of the choice.
+    const { lead, core, trail } = splitEdges(w);
     const b = document.createElement('button');
     b.type = 'button';
-    b.textContent = w;
+    b.textContent = shown(core);
     b.setAttribute('aria-pressed', 'false');
     b.addEventListener('click', (e) => {
       if (e.shiftKey && first !== -1) {
@@ -1294,11 +1358,24 @@ function varyDialog(box: Box): void {
       } else first = last = i;
       btns.forEach((x, j) => x.setAttribute('aria-pressed', String(first !== -1 && j >= first && j <= last)));
       for (const a of actionsEl()) a.disabled = first === -1;
+      showPreview();
     });
-    row.appendChild(b);
+    const punct = (t: string): HTMLSpanElement => {
+      const p = document.createElement('span');
+      p.className = 'vary-punct';
+      p.textContent = t;
+      return p;
+    };
+    const wrap = document.createElement('span');
+    wrap.className = 'vary-word';
+    if (lead) wrap.appendChild(punct(lead));
+    wrap.appendChild(b);
+    if (trail) wrap.appendChild(punct(trail));
+    row.appendChild(wrap);
     return b;
   });
-  content.append(hint, row);
+  showPreview();
+  content.append(hint, row, preview);
   const actionsEl = (): HTMLButtonElement[] => [...document.querySelectorAll<HTMLButtonElement>('.popover .pop-actions button')].filter((b) => b.dataset['needs'] === 'words');
   const run = (alt: string | null): string | undefined => {
     if (first === -1) return 'Pick a word first.';
@@ -1469,6 +1546,19 @@ on('t-new', () => {
     return applyEdit(r, {
       then: () => {
         gotoBranch(v);
+        // Text that was typed as $name before the branch existed can become references now.
+        const escaped = new RegExp(`\\\\\\$${v.replace(/\./g, '\\.')}(?![\\w.])`, 'g');
+        const hits = [...editor.getText().matchAll(escaped)];
+        if (hits.length) {
+          toast(`“$${v}” is written as text ${hits.length === 1 ? 'once' : `${hits.length} times`}.`, {
+            label: 'Make references',
+            run: () => {
+              const now = editor.getText();
+              const patches = [...now.matchAll(escaped)].map((m) => ({ from: m.index ?? 0, to: (m.index ?? 0) + 1, insert: '' }));
+              applyEdit({ patches });
+            },
+          });
+        }
         // Straight into writing what the branch says: its placeholder text is open for editing.
         window.setTimeout(
           safe(() => {
@@ -1643,6 +1733,9 @@ function refresh(): void {
     hasError = true;
     const w = webError(message, offset);
     showError(w.message, offset, w.fixes);
+    // The hints and warnings were about the code before the error: they would point at the
+    // wrong lines now.
+    $('chart-hints').hidden = true;
     editor.error(offset ?? null);
     $('stale').hidden = !analysis;
     $('ex-stale').hidden = !analysis;
@@ -1809,13 +1902,17 @@ function renderSamples(): void {
     // A row counts as changed when its text is new, not when it merely moved down a row.
     const before = new Set(lastSamples);
     const changed = outs.map((o) => lastSamples.length > 0 && !before.has(o.text));
-    if (flashChanges && changed.some((c) => !c) && changed.some((c) => c)) {
-      list.querySelectorAll('.ex-row').forEach((row, i) => {
-        if (changed[i]) row.classList.add('changed');
-      });
+    // While a just-added placeholder waits for its name, the examples it shows are passing:
+    // keep comparing with the ones from before it.
+    if (!samplesHeld) {
+      if (flashChanges && changed.some((c) => !c) && changed.some((c) => c)) {
+        list.querySelectorAll('.ex-row').forEach((row, i) => {
+          if (changed[i]) row.classList.add('changed');
+        });
+      }
+      lastSamples = outs.map((o) => o.text);
+      flashChanges = true;
     }
-    lastSamples = outs.map((o) => o.text);
-    flashChanges = true;
     note.textContent = p.count <= 5n ? 'That is every permutation. Click one to see how it is made.' : `${outs.length} distinct random outputs. Click one to see how it is made.`;
   } catch (e) {
     list.innerHTML = `<li><span class="empty-state">${escapeHtml(describeError(e).message)}</span></li>`;
@@ -1887,6 +1984,8 @@ on('tab-all', () => showTab('all'));
 let sampleSeed = Math.floor(Math.random() * 2 ** 31);
 let lastSamples: string[] = [];
 let flashChanges = false;
+/** True while a placeholder (+ Alternative) waits for its name. */
+let samplesHeld = false;
 on('b-new', () => {
   sampleSeed = (sampleSeed + 1) % 2 ** 31;
   flashChanges = false;
@@ -2116,13 +2215,25 @@ function historyStep(step: typeof undo, focusChart = false): boolean {
   const exRow = a?.closest('.ex-row');
   const exList = exRow?.closest('ol')?.id;
   const exIndex = exRow ? [...(exRow.closest('ol')?.querySelectorAll('.ex-row') ?? [])].indexOf(exRow) : -1;
+  const textBefore = editor.getText();
   if (!step(editor.view)) return false;
   refresh();
   if (exList && exIndex >= 0) {
     const rows = document.querySelectorAll<HTMLElement>(`#${exList} .ex-row`);
     (rows[Math.min(exIndex, rows.length - 1)] ?? null)?.focus();
   }
-  const box = chart.boxAtOffset(editor.view.state.selection.main.head);
+  // Redo brings something back: select what came back (where the text first differs). Undo
+  // returns to where the cursor was before the change.
+  let at = editor.view.state.selection.main.head;
+  if (step === redo) {
+    const now = editor.getText();
+    let p = 0;
+    while (p < now.length && p < textBefore.length && now[p] === textBefore[p]) p++;
+    // Past the separator a new alternative starts with (`|`), onto its text.
+    while (p < now.length && /[|\s]/.test(now[p] as string)) p++;
+    at = p;
+  }
+  const box = chart.boxAtOffset(at);
   if (box && inChartArea) {
     chart.focusBox(box.id, true, true);
     selectBox(box, { bar: true, reveal: false });

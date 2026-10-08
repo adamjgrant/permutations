@@ -13,6 +13,8 @@
 
 import { Box, BoxKind, Edge, Layout, LEAF_KINDS, Measure, usedByText } from './layout';
 import { Dir, focusable, inside, isChoiceFrame, navigate, readingOrder, rowContext, selectable } from './nav';
+import { fromField, spoken, toField } from './visible';
+import { alternatives } from './patch';
 import type { Range } from './ranges';
 
 const NS = 'http://www.w3.org/2000/svg';
@@ -116,7 +118,7 @@ const CHIP_TITLES: Partial<Record<BoxKind, string>> = {
 function describe(b: Box): string {
   switch (b.kind) {
     case 'text':
-      return `Text: ${b.full}`;
+      return `Text: ${spoken(b.full)}`;
     case 'empty':
       return 'Empty alternative';
     case 'range':
@@ -135,6 +137,12 @@ function describe(b: Box): string {
       return `Branch ${b.label}`;
     case 'nsHeader':
       return `Namespace ${b.ns ?? ''}, ${b.collapsed ? 'collapsed' : 'expanded'}`;
+    case 'delimiter':
+      return `Settings: ${b.label}`;
+    case 'repeat':
+      return `Repeat ${b.label}`;
+    case 'transform':
+      return `Transform ${b.label}`;
     default:
       return `${b.kind} ${b.label}`;
   }
@@ -302,8 +310,10 @@ export class ChartView {
       // Reached by clicking its background or with Shift+Up from inside; not on the arrow path.
       g.setAttribute('tabindex', '-1');
       g.setAttribute('role', 'group');
-      const n = b.node && (b.node.kind === 'group' ? b.node.options.length : b.node.kind === 'anyorder' ? b.node.items.length : 0);
-      g.setAttribute('aria-label', b.frameOf === 'anyorder' ? `Any order, ${n} items` : `Choice of ${n} alternatives`);
+      // Alternatives as drawn: a range is one alternative, however many values it has.
+      const n = b.node && (b.node.kind === 'group' || b.node.kind === 'anyorder') ? alternatives(b.node).length : 0;
+      const plural = (k: number, one: string, many: string): string => `${k} ${k === 1 ? one : many}`;
+      g.setAttribute('aria-label', b.frameOf === 'anyorder' ? `Any order, ${plural(n, 'item', 'items')}` : `Choice of ${plural(n, 'alternative', 'alternatives')}`);
     }
     const rect = (rx: number): SVGRectElement => el('rect', { x: b.x, y: b.y, width: b.w, height: b.h, rx }, g);
     const text = (cls = ''): void => {
@@ -661,18 +671,23 @@ export class ChartView {
           this.actions.addAlternative(ctx.frame, ctx.row?.index);
         }
         return;
-      case 't':
-      case 'g':
-        if (editable && ctx.row && !ev.metaKey && !ev.ctrlKey) {
-          ev.preventDefault();
-          if (ev.key === 't') this.actions.addTag(ctx.row);
-          else this.actions.addGuard(ctx.row);
-        }
-        return;
       case 'Escape':
         this.actions.clearSelection();
         return;
       default:
+    }
+    if (ev.key.length !== 1 || ev.metaKey || ev.ctrlKey || ev.altKey) return;
+    // Typing on a text box starts editing it, with what you type in place of the text (Escape
+    // puts it back), as in a spreadsheet. Elsewhere t and g add a tag or a guard.
+    if (isTextual(b) && editable) {
+      ev.preventDefault();
+      this.beginEdit(b, { initial: ev.key });
+      return;
+    }
+    if ((ev.key === 't' || ev.key === 'g') && editable && ctx.row) {
+      ev.preventDefault();
+      if (ev.key === 't') this.actions.addTag(ctx.row);
+      else this.actions.addGuard(ctx.row);
     }
   }
 
@@ -696,24 +711,27 @@ export class ChartView {
    * `placeholder` (a just-added "new") loses focus untouched. `onCommit` replaces the usual
    * text edit, so adding and naming an alternative can be one undo step.
    */
-  beginEdit(b: Box, opts: { onCancel?: () => void; onCommit?: (value: string) => string | void; placeholder?: boolean } = {}): void {
+  beginEdit(b: Box, opts: { onCancel?: () => void; onCommit?: (value: string) => string | void; placeholder?: boolean; initial?: string } = {}): void {
     if (!this.actions.canEdit()) {
       this.actions.select(b, false);
       return;
     }
     this.cancelEdit();
     this.actions.editStarted();
-    const initial = b.kind === 'empty' ? '' : b.kind === 'ref' ? (b.target ?? b.full.replace(/^\$/, '')) : b.full;
+    // Line breaks and tabs show as \n and \t in the field, and are written back as such.
+    const initial = b.kind === 'empty' ? '' : b.kind === 'ref' ? (b.target ?? b.full.replace(/^\$/, '')) : toField(b.full);
     const label = b.kind === 'ref' ? 'Name of the branch this points at' : b.kind === 'range' ? 'Range, for example 0..9' : 'Edit text';
     const input = document.createElement('input');
     input.className = 'inline-edit';
     input.type = 'text';
-    input.value = initial;
+    input.value = opts.initial ?? initial;
     input.setAttribute('aria-label', label);
     input.placeholder = b.kind === 'empty' ? 'Type text' : '';
     const s = this.scale;
     const w = Math.max(b.w + 24, 140);
-    input.style.cssText = `left:${b.x * s - 4}px;top:${b.y * s - 2}px;width:${w * s}px;height:${(b.h + 4) * s}px;font-size:${13 * s}px`;
+    // Readable even on a zoomed-out chart: never smaller than 12px text in a 24px field.
+    const font = Math.max(12, 13 * s);
+    input.style.cssText = `left:${b.x * s - 4}px;top:${b.y * s - 2}px;width:${Math.max(w * s, 180)}px;height:${Math.max((b.h + 4) * s, 24)}px;font-size:${font}px`;
     let done = false;
     const finish = (commitWanted: boolean, fromBlur = false): void => {
       let commit = commitWanted;
@@ -723,8 +741,10 @@ export class ChartView {
       const v = input.value;
       // Clicking away from a placeholder nobody typed into means you did not want it.
       if (commit && fromBlur && opts.placeholder && v === initial) commit = false;
-      if (commit && v !== initial && (v !== '' || b.kind !== 'empty')) {
-        const err = opts.onCommit ? opts.onCommit(v) : this.actions.commitText(b, v);
+      // A placeholder kept as it is (Enter on "new") is still a change to make, as one undo step.
+      if (commit && (v !== initial || opts.placeholder) && (v !== '' || b.kind !== 'empty')) {
+        const text = b.kind === 'ref' ? v : fromField(v);
+        const err = opts.onCommit ? opts.onCommit(text) : this.actions.commitText(b, text);
         if (err) {
           this.actions.announce(err);
           if (!fromBlur) {
@@ -756,7 +776,9 @@ export class ChartView {
     this.host.appendChild(input);
     this.input = input;
     input.focus();
-    input.select();
+    // Typing started the edit: keep what was typed and go on after it.
+    if (opts.initial !== undefined) input.setSelectionRange(input.value.length, input.value.length);
+    else input.select();
   }
 
   private restoreFocus(b: Box): void {

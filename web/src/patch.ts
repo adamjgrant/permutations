@@ -155,7 +155,7 @@ const sepChar = (node: ChoiceNode): string => (node.kind === 'anyorder' ? '&' : 
 
 /** The text of a plain long-form line for `text`, quoted only when a bare line would be misread. */
 export function longLine(text: string): string {
-  const flat = text.replace(/\r?\n/g, ' ').replace(/\t/g, ' ');
+  const flat = text;
   // An empty line of long form is written as the keyword for it.
   if (flat.trim() === '') return 'nothing';
   const esc = escapeText(flat, true);
@@ -164,7 +164,7 @@ export function longLine(text: string): string {
 }
 
 export function quoteLong(text: string): string {
-  return '"' + text.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
+  return '"' + text.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\r?\n/g, '\\n').replace(/\t/g, '\\t') + '"';
 }
 
 /** Delete whole lines [lineStart(range[0]) .. lineEnd(range[1])] including one line break. */
@@ -326,7 +326,7 @@ export function editText(src: string, node: TextNode, value: string, branches?: 
   let insert: string;
   if (long && isAtLineStart(src, from) && isAtLineEnd(src, to)) {
     // The text is a whole long-form line: keep quotes if it had them, quote when a bare line would be misread.
-    insert = /^".*"$/.test(raw) && raw !== '"' ? quoteLong(value.replace(/\r?\n/g, ' ')) : withReferences(longLine(value), branches);
+    insert = /^".*"$/.test(raw) && raw !== '"' ? quoteLong(value) : withReferences(longLine(value), branches);
   } else {
     insert = withReferences(escapeText(value, isAtLineStart(src, from)), branches);
   }

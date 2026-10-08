@@ -136,3 +136,14 @@ test('insert text after a piece, after a whole choice, and at the end of a branc
   const ldef = analyze(long).main;
   assert.equal(run(long, appendToBranch(long, ldef, { ref: 'x' })), 'branch main\n  Hello\n  one of\n    a\n    b\n  ref x\n');
 });
+
+test('vary words keeps line breaks next to the words, and writes them as \\n', () => {
+  const src = 'main = Hello Alex,\\n\\nThanks a lot.';
+  const t0 = texts(src)[0]!;
+  const words = wordsOf(t0.value);
+  const i = words.indexOf('Thanks');
+  const out = run(src, varyWords(src, t0, i, i, null));
+  assert.equal(out, 'main = Hello Alex,\\n\\n[Thanks|] a lot.');
+  assert.match(meaning(out), /"Hello Alex,\\n\\na lot\."/);
+  assert.match(meaning(out), /"Hello Alex,\\n\\nThanks a lot\."/);
+});

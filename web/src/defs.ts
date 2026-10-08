@@ -199,11 +199,14 @@ export function deleteDefinition(src: string, name: string): EditOrError {
 
 // --- retarget ------------------------------------------------------------------------
 
-export function retargetReference(src: string, node: RefNode, newName: string): EditOrError {
+/** `allowed`, when given, is the branches it can point at without making a loop. */
+export function retargetReference(src: string, node: RefNode, newName: string, allowed?: string[]): EditOrError {
   const name = newName.trim().replace(/^\$/, '');
   if (!NAME_RE.test(name)) return { error: `“${name}” is not a valid name.` };
   const { defs } = parse(src);
-  if (!defs.some((d) => d.name === name)) return { error: `There is no branch named “${name}”. Create it first, or pick one of: ${defs.map((d) => d.name).join(', ') || '(none)'}.` };
+  const options = allowed ?? defs.map((d) => d.name);
+  if (!defs.some((d) => d.name === name)) return { error: `There is no branch named “${name}”. Create it first${options.length ? `, or pick one of: ${options.join(', ')}` : ''}.` };
+  if (allowed && !allowed.includes(name)) return { error: `${name} cannot go here: it uses this branch already, so it would loop.` };
   const s = refPathStart(src, node);
   return { patches: [{ from: s, to: node.range[1], insert: name }], select: [s, s + name.length] };
 }

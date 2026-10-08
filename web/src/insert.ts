@@ -163,35 +163,46 @@ export function wordsOf(text: string): string[] {
 }
 
 /**
+ * The punctuation at the edges of a run of words, which stays outside a choice made of them
+ * ("Sam," varies as [Sam|Alex],). All punctuation is the core when nothing else is left.
+ */
+export function splitEdges(words: string): { lead: string; core: string; trail: string } {
+  const m = /^([("“‘¿¡\[]*)([\s\S]*?)([.,;:!?)”’"…\]]*)$/u.exec(words) as RegExpExecArray;
+  if ((m[2] as string) === '') return { lead: '', core: words, trail: '' };
+  return { lead: m[1] as string, core: m[2] as string, trail: m[3] as string };
+}
+
+/**
  * Make some words of a text run vary: words first..last become `[those words|alt]`, or
  * `[those words|]` when `alt` is null (optional), and the words around them stay as they were.
- * `select` is the new alternative, for editing it straight away.
+ * Punctuation at the edges stays outside the choice, and a line break next to the words stays
+ * a line break. `select` is the new alternative, for editing it straight away.
  */
 export function varyWords(src: string, node: TextNode, first: number, last: number, alt: string | null): EditResult | undefined {
   const parts = node.value.trim().split(/(\s+)/);
   const words = parts.filter((_, i) => i % 2 === 0);
   if (first < 0 || last >= words.length || first > last) return undefined;
-  const before = parts.slice(0, first * 2).join('').trimEnd();
+  const sepBefore = first > 0 ? (parts[first * 2 - 1] as string) : '';
+  const sepAfter = last * 2 + 1 < parts.length ? (parts[last * 2 + 1] as string) : '';
+  const before = parts.slice(0, Math.max(0, first * 2 - 1)).join('');
   const picked = parts.slice(first * 2, last * 2 + 1).join('');
-  const after = parts.slice(last * 2 + 2).join('').trimStart();
-  // Punctuation at the edges of the picked words stays outside the choice, so "Sam," varies
-  // as [Sam|Alex], and every alternative keeps the comma.
-  const m = /^([("“‘¿¡\[]*)([\s\S]*?)([.,;:!?)”’"…\]]*)$/u.exec(picked) as RegExpExecArray;
-  const [lead, chosen, trail] = (m[2] as string) === '' ? ['', picked, ''] : [m[1] as string, m[2] as string, m[3] as string];
+  const after = parts.slice(last * 2 + 2).join('');
+  const { lead, core: chosen, trail } = splitEdges(picked);
   const [from, to] = node.range;
   const second = alt === null ? '' : escapeText(alt, false);
-  const group = `[${escapeText(chosen, false)}|${second}]`;
   // Outside the brackets a standalone & is plain text, so leave the words around as they were.
   const plain = (t: string, atStart: boolean): string => escapeText(t, atStart).replace(/\\&/g, '&');
-  const head = before ? plain(before, isAtLineStart(src, from)) + ' ' : '';
+  // Next to the choice, a space is a join point; a line break is kept as text, glued to it.
+  const head = before ? (sepBefore.includes('\n') ? plain(before + sepBefore, isAtLineStart(src, from)) : plain(before, isAtLineStart(src, from)) + ' ') : '';
+  const tail = after ? (sepAfter.includes('\n') ? plain(sepAfter + after, false) : ' ' + plain(after, false)) : '';
   const open = lead ? plain(lead, !head && isAtLineStart(src, from)) : '';
   const close = trail ? plain(trail, false) : '';
-  const build = (alternative: string): string => head + open + `[${escapeText(chosen, false)}|${alternative}]` + close + (after ? ' ' + plain(after, false) : '');
+  const build = (alternative: string): string => head + open + `[${escapeText(chosen, false)}|${alternative}]` + close + tail;
   let insert = build(second);
   let at = from + head.length + open.length + 1 + escapeText(chosen, false).length + 1;
   // The spaces around the new choice become join points, which print the delimiter in force. When
   // that is not a space (delimiter = "-"), the words around would change too: pin the spacing.
-  if ((head || after) && !spacingKept(src, from, to, build(escapeText(chosen, false)))) {
+  if ((head || tail) && !spacingKept(src, from, to, build(escapeText(chosen, false)))) {
     insert = `[${insert}; delimiter=" "]`;
     at += 1;
   }

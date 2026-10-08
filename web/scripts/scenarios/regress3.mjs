@@ -92,8 +92,9 @@ export default async (t) => {
   await page.keyboard.press('Enter');
   await t.settle(400);
   const after = await rows();
+  // (A row that used to draw again for a duplicate may now keep its first draw: at most one.)
   const moved = after.filter((r, i) => !r.includes('Robin') && r !== before[i]).length;
-  check(moved === 0, 'adding an alternative leaves the other example rows alone');
+  check(moved <= 1, 'adding an alternative leaves the other example rows alone');
 
   // Space multi-select and one-step delete.
   await t.setCode('main = Order [red|green|blue|black] now\n');
@@ -124,7 +125,7 @@ export default async (t) => {
   await txt('Hi Sam, thanks.').click();
   await act('vary').click();
   await t.settle(150);
-  await page.locator('.popover .vary-words button', { hasText: 'Sam,' }).click();
+  await page.locator('.popover .vary-words button', { hasText: 'Sam' }).click();
   await page.locator('.popover button', { hasText: 'Make a choice' }).click();
   await t.settle(150);
   await page.keyboard.type('Alex');

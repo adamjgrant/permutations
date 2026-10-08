@@ -25,9 +25,12 @@ export function contains(outer: Range, pos: number): boolean {
  * an any-order group) and a leading `#` on a line (which would start a comment) are escaped too.
  */
 export function escapeText(value: string, atLineStart = false): string {
-  let v = value.replace(/\r?\n/g, ' ').replace(/\t/g, ' ');
-  v = v.replace(/[\\\[\]|$@]/g, (c) => '\\' + c);
+  let v = value.replace(/[\\\[\]|$@]/g, (c) => '\\' + c);
+  // Line breaks and tabs are written as \n and \t, which short form reads back as them.
+  v = v.replace(/\r?\n/g, '\\n').replace(/\t/g, '\\t');
   v = v.replace(/(^|\s)&(?=\s|$)/g, (_m, pre: string) => pre + '\\&');
+  // Typed text that would read as a repeat or a transform stays text: {2}, world:upper.
+  v = v.replace(/\{(?=\d)/g, '\\{').replace(/(?<=[\p{L}\p{N}]):(?=(?:lower|upper|capitalize|title|trim)\b)/gu, '\\:');
   if (v.startsWith('#') && atLineStart) v = '\\' + v;
   return v;
 }

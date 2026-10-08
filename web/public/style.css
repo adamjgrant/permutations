@@ -450,3 +450,14 @@ kbd { font: 11.5px ui-monospace, "SF Mono", Menlo, monospace; padding: 1px 5px; 
 .selbar-more-menu button { text-align: left; border: none; background: transparent; padding: 6px 10px; min-height: 30px; font-size: 13px; border-radius: 6px; white-space: nowrap; }
 .selbar-more-menu button:hover:not(:disabled), .selbar-more-menu button:focus-visible { background: var(--accent-tint); }
 .selbar-more-menu button.danger { color: var(--danger); }
+
+.vary-words .vary-word { display: inline-flex; align-items: baseline; gap: 1px; }
+.vary-words .vary-punct { color: var(--text-2); font-size: 13px; }
+
+/* Focus rings inside scrolling rows are drawn inside the button, so they are never cut off. */
+.selbar-actions button:focus-visible, .selbar-more-menu button:focus-visible { outline-offset: -3px; }
+.samples .ex-row:focus-visible, .all-list .ex-row:focus-visible { outline-offset: -3px; }
+.selbar-actions { padding-top: 2px; padding-bottom: 2px; }
+
+/* A narrow code pane keeps its tools on one row: "Long form" becomes "Long". */
+@media (max-width: 1100px) { .code-pane .opt-word { display: none; } }

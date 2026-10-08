@@ -10,6 +10,7 @@ import type { AnyOrderNode, GroupNode, Guard, Node, Option, Range, SeqNode, Tag 
 import { visit } from '../../src/core/compile';
 import { Alt, alternatives, isRangeText } from './patch';
 import { trimRange } from './ranges';
+import { shown as visible } from './visible';
 
 export type BoxKind =
   | 'def'
@@ -74,6 +75,8 @@ export interface Box {
   warn?: boolean;
   /** Explains `warn`. */
   note?: string;
+  /** For the pieces of a branch's sentence that wraps onto more lines: which line (0, 1, 2...). */
+  wrapLine?: number;
   /** Range boxes: how many values the range stands for. */
   values?: number;
   /** Definition labels: nothing refers to this branch, so its text never appears. */
@@ -222,7 +225,8 @@ export function layout(input: LayoutInput): Layout {
   };
 
   const leaf = (kind: BoxKind, label: string, extra: Partial<Box> = {}): Block => {
-    const shown = truncate(label, kind);
+    // Line breaks and tabs are drawn as ↵ and →; `full` keeps the text itself.
+    const shown = truncate(kind === 'text' ? visible(label) : label, kind);
     const padX = PAD_X[kind] ?? 8;
     const h = HEIGHT[kind] ?? M.chipH;
     const w = Math.max(kind === 'text' ? 36 : kind === 'empty' ? 56 : 24, Math.ceil(measure(shown, kind)) + padX * 2);
@@ -394,6 +398,75 @@ export function layout(input: LayoutInput): Layout {
     return items.length === 1 ? (items[0] as ChainItem).b : chain(items);
   };
 
+  /**
+   * A branch's sentence too long for the pane wraps onto more lines, like text. A line ends
+   * with a short connector that returns to the start of the next one.
+   */
+  const wrappedSeq = (seq: SeqNode, maxW: number): Block => {
+    const items = seqItems(seq, seq.range);
+    const total = items.reduce((a, it, i) => a + (i ? it.gapBefore : 0) + it.b.w, 0);
+    if (items.length < 2 || total <= maxW) return items.length === 1 ? (items[0] as ChainItem).b : chain(items);
+    const lines: ChainItem[][] = [];
+    let cur: ChainItem[] = [];
+    let w = 0;
+    for (const it of items) {
+      const add = (cur.length ? it.gapBefore : 0) + it.b.w;
+      if (cur.length && w + add > maxW) {
+        lines.push(cur);
+        cur = [{ ...it, gapBefore: 0, link: false }];
+        w = it.b.w;
+      } else {
+        cur.push(cur.length ? it : { ...it, link: false });
+        w += add;
+      }
+    }
+    if (cur.length) lines.push(cur);
+    const blocks = lines.map((l) => chain(l));
+    const gap = 20;
+    const width = Math.max(...blocks.map((b) => b.w)) + 12;
+    const height = blocks.reduce((a, b) => a + b.h, 0) + gap * (blocks.length - 1);
+    return {
+      w: width,
+      h: height,
+      cy: (blocks[0] as Block).cy,
+      place(x, y) {
+        let yy = y;
+        let first = '';
+        let last = '';
+        let prev: { right: number; cy: number; bottom: number } | undefined;
+        blocks.forEach((b, i) => {
+          const made = boxes.length;
+          const p = b.place(x, yy);
+          for (let k = made; k < boxes.length; k++) (boxes[k] as Box).wrapLine = i;
+          const cy = yy + b.cy;
+          if (i === 0) first = p.first;
+          else if (prev) {
+            // Out of the end of the line above, down into the gap, back left, into this line.
+            const mid = prev.bottom + gap / 2;
+            edges.push({
+              id: nid('e'),
+              kind: 'flow',
+              from: last,
+              to: p.first,
+              points: [
+                { x: prev.right, y: prev.cy },
+                { x: prev.right + 8, y: prev.cy },
+                { x: prev.right + 8, y: mid },
+                { x: x - 8, y: mid },
+                { x: x - 8, y: cy },
+                { x, y: cy },
+              ],
+            });
+          }
+          last = p.last;
+          prev = { right: x + b.w, cy, bottom: yy + b.h };
+          yy += b.h + gap;
+        });
+        return { first, last };
+      },
+    };
+  };
+
   /** One row of a choice: optional guard chip, the sequence, then tag chips. */
   const rowContent = (alt: Alt, d?: string): Block => {
     const opt = alt.option;
@@ -555,8 +628,10 @@ export function layout(input: LayoutInput): Layout {
     place(x: number, y: number): string;
   }
 
+  // The widest a branch's sentence can be before it wraps (layout units), when the pane is known.
+  const maxBody = input.wrapWidth !== undefined ? Math.max(320, input.wrapWidth - M.margin * 2 - M.defPad * 2 - 24) : Infinity;
   const defBlock = (def: LDef, label: string): DefBlock => {
-    const body = nodeBlock(def.body);
+    const body = def.body.kind === 'seq' && maxBody !== Infinity ? wrappedSeq(def.body, maxBody) : nodeBlock(def.body);
     const unused = def !== input.main && !usedNames.has(def.name);
     const users = def === input.main ? [] : (usedBy.get(def.name) ?? []);
     const title = leaf('defLabel', label, {
@@ -659,7 +734,8 @@ export function layout(input: LayoutInput): Layout {
   }
 
   // --- placement: main on top, then the branches in rows that wrap ------------
-  const wrap = Math.max(mainBlock.w, input.wrapWidth !== undefined ? input.wrapWidth - M.margin * 2 : 0);
+  // Branch cards wrap at the pane's width (or main's, without a pane).
+  const wrap = input.wrapWidth !== undefined ? Math.max(320, input.wrapWidth - M.margin * 2) : mainBlock.w;
   let width = mainBlock.w;
   for (const it of items) width = Math.max(width, it.w);
 
