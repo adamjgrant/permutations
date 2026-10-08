@@ -21,7 +21,7 @@ import { setDelimiter } from './delim';
 type DelimTarget = Parameters<typeof setDelimiter>[1];
 import { inside } from './nav';
 import { redo, undo } from '@codemirror/commands';
-import { seededRandom } from '../../src/index';
+import { seededRandom, visit } from '../../src/index';
 
 const STORAGE_KEY = 'permutations.v3.source';
 const ALL_LIMIT = 1000;
@@ -419,8 +419,9 @@ const actions: ChartActions = {
       title: 'Add a guard',
       label: 'Guard',
       value: '',
-      hint: 'A tag name, !name for "not set", name=value, or else. The alternative is only available when the guard holds, and the tag must be set earlier.',
-      placeholder: 'q',
+      hint: `A tag name, !name for "not set", name=value, or else. The alternative is only available when the guard holds, and the tag must be set earlier.${known.size ? ` Tags so far: ${[...known].join(', ')}.` : ' No alternative sets a tag yet.'}`,
+      placeholder: [...known][0] ?? 'tag name',
+      suggestions: [...known, ...[...known].map((k) => '!' + k), 'else'],
       anchor: anchorOf(row),
       returnFocus: document.activeElement as HTMLElement | null,
       actions: [
@@ -502,6 +503,10 @@ function defAction(def: Box, action: DefAction): void {
   if (action === 'convert') {
     const mode = def.form === 'long' ? 'short' : 'long';
     runConvert(mode, [name], name);
+    return;
+  }
+  if (action === 'rename' && name === 'main') {
+    notify('main is where the program starts, so it keeps its name.', 'warn');
     return;
   }
   if (action === 'rename') {
@@ -645,7 +650,7 @@ function syncFromCursor(scroll = false): void {
   const box = chart.boxAtOffset(pos);
   selectedId = box?.id;
   barOn = false;
-  chart.setSelected(box ? [box.id] : []);
+  chart.setSelected(box ? [box.id] : [], true);
   if (box && scroll) chart.scrollTo(box.id);
   updateTools();
 }
@@ -673,7 +678,8 @@ function currentExtraction(): ExtractSelection | undefined {
 
 function updateTools(): void {
   $<HTMLButtonElement>('t-new').disabled = !canEdit();
-  $<HTMLButtonElement>('b-new').disabled = !analysis;
+  $<HTMLButtonElement>('b-new').disabled = !analysis || analysis.program.count <= 5n;
+  $('b-new').title = analysis && analysis.program.count <= 5n ? 'Every permutation is already shown' : 'Pick five other examples';
   $<HTMLButtonElement>('b-copy5').disabled = !analysis;
   updateBar();
 }
@@ -899,10 +905,51 @@ function branchNames(): string[] {
   return [analysis.main.name === '<main>' ? 'main' : analysis.main.name, ...analysis.others.map((o) => o.name)];
 }
 
+/** Branches a reference from inside `into` can point at without making a loop. */
+function safeTargets(into: string): string[] {
+  if (!analysis) return [];
+  const defs = [analysis.main, ...analysis.others];
+  const uses = new Map<string, Set<string>>();
+  for (const d of defs) {
+    const out = new Set<string>();
+    visit(d.body, (n) => {
+      if (n.kind === 'ref' && n.target?.kind === 'def') out.add(n.target.def.name);
+    });
+    uses.set(d.name, out);
+  }
+  const reaches = (from: string, goal: string): boolean => {
+    const seen = new Set<string>();
+    const stack = [from];
+    while (stack.length) {
+      const n = stack.pop() as string;
+      if (n === goal) return true;
+      if (seen.has(n)) continue;
+      seen.add(n);
+      for (const m of uses.get(n) ?? []) stack.push(m);
+    }
+    return false;
+  };
+  return defs.map((d) => d.name).filter((n) => n !== into && n !== '<main>' && !reaches(n, into));
+}
+
 function insertRefDialog(box: Box): void {
   if (!analysis || !canEdit() || !box.node) return;
   const src = analysis.source;
-  const names = branchNames();
+  const card = chart.boxes.find((d) => d.kind === 'def' && inside(box, d));
+  const names = safeTargets(card?.name ?? analysis.main.name);
+  if (!names.length) {
+    openPopover({
+      title: 'Insert reference',
+      message: 'No branch can go here without making a loop, where a branch ends up using itself. Create a new branch first, then insert it.',
+      anchor: anchorOf(box),
+      returnFocus: document.activeElement as HTMLElement | null,
+      actions: [
+        { label: 'New branch…', kind: 'primary', run: () => void setTimeout(() => $('t-new').click(), 0) },
+        { label: 'Cancel', run: () => undefined },
+      ],
+    });
+    return;
+  }
   const after = pieceRange([analysis.main.body, ...analysis.others.map((o) => o.body)], box.node);
   if (!after) {
     notify('A reference cannot be inserted here.', 'warn');
@@ -912,7 +959,7 @@ function insertRefDialog(box: Box): void {
     title: 'Insert reference',
     label: 'Branch',
     value: '',
-    placeholder: names.find((n) => n !== 'main') ?? 'name',
+    placeholder: names[0] ?? 'name',
     hint: `Inserts $name right after “${box.label}”. Branches: ${names.join(', ')}.`,
     suggestions: names,
     anchor: anchorOf(box),
@@ -924,7 +971,11 @@ function insertRefDialog(box: Box): void {
         run(v) {
           const name = v.trim();
           if (!name) return 'Type the name of a branch.';
-          if (!names.includes(name)) return `There is no branch named ${name}. Create it with New branch first.`;
+          if (!names.includes(name)) {
+            return branchNames().includes(name)
+              ? `${name} cannot go here: it uses this branch already, so it would loop.`
+              : `There is no branch named ${name}. Create it with New branch first.`;
+          }
           return applyEdit(insertReference(src, after, name));
         },
       },
@@ -965,7 +1016,7 @@ $('chart').addEventListener(
 );
 on('z-out', () => zoom(1 / 1.2));
 on('z-fit', () => {
-  chart.fit = true;
+  chart.fitAll();
   rerender();
 });
 let resizeTimer: number | undefined;
@@ -1190,9 +1241,11 @@ function renderSamples(): void {
     const outs = idx.map((ix) => p.at(ix));
     list.innerHTML = outs.map((o, i) => item(i + 1, o.text, o.tags, idx[i] as bigint)).join('');
     // After an edit, mark the examples it changed, so its effect is easy to see.
-    if (flashChanges) {
+    // (Only when some stayed the same: when everything changed, flashing says nothing.)
+    const changed = outs.map((o, i) => lastSamples[i] !== undefined && lastSamples[i] !== o.text);
+    if (flashChanges && changed.some((c) => !c) && changed.some((c) => c)) {
       list.querySelectorAll('.ex-row').forEach((row, i) => {
-        if (lastSamples[i] !== undefined && lastSamples[i] !== outs[i]?.text) row.classList.add('changed');
+        if (changed[i]) row.classList.add('changed');
       });
     }
     lastSamples = outs.map((o) => o.text);
@@ -1217,6 +1270,8 @@ function resetAll(): void {
   const label = c > BigInt(ALL_LIMIT) ? `List the first ${formatCount(BigInt(ALL_LIMIT))}` : `List all ${formatCount(c)}`;
   intro.innerHTML = `<span>This program has <strong>${formatCount(c)}</strong> ${c === 1n ? 'permutation' : 'permutations'}.</span><button id="b-list" type="button" class="primary">${label}</button>`;
   $('b-list').addEventListener('click', safe(listAll));
+  // A short list needs no extra click.
+  if (c <= 200n) listAll();
 }
 
 function listAll(): void {
@@ -1239,9 +1294,20 @@ function listAll(): void {
 function showTab(which: 'random' | 'all'): void {
   $('view-random').hidden = which !== 'random';
   $('view-all').hidden = which !== 'all';
-  $('tab-random').setAttribute('aria-selected', String(which === 'random'));
-  $('tab-all').setAttribute('aria-selected', String(which === 'all'));
+  for (const [id, on] of [['tab-random', which === 'random'], ['tab-all', which === 'all']] as const) {
+    $(id).setAttribute('aria-selected', String(on));
+    $(id).tabIndex = on ? 0 : -1;
+  }
 }
+// The tabs are one Tab stop; arrow keys switch between them.
+document.querySelector('.tabs')?.addEventListener('keydown', (e) => {
+  const k = (e as KeyboardEvent).key;
+  if (k !== 'ArrowLeft' && k !== 'ArrowRight') return;
+  e.preventDefault();
+  const next = $('tab-random').getAttribute('aria-selected') === 'true' ? 'all' : 'random';
+  showTab(next);
+  $(next === 'all' ? 'tab-all' : 'tab-random').focus();
+});
 on('tab-random', () => showTab('random'));
 on('tab-all', () => showTab('all'));
 let sampleSeed = Math.floor(Math.random() * 2 ** 31);

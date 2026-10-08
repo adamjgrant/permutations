@@ -26,7 +26,7 @@
         <button id="t-new" type="button" title="Add a new branch at the end of the code">New branch</button>
         <span class="sep" aria-hidden="true"></span>
         <button id="z-out" type="button" aria-label="Zoom out" title="Zoom out">&minus;</button>
-        <button id="z-fit" type="button" title="Fit the chart to the pane">Fit</button>
+        <button id="z-fit" type="button" title="Fit the whole chart in the pane">Fit</button>
         <button id="z-in" type="button" aria-label="Zoom in" title="Zoom in">+</button>
       </div>
     </header>
@@ -43,7 +43,7 @@
         <button id="b-expand" type="button" title="Write every branch in long form, one piece per line">Long form</button>
         <button id="b-collapse" type="button" title="Write every branch in short form, on one line where it fits">Short form</button>
         <button id="b-reset" type="button" title="Replace the code with the example program (you can undo)">Example</button>
-        <button id="b-share" type="button" class="primary">Share</button>
+        <button id="b-share" type="button" title="Copy a link that opens this code">Share</button>
       </div>
     </header>
     <div class="editor-wrap">
@@ -75,17 +75,17 @@
       <h2 id="ex-title">Examples</h2>
       <span id="ex-stale" class="badge warn" hidden title="The code has an error, so these come from the last code that worked">Last valid code</span>
       <div class="tabs" role="tablist" aria-label="Example view">
-        <button id="tab-random" type="button" role="tab" aria-selected="true">Random 5</button>
-        <button id="tab-all" type="button" role="tab" aria-selected="false">All</button>
+        <button id="tab-random" type="button" role="tab" aria-selected="true" aria-controls="view-random" tabindex="0">Random 5</button>
+        <button id="tab-all" type="button" role="tab" aria-selected="false" aria-controls="view-all" tabindex="-1">All</button>
       </div>
       <p class="count" aria-live="polite"><strong id="count">0</strong> <span id="count-unit">permutations</span></p>
     </header>
-    <div id="view-random" class="ex-body">
+    <div id="view-random" class="ex-body" role="tabpanel" aria-labelledby="tab-random">
       <ol id="samples" class="samples"></ol>
       <p id="trace-note" class="trace-note" role="status" hidden><span id="trace-text"></span> <button id="trace-stop" type="button" class="linkish">Stop showing</button></p>
       <div class="ex-foot"><button id="b-new" type="button" class="primary">Make a new 5</button><button id="b-copy5" type="button" title="Copy these examples, one per line">Copy</button><span id="sample-note" class="note"></span></div>
     </div>
-    <div id="view-all" class="ex-body" hidden>
+    <div id="view-all" class="ex-body" role="tabpanel" aria-labelledby="tab-all" hidden>
       <div id="all-intro" class="all-intro"></div>
       <ol id="all-list" class="samples all"></ol>
       <p id="all-note" class="note"></p>

@@ -148,6 +148,7 @@ export class ChartView {
   private focusId: string | undefined;
   private lastFocused: FocusKey | undefined;
   private context = new Set<string>();
+  private mirror = false;
   /** Set while focus moves for a reason other than the user moving it (no selection change). */
   private quiet = false;
   /** The box the user last clicked. A click edits text only when it repeats a click on that box,
@@ -308,6 +309,14 @@ export class ChartView {
         const t = el('text', { x: b.x, y: b.y + b.h / 2 + 0.5, 'dominant-baseline': 'central' }, g);
         t.textContent = b.label;
         el('rect', { x: b.x - 4, y: b.y - 2, width: Math.max(b.w, 24) + 8, height: b.h + 4, rx: 5, class: 'hit' }, g);
+        if (b.unused) {
+          // Nothing refers to this branch, so its text never shows up in the results.
+          const bx = b.x + b.w + 10;
+          const badge = el('g', { class: 'unused-badge' }, g);
+          el('rect', { x: bx, y: b.y + 2, width: 64, height: b.h - 4, rx: (b.h - 4) / 2 }, badge);
+          el('text', { x: bx + 32, y: b.y + b.h / 2 + 0.5, 'text-anchor': 'middle', 'dominant-baseline': 'central' }, badge).textContent = 'not used';
+          el('title', {}, g).textContent = 'Nothing refers to this branch, so it never appears in the results. Insert a reference to it, or delete it.';
+        }
         break;
       }
       case 'sectionLabel': {
@@ -329,7 +338,9 @@ export class ChartView {
 
   // --- selection and focus ---------------------------------------------------
 
-  setSelected(ids: string[]): void {
+  /** `mirror` marks the code cursor's box: shown, but not a selection you can act on. */
+  setSelected(ids: string[], mirror = false): void {
+    this.mirror = mirror;
     this.selected = new Set(ids);
     this.context = new Set();
     // Show what the selection acts on: its alternative and choice, or a reference's target.
@@ -356,8 +367,12 @@ export class ChartView {
 
   private applySelection(): void {
     for (const [id, e] of this.elements) {
-      e.classList.toggle('sel', this.selected.has(id));
-      e.classList.toggle('ctx', this.context.has(id));
+      const on = this.selected.has(id);
+      e.classList.toggle('sel', on && !this.mirror);
+      e.classList.toggle('mirror', on && this.mirror);
+      e.classList.toggle('ctx', this.context.has(id) && !this.mirror);
+      if (on && !this.mirror) e.setAttribute('aria-current', 'true');
+      else e.removeAttribute('aria-current');
     }
     const one = this.selected.size === 1 ? this.byId([...this.selected][0]) : undefined;
     // A selected branch lights up the references into it; a selected pill, its own edge.
@@ -677,6 +692,15 @@ export class ChartView {
     this.selected = new Set();
     this.host.textContent = '';
     this.host.appendChild(content);
+  }
+
+  /** Scale so the whole chart fits the pane, both ways (the Fit button). */
+  fitAll(): void {
+    if (!this.layout) return;
+    const w = this.host.clientWidth - 8;
+    const h = this.host.clientHeight - 8;
+    this.fit = false;
+    this.scale = Math.max(0.3, Math.min(1, w / this.layout.width, h / this.layout.height));
   }
 
   /** Show how one result was made: light the boxes on its path and dim the rest. */

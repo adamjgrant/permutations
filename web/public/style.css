@@ -387,3 +387,9 @@ kbd { font: 11.5px ui-monospace, "SF Mono", Menlo, monospace; padding: 1px 5px; 
 @media (max-width: 760px) {
   .selbar-actions { mask-image: linear-gradient(to right, #000 88%, transparent); }
 }
+
+/* the code cursor's box: shown in the chart, but not a selection */
+.chart-svg .box.mirror > rect { stroke: var(--sel); stroke-width: 2; stroke-dasharray: 4 3; }
+
+.chart-svg .unused-badge rect { fill: var(--surface-2); stroke: var(--border); }
+.chart-svg .unused-badge text { fill: var(--text-2); font-size: 11px; font-weight: 500; }

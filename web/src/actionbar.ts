@@ -74,10 +74,11 @@ export function barActions(s: BarInput): ActionSpec[] {
   }
   if (b.kind === 'def' || b.kind === 'defLabel') {
     const long = b.form === 'long';
+    const isMain = b.name === 'main' || b.name === '<main>';
     return [
-      { id: 'rename', label: 'Rename…', title: 'Rename this branch and every reference to it', group: 0 },
+      { id: 'rename', label: 'Rename…', title: isMain ? 'main is where the program starts, so it keeps its name' : 'Rename this branch and every reference to it', group: 0, disabled: isMain },
       { id: 'convert', label: long ? 'Collapse to short form' : 'Expand to long form', title: long ? 'Write this branch on one line' : 'Write this branch one piece per line', group: 0 },
-      { id: 'delete-def', label: 'Delete branch…', title: 'Delete this branch (only when nothing refers to it)', group: 1, danger: true },
+      { id: 'delete-def', label: 'Delete branch…', title: isMain ? 'main is where the program starts, so it cannot be deleted' : 'Delete this branch (only when nothing refers to it)', group: 1, danger: true, disabled: isMain },
     ];
   }
   if (b.kind === 'nsHeader' || b.kind === 'sectionLabel') return [];

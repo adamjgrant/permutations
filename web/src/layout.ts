@@ -76,6 +76,8 @@ export interface Box {
   note?: string;
   /** Range boxes: how many values the range stands for. */
   values?: number;
+  /** Definition labels: nothing refers to this branch, so its text never appears. */
+  unused?: boolean;
 }
 
 export interface Pt {
@@ -149,6 +151,7 @@ export const M = {
   defLabelH: 22,
   defGap: 28,
   defControlsW: 0,
+  unusedW: 74,
   maxTextW: 300,
 };
 
@@ -506,8 +509,9 @@ export function layout(input: LayoutInput): Layout {
 
   const defBlock = (def: LDef, label: string): DefBlock => {
     const body = nodeBlock(def.body);
-    const title = leaf('defLabel', label, { name: def.name, range: def.range, ...(def.form ? { form: def.form } : {}) });
-    const w = Math.max(title.w + 24 + M.defControlsW, body.w) + M.defPad * 2;
+    const unused = def !== input.main && !usedNames.has(def.name);
+    const title = leaf('defLabel', label, { name: def.name, range: def.range, ...(def.form ? { form: def.form } : {}), ...(unused ? { unused: true } : {}) });
+    const w = Math.max(title.w + 24 + M.defControlsW + (unused ? M.unusedW : 0), body.w) + M.defPad * 2;
     const h = M.defPad + title.h + 10 + body.h + M.defPad;
     return {
       name: def.name,
@@ -523,6 +527,13 @@ export function layout(input: LayoutInput): Layout {
     };
   };
 
+  // Which branches something refers to (main always runs, so it counts as used).
+  const usedNames = new Set<string>();
+  for (const d of [input.main, ...input.others]) {
+    visit(d.body, (n) => {
+      if (n.kind === 'ref' && n.target?.kind === 'def') usedNames.add(n.target.def.name);
+    });
+  }
   const mainName = input.main.name === '<main>' ? 'main' : input.main.name;
   const mainBlock = defBlock(input.main, mainName);
 
