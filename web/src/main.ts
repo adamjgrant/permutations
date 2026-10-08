@@ -154,8 +154,26 @@ function loadInitial(): string {
 
 // --- notices ---------------------------------------------------------------
 
+/** Where you last clicked or typed: a message goes there, near what it is about. */
+let lastRegion: 'chart' | 'code' = 'chart';
+for (const type of ['pointerdown', 'keydown'] as const) {
+  document.addEventListener(
+    type,
+    (e) => {
+      const t = e.target as Element | null;
+      if (t?.closest?.('.chart-pane')) lastRegion = 'chart';
+      else if (t?.closest?.('.code-pane, .ex-pane')) lastRegion = 'code';
+    },
+    true,
+  );
+}
+
 function notify(message: string, kind: 'info' | 'warn' = 'info'): void {
   const n = $('notice');
+  // Under the chart, above its hints and strip, for what you did in the chart; under the code
+  // otherwise.
+  const home = lastRegion === 'chart' ? $('chart-hints') : $('error');
+  if (n.nextElementSibling !== home) home.parentElement?.insertBefore(n, home);
   n.className = `notice ${kind}`;
   $('notice-text').textContent = message;
   n.hidden = false;
@@ -1406,13 +1424,55 @@ const bar = new ActionBar($('selbar'), (id) => safe(runAction)(id));
 
 const on = (id: string, fn: () => void): void => $(id).addEventListener('click', safe(fn));
 
+// The chart's tool row is a toolbar: one Tab stop, arrows move along it.
+{
+  const tools = document.querySelector<HTMLElement>('.chart-pane .tools');
+  const buttons = (): HTMLButtonElement[] => [...(tools?.querySelectorAll<HTMLButtonElement>('button') ?? [])].filter((b) => !b.disabled);
+  const rove = (to: HTMLButtonElement): void => {
+    for (const b of tools?.querySelectorAll<HTMLButtonElement>('button') ?? []) b.tabIndex = b === to ? 0 : -1;
+  };
+  const first = buttons()[0];
+  if (first) rove(first);
+  tools?.addEventListener('focusin', (e) => {
+    if (e.target instanceof HTMLButtonElement) rove(e.target);
+  });
+  tools?.addEventListener('keydown', (e) => {
+    const list = buttons();
+    const i = list.indexOf(document.activeElement as HTMLButtonElement);
+    if (i === -1) return;
+    const next =
+      e.key === 'ArrowRight' ? list[(i + 1) % list.length] : e.key === 'ArrowLeft' ? list[(i - 1 + list.length) % list.length] : e.key === 'Home' ? list[0] : e.key === 'End' ? list[list.length - 1] : undefined;
+    if (next) {
+      e.preventDefault();
+      rove(next);
+      next.focus();
+    }
+  });
+}
+
 on('t-new', () => {
   if (!analysis || !canEdit()) return;
   const src = analysis.source;
   nameDialog('New branch', 'Name', uniqueName(src), 'Letters, digits and underscores; a dot groups branches, like letters.A. It is added at the end of the code in the same style as the rest.', undefined, (v) => {
     const r = createDefinition(src, v);
     if (failed(r)) return r.error;
-    return applyEdit(r, { then: () => gotoBranch(v) });
+    return applyEdit(r, {
+      then: () => {
+        gotoBranch(v);
+        // Straight into writing what the branch says: its placeholder text is open for editing.
+        window.setTimeout(
+          safe(() => {
+            const card = chart.boxes.find((b) => b.kind === 'def' && b.name === v);
+            const body = card && chart.boxes.find((b) => b.kind === 'text' && inside(b, card));
+            if (body) {
+              selectBox(body, { bar: true, reveal: false });
+              chart.beginEdit(body);
+            }
+          }),
+          0,
+        );
+      },
+    });
   }, 'Create');
 });
 

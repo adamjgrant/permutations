@@ -29,7 +29,8 @@
   --warn-stroke: #b25e00;
   --warn-fill: #fff0d6;
   --chip-misc-bg: #e8ecf1;
-  --sel: #ff9f0a;
+  /* 4.2:1 on white, so a selected box stands out for everyone (bright orange was 2.1:1) */
+  --sel: #c45f00;
   --hl: rgba(255, 159, 10, 0.28);
   --focus: #0a64d8;
   --ctx: rgba(0, 102, 204, 0.09);
@@ -37,6 +38,7 @@
 }
 @media (prefers-color-scheme: dark) {
   :root {
+    --sel: #ff9f0a;
     --bg: #1c1c1e;
     --surface: #2a2a2d;
     --surface-2: #3a3a3e;
