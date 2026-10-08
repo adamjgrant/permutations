@@ -150,7 +150,18 @@ const canEdit = (): boolean => analysis !== undefined && !hasError && editor.get
  * Apply an edit as ONE editor change (one undo step). The result is checked first: an edit that
  * would leave a program that no longer compiles is refused with the reason. Returns an error message or undefined.
  */
-function applyEdit(result: EditOrError | EditResult | undefined, opts: { startEdit?: boolean; focus?: Box; map?: (patches: Patch[], pos: number) => number; then?: (patches: Patch[]) => void } = {}): string | undefined {
+function applyEdit(
+  result: EditOrError | EditResult | undefined,
+  opts: {
+    startEdit?: boolean;
+    /** With startEdit: the same edit with the typed text instead of the placeholder, so adding
+     *  and naming become one change (one undo step). */
+    fresh?: (value: string) => EditOrError | EditResult | undefined;
+    focus?: Box;
+    map?: (patches: Patch[], pos: number) => number;
+    then?: (patches: Patch[]) => void;
+  } = {},
+): string | undefined {
   if (!result) {
     const m = 'That edit is not possible here.';
     notify(m, 'warn');
@@ -172,7 +183,9 @@ function applyEdit(result: EditOrError | EditResult | undefined, opts: { startEd
   }
   clearNotice();
   const barFocus = bar.contains(document.activeElement) ? (document.activeElement as HTMLElement).dataset['action'] : undefined;
-  const chartArea = chart.hasFocus() || !!barFocus;
+  // A dialog opened from the chart or the strip hands focus back to the chart afterwards.
+  const fromDialog = !!document.activeElement?.closest('.popover') && chart.lastKey() !== undefined;
+  const chartArea = chart.hasFocus() || !!barFocus || fromDialog;
   const keepBar = barOn;
   const selected = chart.boxes.find((b) => b.id === selectedId);
   const key: FocusKey | undefined = opts.focus
@@ -199,14 +212,30 @@ function applyEdit(result: EditOrError | EditResult | undefined, opts: { startEd
   if (landed && (keepBar || chartArea)) {
     selectBox(landed, { bar: true, reveal: false });
     if (barFocus) bar.focusAction(barFocus);
+    else if (fromDialog) chart.focusBox(landed.id, true, true);
   }
   opts.then?.(result.patches);
   if (sel && opts.startEdit) {
     const box = chart.findByRange('text', sel);
     if (box) {
       selectBox(box, { reveal: false, bar: true });
-      // Escape right away means "I did not want that": take the new alternative back out.
-      chart.beginEdit(box, { onCancel: () => void historyStep(undo, true) });
+      // Escape (or clicking away untouched) means "I did not want that": take it back out.
+      const fresh = opts.fresh;
+      chart.beginEdit(box, {
+        placeholder: true,
+        onCancel: () => void historyStep(undo, true),
+        ...(fresh
+          ? {
+              onCommit: (value: string) => {
+                // Take the placeholder back out, then make the whole change again with your text.
+                undo(editor.view);
+                const err = applyEdit(fresh(value));
+                if (err) redo(editor.view);
+                return err;
+              },
+            }
+          : {}),
+      });
     }
   }
   return undefined;
@@ -330,6 +359,7 @@ const actions: ChartActions = {
   editStarted() {
     /* the strip stays: it never covers the editor */
   },
+  focusStrip: () => bar.focusFirst(),
   commitText(box, value) {
     if (!analysis || !canEdit()) return 'The code has an error, so the chart cannot edit it right now.';
     const src = analysis.source;
@@ -374,7 +404,9 @@ const actions: ChartActions = {
   },
   addAlternative(frame, after) {
     if (!analysis || !canEdit()) return;
-    applyEdit(addAlternative(analysis.source, frame.node as ChoiceNode, 'new', after), { startEdit: true });
+    const src = analysis.source;
+    const node = frame.node as ChoiceNode;
+    applyEdit(addAlternative(src, node, 'new', after), { startEdit: true, fresh: (v) => addAlternative(src, node, v, after) });
   },
   deleteAlternative(row) {
     if (!analysis || !canEdit()) return;
@@ -817,7 +849,9 @@ function runAction(id: ActionId): void {
         return;
       }
       if (analysis && (box.node?.kind === 'text' || box.node?.kind === 'ref')) {
-        applyEdit(wrapInChoice(analysis.source, box.node as WrapNode, id === 'wrap' ? 'new' : null), id === 'wrap' ? { startEdit: true } : { focus: box });
+        const src = analysis.source;
+        const node = box.node as WrapNode;
+        applyEdit(wrapInChoice(src, node, id === 'wrap' ? 'new' : null), id === 'wrap' ? { startEdit: true, fresh: (v) => wrapInChoice(src, node, v) } : { focus: box });
       }
       return;
     case 'insert-ref':
@@ -963,7 +997,9 @@ function varyDialog(box: Box): void {
   const actionsEl = (): HTMLButtonElement[] => [...document.querySelectorAll<HTMLButtonElement>('.popover .pop-actions button')].filter((b) => b.dataset['needs'] === 'words');
   const run = (alt: string | null): string | undefined => {
     if (first === -1) return 'Pick a word first.';
-    return applyEdit(varyWords(src, node, first, last, alt), alt === null ? { focus: box } : { startEdit: true });
+    const a = first;
+    const z = last;
+    return applyEdit(varyWords(src, node, a, z, alt), alt === null ? { focus: box } : { startEdit: true, fresh: (v) => varyWords(src, node, a, z, v) });
   };
   openPopover({
     title: 'Vary words',

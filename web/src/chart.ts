@@ -12,7 +12,7 @@
 // moves into the action bar.
 
 import { Box, BoxKind, Edge, Layout, LEAF_KINDS, Measure, usedByText } from './layout';
-import { Dir, focusable, inside, navigate, readingOrder, rowContext } from './nav';
+import { Dir, focusable, inside, isChoiceFrame, navigate, readingOrder, rowContext, selectable } from './nav';
 import type { Range } from './ranges';
 
 const NS = 'http://www.w3.org/2000/svg';
@@ -40,6 +40,8 @@ export interface ChartActions {
   gotoRef(box: Box): void;
   /** Inline editing started: hide anything floating over the chart. */
   editStarted(): void;
+  /** Move keyboard focus to the strip's first action; false when it has none. */
+  focusStrip(): boolean;
   /** Commit inline text for text, empty, range and reference boxes. Return a message to keep the field open. */
   commitText(box: Box, value: string): string | void;
   editChip(box: Box): void;
@@ -295,6 +297,12 @@ export class ChartView {
       g.setAttribute('tabindex', '-1');
       g.setAttribute('role', 'button');
       g.setAttribute('aria-label', describe(b) + this.position(b));
+    } else if (isChoiceFrame(b)) {
+      // Reached by clicking its background or with Shift+Up from inside; not on the arrow path.
+      g.setAttribute('tabindex', '-1');
+      g.setAttribute('role', 'group');
+      const n = b.node && (b.node.kind === 'group' ? b.node.options.length : b.node.kind === 'anyorder' ? b.node.items.length : 0);
+      g.setAttribute('aria-label', b.frameOf === 'anyorder' ? `Any order, ${n} items` : `Choice of ${n} alternatives`);
     }
     const rect = (rx: number): SVGRectElement => el('rect', { x: b.x, y: b.y, width: b.w, height: b.h, rx }, g);
     const text = (cls = ''): void => {
@@ -541,7 +549,7 @@ export class ChartView {
     const extend = ev.shiftKey || ev.metaKey || ev.ctrlKey;
     const wasOnlySelection = this.selected.size === 1 && this.selected.has(b.id) && this.clickedId === b.id;
     this.clickedId = b.id;
-    if (focusable(b)) this.focusBox(b.id, false);
+    if (selectable(b)) this.focusBox(b.id, false);
     const chip = (b.kind === 'tag' || b.kind === 'guard') && this.actions.canEdit();
     this.actions.select(b, extend, !chip);
     if (chip && !extend) this.actions.editChip(b);
@@ -574,8 +582,27 @@ export class ChartView {
     const g = (ev.target as Element).closest('.box');
     if (!g) return;
     const b = this.byId(g.getAttribute('data-id') ?? undefined);
-    if (!b || !focusable(b)) return;
+    if (!b || !selectable(b)) return;
     const ctx = rowContext(this.boxes, b);
+    // Shift+Up selects the choice around the selection; Shift+Down goes back into it.
+    if (ev.shiftKey && (ev.key === 'ArrowUp' || ev.key === 'ArrowDown') && !ev.altKey) {
+      ev.preventDefault();
+      if (ev.key === 'ArrowUp') {
+        const around = isChoiceFrame(b)
+          ? this.boxes.filter((f) => isChoiceFrame(f) && f.id !== b.id && inside(b, f)).sort((p, q) => p.w * p.h - q.w * q.h)[0]
+          : ctx.frame;
+        if (around) this.focusBox(around.id, true, false);
+      } else if (isChoiceFrame(b)) {
+        const first = readingOrder(this.boxes).find((x) => inside(x, b));
+        if (first) this.focusBox(first.id, true, false);
+      }
+      return;
+    }
+    // Tab moves on to the strip's actions, from a box or a choice alike.
+    if (ev.key === 'Tab' && !ev.shiftKey) {
+      if (this.actions.focusStrip()) ev.preventDefault();
+      return;
+    }
     const dirs: Record<string, Dir> = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' };
     const dir = dirs[ev.key];
     const editable = this.actions.canEdit();
@@ -657,8 +684,12 @@ export class ChartView {
 
   // --- inline text editing -------------------------------------------------
 
-  /** Edit a box's text in place. `onCancel` runs when Escape abandons the edit. */
-  beginEdit(b: Box, opts: { onCancel?: () => void } = {}): void {
+  /**
+   * Edit a box's text in place. `onCancel` runs when Escape abandons the edit, and also when a
+   * `placeholder` (a just-added "new") loses focus untouched. `onCommit` replaces the usual
+   * text edit, so adding and naming an alternative can be one undo step.
+   */
+  beginEdit(b: Box, opts: { onCancel?: () => void; onCommit?: (value: string) => string | void; placeholder?: boolean } = {}): void {
     if (!this.actions.canEdit()) {
       this.actions.select(b, false);
       return;
@@ -677,13 +708,16 @@ export class ChartView {
     const w = Math.max(b.w + 24, 140);
     input.style.cssText = `left:${b.x * s - 4}px;top:${b.y * s - 2}px;width:${w * s}px;height:${(b.h + 4) * s}px;font-size:${13 * s}px`;
     let done = false;
-    const finish = (commit: boolean, fromBlur = false): void => {
+    const finish = (commitWanted: boolean, fromBlur = false): void => {
+      let commit = commitWanted;
       if (done) return;
       // Mark first: removing the input fires blur, which must not commit a second time.
       done = true;
       const v = input.value;
+      // Clicking away from a placeholder nobody typed into means you did not want it.
+      if (commit && fromBlur && opts.placeholder && v === initial) commit = false;
       if (commit && v !== initial && (v !== '' || b.kind !== 'empty')) {
-        const err = this.actions.commitText(b, v);
+        const err = opts.onCommit ? opts.onCommit(v) : this.actions.commitText(b, v);
         if (err) {
           this.actions.announce(err);
           if (!fromBlur) {
@@ -696,7 +730,7 @@ export class ChartView {
       }
       if (this.input === input) this.input = undefined;
       if (input.isConnected) input.remove();
-      if (!commit && !fromBlur && opts.onCancel) {
+      if (!commit && (!fromBlur || opts.placeholder) && opts.onCancel) {
         opts.onCancel();
         return;
       }
@@ -789,7 +823,7 @@ export class ChartView {
     let best: Box | undefined;
     let bestD = Infinity;
     for (const b of this.boxes) {
-      if (!focusable(b) || b.kind !== key.kind) continue;
+      if (!selectable(b) || b.kind !== key.kind) continue;
       if (key.name !== undefined && b.name !== key.name) continue;
       const d = Math.abs((b.range?.[0] ?? -1) - want);
       if (d < bestD) {

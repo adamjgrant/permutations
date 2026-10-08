@@ -73,6 +73,7 @@ export const SHORTCUTS: [string, string][] = [
   ['Tab', 'Move from the chart into the action bar.'],
   ['+', 'Add an alternative after the selected one.'],
   ['Alt+Up / Alt+Down', 'Move the selected alternative.'],
+  ['Shift+Up / Shift+Down', 'Select the choice around the selection, or go back into it.'],
   ['Delete', 'Delete the selected alternative, tag or guard.'],
   ['t / g', 'Add a tag or a guard to the selected alternative.'],
   ['Space', 'Add the alternative to a multi-selection.'],

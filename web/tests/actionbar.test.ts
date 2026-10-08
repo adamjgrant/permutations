@@ -23,7 +23,7 @@ const ids = (i: BarInput): string[] => barActions(i).map((a) => a.id);
 
 test('text in a choice offers edit, alternative actions, tag, guard and extract', () => {
   const i = input('main = Say [red|green|blue] now', (b) => b.kind === 'text' && b.full === 'green');
-  assert.deepEqual(ids(i), ['edit', 'add', 'up', 'down', 'delete', 'tag', 'guard', 'insert-ref', 'extract']);
+  assert.deepEqual(ids(i), ['edit', 'add', 'up', 'down', 'tag', 'guard', 'insert-ref', 'extract', 'delete']);
   const acts = barActions(i);
   assert.equal(acts.find((a) => a.id === 'up')?.disabled, false);
   assert.equal(acts.find((a) => a.id === 'down')?.disabled, false);
@@ -51,12 +51,13 @@ test('a reference offers go to and change target', () => {
 });
 
 test('a reference inside a choice also gets the alternative actions', () => {
-  assert.deepEqual(ids(input('main = [$a|b]\na = x', (b) => b.kind === 'ref')), ['goto', 'retarget', 'inline', 'add', 'up', 'down', 'delete', 'tag', 'guard', 'insert-ref', 'extract']);
+  assert.deepEqual(ids(input('main = [$a|b]\na = x', (b) => b.kind === 'ref')), ['goto', 'retarget', 'inline', 'add', 'up', 'down', 'tag', 'guard', 'insert-ref', 'extract', 'delete']);
 });
 
 test('chips offer edit and remove; a guard chip has no Delete for the alternative', () => {
   const tag = ids(input('main = [what @q|that]', (b) => b.kind === 'tag'));
-  assert.deepEqual(tag.slice(0, 2), ['chip-edit', 'chip-remove']);
+  assert.equal(tag[0], 'chip-edit');
+  assert.equal(tag[tag.length - 1], 'chip-remove', 'removing comes last, like every destructive action');
   assert.ok(!tag.includes('delete'));
 });
 
@@ -88,7 +89,8 @@ test('a multi-selection offers extract and clear', () => {
 
 test('groups are separated so the bar can draw dividers', () => {
   const acts = barActions(input('main = Say [red|green|blue] now', (b) => b.kind === 'text' && b.full === 'green'));
-  assert.deepEqual([...new Set(acts.map((a) => a.group))], [0, 1, 2, 3]);
+  assert.deepEqual([...new Set(acts.map((a) => a.group))], [0, 1, 2, 3, 4]);
+  assert.equal(acts[acts.length - 1]?.danger, true, 'destructive actions come last');
   assert.ok(acts.filter((a) => a.group === 3).length === 2, 'insert reference and extract share the last group');
 });
 

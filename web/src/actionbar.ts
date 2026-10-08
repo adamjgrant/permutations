@@ -97,7 +97,7 @@ export function barActions(s: BarInput): ActionSpec[] {
     out.push({ id: 'inline', label: 'Inline', title: `Replace this reference with what ${name} contains`, group: 0 });
   } else if (b.kind === 'tag' || b.kind === 'guard') {
     out.push({ id: 'chip-edit', label: b.kind === 'tag' ? 'Edit tag' : 'Edit guard', title: `Change this ${b.kind} (Enter)`, group: 0 });
-    out.push({ id: 'chip-remove', label: b.kind === 'tag' ? 'Remove tag' : 'Remove guard', title: `Remove this ${b.kind} (Delete)`, group: 0, danger: true });
+    out.push({ id: 'chip-remove', label: b.kind === 'tag' ? 'Remove tag' : 'Remove guard', title: `Remove this ${b.kind} (Delete)`, group: 4, danger: true });
   }
 
   const inChoice = !!s.frame && s.restructure;
@@ -115,10 +115,10 @@ export function barActions(s: BarInput): ActionSpec[] {
       const own = b.kind === 'text' || b.kind === 'ref' || b.kind === 'value';
       if (own && s.piece && !s.piece.sole && s.piece.deletable) {
         // The alternative holds more than this piece: say which one Delete removes.
-        out.push({ id: 'delete-piece', label: 'Delete', title: `Delete “${b.full}” only (Delete)`, group: 1, danger: true });
-        out.push({ id: 'delete', label: any ? 'Delete item' : 'Delete alternative', title: count < 2 ? `The only ${any ? 'item' : 'alternative'} cannot be deleted` : `Delete the whole ${any ? 'item' : 'alternative'}, everything in it`, group: 1, danger: true, disabled: count < 2 });
+        out.push({ id: 'delete-piece', label: 'Delete', title: `Delete “${b.full}” only (Delete)`, group: 4, danger: true });
+        out.push({ id: 'delete', label: any ? 'Delete item' : 'Delete alternative', title: count < 2 ? `The only ${any ? 'item' : 'alternative'} cannot be deleted` : `Delete the whole ${any ? 'item' : 'alternative'}, everything in it`, group: 4, danger: true, disabled: count < 2 });
       } else {
-        out.push({ id: 'delete', label: 'Delete', title: count < 2 ? `The only ${any ? 'item' : 'alternative'} cannot be deleted` : `Delete this ${any ? 'item' : 'alternative'} (Delete)`, group: 1, danger: true, disabled: count < 2 });
+        out.push({ id: 'delete', label: 'Delete', title: count < 2 ? `The only ${any ? 'item' : 'alternative'} cannot be deleted` : `Delete this ${any ? 'item' : 'alternative'} (Delete)`, group: 4, danger: true, disabled: count < 2 });
       }
     }
     if (s.frame?.frameOf === 'group') {
@@ -131,13 +131,15 @@ export function barActions(s: BarInput): ActionSpec[] {
     // Not in a choice yet: offer to make one.
     out.push({ id: 'wrap', label: '+ Alternative', title: 'Turn this into a choice with another alternative (+)', group: 1 });
     out.push({ id: 'optional', label: 'Make optional', title: 'Allow this to be left out: adds an empty alternative', group: 1 });
-    if (s.piece?.deletable && !s.piece.sole) out.push({ id: 'delete-piece', label: 'Delete', title: `Delete “${b.full}” (Delete)`, group: 1, danger: true });
+    if (s.piece?.deletable && !s.piece.sole) out.push({ id: 'delete-piece', label: 'Delete', title: `Delete “${b.full}” (Delete)`, group: 4, danger: true });
   }
-  if (b.kind === 'frame' && inChoice && !any && b.node?.kind === 'group' && !b.node.options.some((o) => o.seq.pieces.length === 0 || o.seq.pieces.every((p) => p.node.kind === 'text' && p.node.value === ''))) {
-    out.push({ id: 'optional', label: 'Make optional', title: 'Add an empty alternative, so this choice can be left out', group: 1 });
+  if (b.kind === 'frame' && inChoice && !any && b.node?.kind === 'group') {
+    // Always in the same slot: disabled when already optional, so buttons never slide around.
+    const already = b.node.options.some((o) => o.seq.pieces.length === 0 || o.seq.pieces.every((p) => p.node.kind === 'text' && p.node.value === ''));
+    out.push({ id: 'optional', label: 'Make optional', title: already ? 'Already optional: it has an empty alternative' : 'Add an empty alternative, so this choice can be left out', group: 1, disabled: already });
   }
   if (b.kind === 'frame' && s.piece?.deletable && !s.piece.sole) {
-    out.push({ id: 'delete-piece', label: 'Delete choice', title: 'Delete this whole choice (Delete)', group: 1, danger: true });
+    out.push({ id: 'delete-piece', label: 'Delete choice', title: 'Delete this whole choice (Delete)', group: 4, danger: true });
   }
   if ((b.kind === 'text' || b.kind === 'ref') && (s.branches ?? 1) > 0) {
     out.push({ id: 'insert-ref', label: 'Insert reference…', title: 'Insert $name of a branch right after this', group: 3 });
@@ -147,11 +149,13 @@ export function barActions(s: BarInput): ActionSpec[] {
     out.push({ id: 'delimiter', label: 'Delimiter…', title: `Set what joins ${what}`, group: 2 });
   }
   if (s.canExtract) out.push({ id: 'extract', label: 'Extract…', title: 'Move this into a new branch and refer to it by name', group: 3 });
-  return out;
+  // Destructive actions go last, so nothing else slides under the pointer into their place.
+  return out.map((a, i) => ({ a, i })).sort((x, y) => x.a.group - y.a.group || x.i - y.i).map((x) => x.a);
 }
 
 export class ActionBar {
   private specs: ActionSpec[] = [];
+  private lastAction: string | undefined;
   private actions: HTMLDivElement;
   private caption: HTMLSpanElement;
   private hint: HTMLElement;
@@ -221,7 +225,14 @@ export class ActionBar {
         btn.dataset['action'] = s.id;
         if (s.danger) btn.classList.add('danger');
         btn.disabled = !!s.disabled;
-        btn.addEventListener('click', () => this.onRun(s.id));
+        btn.addEventListener('click', (e) => {
+          // The second click of a double-click that lands on a different button (because the
+          // first click changed the buttons) was aimed at the old one: ignore it. Clicking the
+          // same button again (Move down, twice) still works.
+          if (e.detail >= 2 && this.lastAction !== s.id) return;
+          this.lastAction = s.id;
+          this.onRun(s.id);
+        });
         btn.addEventListener('focus', () => this.rove(btn));
         this.actions.appendChild(btn);
       }

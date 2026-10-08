@@ -117,4 +117,35 @@ export default async (t) => {
   }
   check(ok, `all ${n} example programs in Help load without an error`);
   await page.click('#help-close');
+
+  // Choices from the keyboard, and the strip never acts twice on a double-click.
+  await t.setCode('main = Colors: [red|green|blue] and more\n');
+  await txt('green').click();
+  await page.keyboard.press('Shift+ArrowUp');
+  check((await page.$eval('#selbar', (e) => e.innerText)).startsWith('Choice'), 'Shift+Up selects the choice around the selection');
+  const opt = await act('optional').boundingBox();
+  await page.mouse.dblclick(opt.x + opt.width / 2, opt.y + opt.height / 2);
+  await t.settle();
+  check((await t.code()).startsWith('main = Colors: [red|green|blue|] and more'), 'a double-click on a strip button acts once');
+  await page.keyboard.press('Meta+z');
+  await t.settle();
+  // A fresh alternative left untouched goes away; typed, it is one undo step.
+  await t.setCode('main = [Hello|Hi] there\n');
+  await txt('Hi').click();
+  await act('add').click();
+  await t.settle(250);
+  const c = await page.locator('#chart').boundingBox();
+  await page.mouse.click(c.x + c.width - 30, c.y + 30);
+  await t.settle();
+  check((await t.code()).startsWith('main = [Hello|Hi] there'), 'clicking away from an untouched new alternative removes it');
+  await txt('Hi').click();
+  await act('add').click();
+  await t.settle(250);
+  await page.keyboard.press('Meta+a');
+  await page.keyboard.type('Hey');
+  await page.keyboard.press('Enter');
+  await t.settle();
+  await page.keyboard.press('Meta+z');
+  await t.settle();
+  check((await t.code()).startsWith('main = [Hello|Hi] there'), 'one undo takes back an added and named alternative');
 };

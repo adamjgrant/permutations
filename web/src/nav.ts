@@ -13,6 +13,12 @@ export const inside = (inner: Box, outer: Box): boolean =>
 /** Boxes that take focus. Section labels are decoration. */
 export const focusable = (b: Box): boolean => LEAF_KINDS.has(b.kind) && b.kind !== 'sectionLabel';
 
+/** A choice or any-order group: not on the arrow-key path, but it can be selected and focused. */
+export const isChoiceFrame = (b: Box): boolean => b.kind === 'frame' && (b.frameOf === 'group' || b.frameOf === 'anyorder');
+
+/** Anything that can hold keyboard focus: leaves, and choices reached with Shift+Up. */
+export const selectable = (b: Box): boolean => focusable(b) || isChoiceFrame(b);
+
 export interface RowContext {
   row?: Box | undefined;
   frame?: Box | undefined;
