@@ -12,7 +12,7 @@ import {
   inlineReference, retargetReference, skippedNotice, uniqueName,
 } from './defs';
 import { closePopover, openPopover } from './popover';
-import { HELP_ITEMS, insertionFor, SHORTCUTS } from './help';
+import { EXAMPLE_PROGRAMS, HELP_ITEMS, insertionFor, SHORTCUTS } from './help';
 import { ActionBar, ActionId, barActions } from './actionbar';
 import { insertReference, pieceRange, varyWords, wordsOf, WrapNode, wrapInChoice } from './insert';
 import { pathBoxes } from './trace';
@@ -1533,6 +1533,31 @@ function buildHelp(): void {
     );
     li.append(title, text, code, btn);
     list.appendChild(li);
+  }
+  const ex = $('help-examples');
+  ex.textContent = '';
+  for (const p of EXAMPLE_PROGRAMS) {
+    const li = document.createElement('li');
+    const title = document.createElement('strong');
+    title.textContent = p.title;
+    const text = document.createElement('span');
+    text.textContent = p.text;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = 'Load';
+    btn.setAttribute('aria-label', `Load the ${p.title} example, replacing your code (you can undo)`);
+    btn.addEventListener(
+      'click',
+      safe(() => {
+        const before = editor.getText();
+        if (before === p.source) return;
+        editor.setText(p.source);
+        refresh();
+        toast(`Loaded ${p.title}. Your code was replaced.`, { label: 'Undo', run: () => editor.setText(before) });
+      }),
+    );
+    li.append(title, text, btn);
+    ex.appendChild(li);
   }
   const keys = $('help-keys');
   keys.textContent = '';

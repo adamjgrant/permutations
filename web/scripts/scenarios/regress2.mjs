@@ -105,4 +105,16 @@ export default async (t) => {
   await page.locator('.k-ref', { hasText: 'letters.A' }).first().dblclick();
   await t.settle(200);
   check((await page.$eval('#selbar', (e) => e.innerText)).includes('Branch letters.A'), 'going to a member opens its collapsed namespace');
+
+  // Every example program in Help loads and runs.
+  await page.click('#b-help');
+  const n = await page.$$eval('#help-examples li', (l) => l.length);
+  let ok = n > 0;
+  for (let i = 0; i < n; i++) {
+    await page.locator('#help-examples li').nth(i).locator('button').click();
+    await t.settle(350);
+    if ((await t.state()).error) ok = false;
+  }
+  check(ok, `all ${n} example programs in Help load without an error`);
+  await page.click('#help-close');
 };

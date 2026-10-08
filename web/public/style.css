@@ -414,3 +414,5 @@ kbd { font: 11.5px ui-monospace, "SF Mono", Menlo, monospace; padding: 1px 5px; 
 .editor-hint[hidden] { display: none; }
 .editor-hint kbd { color: var(--text); }
 .help .intro { margin: 0 0 8px; font-size: 13px; line-height: 1.45; }
+
+.help .examples-list li { grid-template-columns: 1fr auto; }

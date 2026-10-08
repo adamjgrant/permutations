@@ -81,3 +81,37 @@ export const SHORTCUTS: [string, string][] = [
   ['In the code: Tab', 'Indent. Press Escape first to move focus out of the editor instead.'],
   ['In the code: ⌘/', 'Comment or uncomment the line.'],
 ];
+
+/** Whole programs to learn from, loaded from Help (your code can be brought back with Undo). */
+export const EXAMPLE_PROGRAMS: { title: string; text: string; source: string }[] = [
+  {
+    title: 'Greeting (the sketch)',
+    text: 'Two openings, then a shared branch with nested choices.',
+    source: "main = [Hello|Oh, Hi] $greeting\ngreeting = [How [are you|'s [it|everything]]|What [is new|is going on]]\n",
+  },
+  {
+    title: 'Weather report',
+    text: 'A sentence with three independent choices and a range of numbers.',
+    source: "main = It's [windy|still|blustery], [cloudy|partly cloudy|clear], with a [10..90]% chance of rain.\n",
+  },
+  {
+    title: 'Support reply with tags',
+    text: 'A tag set by the opening decides how the reply ends.',
+    source: '# A friendly or a formal reply, consistently\nmain = $opening, $name. $body $closing\nopening = [Hi @casual|Hey there @casual|Good [morning|afternoon] @formal]\nname = [Sam|Alex|Jordan]\nbody = Thanks for getting in touch. [We are looking into it.|A fix is on its way.]\nclosing = [@casual: Cheers!|@formal: Kind regards.]\n',
+  },
+  {
+    title: 'Hex colours',
+    text: 'A repeat of a range choice: sixteen million results, sampled instantly.',
+    source: 'main = #$hex{6}\nhex = [0..9|A..F]\n',
+  },
+  {
+    title: 'Packing list in any order',
+    text: 'Every item is used, in every order, joined with commas and a final and.',
+    source: 'main = Pack [the tent & the stove & the map; delimiter=", "] and the [torch|lamp].\n',
+  },
+  {
+    title: 'A letter in long form',
+    text: 'The same language, one piece per line: easier to read and comment.',
+    source: '# Long form: one piece per line\nbranch main\n  Dear\n  one of\n    friend\n    colleague\n  ref closing\n\nbranch closing\n  one of\n    sequence\n      ,\n      thank you for everything.\n    \", see you soon.\"\n',
+  },
+];
