@@ -14,13 +14,15 @@ const USAGE = `Usage: perm <file | program> [options]
   --json               print results as JSON (text plus tags)
   --entry NAME         start from NAME instead of main
   --delimiter STR      global delimiter (default: a single space)
-  --set key=value      host value, available as $key (repeatable)
+  --set key=value      host value, available as $key (repeatable; replaces a branch
+                       of the same name, so the file can give a default)
   --fn FILE            JS module exporting custom transforms
   --seed N             make the random choices repeatable (same N, same results)
   -q, --quiet          do not print warnings
   -h, --help           show this help
 
-If the first argument is not an existing file, it is treated as a program.
+If the first argument is an existing file, it is read as a program. A name that looks
+like a file (a.perm) but does not exist is an error; anything else is the program itself.
 Use - to read the program from standard input.
 
 fmt rewrites each definition in short form, long form, or whichever fits (--auto).

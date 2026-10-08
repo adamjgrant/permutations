@@ -67,14 +67,14 @@ const TOKENS: [RegExp, string][] = [
   [/@(?:else|!?[A-Za-z_]\w*)(?:=[^\s:|\]&;]+)?:?/g, 'tok-tag'],
   [/(?<=\$[\w.]+|[\]}]):(?:[A-Za-z_]\w*|\[[^\]]*\])/g, 'tok-fn'],
   [/\{\d+(?:\.\.\d+)?(?:\s*;[^}]*)?\}/g, 'tok-repeat'],
-  [/;\s*delimiter\s*=\s*"(?:[^"\\]|\\.)*"/g, 'tok-setting'],
+  [/;\s*(?:(?:delimiter|last)\s*=\s*"(?:[^"\\]|\\.)*"\s*)+/g, 'tok-setting'],
   [/(?<!\\)[\[\]|]|(?<=\s)&(?=\s)/g, 'tok-punct'],
 ];
 
 // Long form: the keyword part of a line that is a keyword construct (DSL.md section 3.1).
-const LONG_KEYWORD = /^([ \t]*)(branch|one of|sequence|tight|any order|nothing|otherwise|ref|members of|repeat|transform|tag|when(?: not)?|delimiter)(?=$|[ \t])/;
+const LONG_KEYWORD = /^([ \t]*)(branch|one of|sequence|tight|any order|nothing|otherwise|ref|repeat|transform|tag|when(?: not)?|delimiter|last)(?=$|[ \t])/;
 const LONG_WHOLE = /^[ \t]*(?:one of|sequence|tight|any order|nothing|otherwise)[ \t]*$/;
-const LONG_ARGS = /^[ \t]*(?:branch|ref|members of|repeat|transform|tag|when(?: not)?|delimiter)[ \t]+\S/;
+const LONG_ARGS = /^[ \t]*(?:branch|ref|repeat|transform|tag|when(?: not)?|delimiter|last)[ \t]+\S/;
 
 function tokenize(doc: string): DecorationSet {
   const out: CMRange<Decoration>[] = [];
@@ -88,7 +88,7 @@ function tokenize(doc: string): DecorationSet {
       out.push(Decoration.mark({ class: 'tok-kw' }).range(s, s + (kw[2] as string).length));
       const name = /^[ \t]*branch[ \t]+([A-Za-z_][\w.]*)/.exec(line);
       if (name) out.push(Decoration.mark({ class: 'tok-def' }).range(pos + line.indexOf(name[1] as string, (kw[1] as string).length + 6), pos + line.indexOf(name[1] as string, (kw[1] as string).length + 6) + (name[1] as string).length));
-      const ref = /^[ \t]*(?:ref|members of)[ \t]+([A-Za-z_][\w.]*)/.exec(line);
+      const ref = /^[ \t]*ref[ \t]+([A-Za-z_][\w.]*)/.exec(line);
       if (ref) {
         const at = pos + line.lastIndexOf(ref[1] as string);
         out.push(Decoration.mark({ class: 'tok-ref' }).range(at, at + (ref[1] as string).length));

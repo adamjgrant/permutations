@@ -1398,7 +1398,9 @@ function insertRefDialog(box: Box): void {
     placeholder: names.length ? `text, or ${names[0]}` : 'text',
     hint: names.length
       ? `A branch name inserts a reference to it (${names.join(', ')}). Anything else is text, and $name in it refers to that branch.`
-      : 'Type the text to insert. (No branch can be referred to here without making a loop.)',
+      : all.size > 1
+        ? 'Type the text to insert. (No branch can be referred to here without making a loop.)'
+        : 'Type the text to insert. To insert a reference instead, make a branch first with New branch….',
     suggestions: names,
     preview: (v) => {
       const m = meaning(v);
