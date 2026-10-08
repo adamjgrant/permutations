@@ -72,7 +72,8 @@ the delimiter. The quoted `"!"` attaches to the previous piece because of the pu
 rule (section 7), giving `Hello world!`.
 
 Convert between the forms with `perm fmt --short file.perm`, `perm fmt --long file.perm`
-or `perm fmt --auto file.perm`. The chart editor expands and collapses the same way. Use
+or `perm fmt --auto file.perm`. In the web app, select a branch name and choose Expand to
+long form or Collapse to short form, or convert the whole file with Long form and Short form. Use
 short form for quick sketches and small definitions. Use long form when a definition has
 more than two levels of nesting or needs comments on individual options.
 

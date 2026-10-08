@@ -144,8 +144,9 @@ Any item line in a long-form block may itself be a short-form expression, so
 ### 4.3 Converting between them
 
 - `perm fmt --short file.perm` and `perm fmt --long file.perm` rewrite each definition.
-- The chart's **Expand** and **Collapse** actions do the same for a selected node, so you
-  can sketch fast and tidy later, or the reverse.
+- In the web app, select a branch name and use **Expand to long form** or **Collapse to
+  short form** in the selection strip, or **Long form** and **Short form** in the code pane
+  for the whole file, so you can sketch fast and tidy later, or the reverse.
 - **Edits preserve the surrounding style.** When the chart edits code, it writes the form
   already used at that spot. A new node in a long-form block is written in long form.
 - `--auto` picks short form for a definition that fits on one line and has at most two
@@ -259,9 +260,18 @@ comments or your choice of short versus long form. So:
 - **The parser produces a concrete syntax tree with source ranges**, and the chart's
   graph is derived from it.
 - **Chart edits become text patches**, not regenerated documents.
-- Edits to support: change a node's text, add, delete and reorder alternatives, wrap
-  selected nodes into a new named branch, inline a branch, change a delimiter, add a tag
-  or guard, and expand or collapse between forms.
+- **Click to select, nothing on hover.** Clicking a box selects it, and a selection strip
+  at the bottom of the chart pane names the selection and offers its actions as labelled
+  buttons. Clicking selected text again (or double-clicking) edits it in place;
+  double-clicking a reference goes to its branch; clicking empty space clears the
+  selection. Keyboard focus moves the selection; Tab moves into the strip.
+- Edits built: change text; add (after the selected one), delete and reorder alternatives;
+  turn text into a choice or make it optional; insert a reference; extract alternatives or
+  a piece into a new named branch; create, rename (with every reference) and delete
+  branches; add, edit and remove tags and guards; expand or collapse a branch between
+  forms. Not built yet: inline a branch, change a delimiter from the chart.
+- **Undo** works from anywhere (Cmd+Z), and deletions offer Undo in a toast.
+- **Tracing.** Clicking an example lights the path that made it through the chart.
 - **Invalid code** keeps the last good chart and shows the error inline, like the old
   "Waiting for edits..." status.
 - Layout: `main` at the top and BRANCHES below the dashed line, namespaces grouped and
