@@ -5,6 +5,7 @@ import { analyze } from '../src/model';
 import { visit } from '../../src/index';
 import { addAlternative, applyPatches, deleteAlternative, editText, EditResult, fillEmpty, mapOffset, moveAlternative } from '../src/patch';
 import { escapeText } from '../src/ranges';
+import { choices } from './helpers';
 
 function groups(src: string): GroupNode[] {
   const a = analyze(src);
@@ -151,4 +152,19 @@ test('patch offsets map to the new document', () => {
   const src = 'main = [a|b]';
   const r = addAlternative(src, groups(src)[0]!)!;
   assert.equal(mapOffset(r.patches, src.length), src.length + 4);
+});
+
+test('deleting down to one alternative unwraps the choice, and keeps a repeat working', () => {
+  const src = 'main = [a|b] tail';
+  const g = () => choices(src)[0]!;
+  assert.equal(run(src, deleteAlternative(src, g(), 1)), 'main = a tail');
+  const empty = 'main = Say [really|] so';
+  assert.equal(run(empty, deleteAlternative(empty, choices(empty)[0]!, 0)), 'main = Say so');
+  const rep = 'main = [a|b]{2}';
+  assert.equal(run(rep, deleteAlternative(rep, choices(rep)[0]!, 1)), 'main = [a]{2}');
+  const three = 'main = [a|b|c]';
+  const r = deleteAlternative(three, choices(three)[0]!, 0)!;
+  const out = run(three, r);
+  assert.equal(out, 'main = [b|c]');
+  assert.equal(out.slice(r.select![0], r.select![0] + 1), 'b', 'the neighbour is selected');
 });

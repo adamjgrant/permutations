@@ -201,10 +201,11 @@ export class Parser {
     if (this.pos < this.end) this.err('Unmatched ]');
     const only = options[0];
     if (options.length === 1 && only && only.tags.length === 0 && !only.guard) return only.seq;
+    // Brackets are optional around a whole definition's choice, so ranges work there too.
     const group: GroupNode = {
       kind: 'group',
       id: newId(),
-      options,
+      options: expandRanges(options),
       delimiter: undefined,
       bare: true,
       range: [start, this.end],
@@ -465,7 +466,7 @@ function expandRanges(options: Option[]): Option[] {
         const b = parseInt(num[2] as string, 10);
         if (b - a > 10000) fail('', 'Range is too large (max 10000 values)', o.range[0]);
         const step = a <= b ? 1 : -1;
-        for (let v = a; step > 0 ? v <= b : v >= b; v += step) out.push(textOption(String(v), o.range));
+        for (let v = a; step > 0 ? v <= b : v >= b; v += step) out.push({ ...textOption(String(v), o.range), rangeText: text });
         continue;
       }
       const chars = [...text];
@@ -474,7 +475,7 @@ function expandRanges(options: Option[]): Option[] {
         const a = (ch[1] as string).codePointAt(0) as number;
         const b = (ch[2] as string).codePointAt(0) as number;
         const step = a <= b ? 1 : -1;
-        for (let v = a; step > 0 ? v <= b : v >= b; v += step) out.push(textOption(String.fromCodePoint(v), o.range));
+        for (let v = a; step > 0 ? v <= b : v >= b; v += step) out.push({ ...textOption(String.fromCodePoint(v), o.range), rangeText: text });
         continue;
       }
     }

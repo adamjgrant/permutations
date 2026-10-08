@@ -192,6 +192,17 @@ describe('repeat and ranges', () => {
     expect(texts('[x]{3; delimiter="-"}')).toEqual(['x-x-x']);
   });
 
+  test('ranges work in a bracket-free definition choice too', () => {
+    expect(count('hex = 0..9 | A..F\nmain = $hex')).toBe(16n);
+    expect(count('v = 1..2\nmain = $v')).toBe(1n);
+  });
+
+  test('a line without a name next to main is an error, not ignored', () => {
+    expect(() => compile('main = Hello [world|friend]\nHow are you?')).toThrow(/Line 2 is not part of any branch/);
+    expect(() => compile('main = Hello\n  world')).toThrow(/Line 2 is not part of any branch/);
+    expect(count('Hello [world|friend]')).toBe(2n);
+  });
+
   test('number and letter ranges', () => {
     expect(texts('[1..3]')).toEqual(['1', '2', '3']);
     expect(texts('[a..c]')).toEqual(['a', 'b', 'c']);

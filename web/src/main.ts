@@ -908,7 +908,8 @@ function removePiece(box: Box): string | undefined {
   const r = deletePiece(analysis.source, loc);
   if (failed(r)) return r.error;
   const err = applyEdit(r);
-  if (!err) toast(`Deleted “${box.full.length > 30 ? box.full.slice(0, 29) + '…' : box.full}”.`, UNDO);
+  const what = box.kind === 'frame' ? 'the choice' : `“${box.full.length > 30 ? box.full.slice(0, 29) + '…' : box.full}”`;
+  if (!err) toast(`Deleted ${what}.`, UNDO);
   return err;
 }
 
@@ -1028,7 +1029,7 @@ function insertRefDialog(box: Box): void {
     });
     return;
   }
-  const after = pieceRange([analysis.main.body, ...analysis.others.map((o) => o.body)], box.node);
+  const after = locatePiece(bodies(), box.node);
   if (!after) {
     notify('A reference cannot be inserted here.', 'warn');
     return;
@@ -1519,7 +1520,10 @@ function buildHelp(): void {
         const sel = editor.view.state.selection.main;
         const doc = editor.getText();
         const taken = new Set(branchNames());
-        const mainEnd = !editorTouched && analysis ? analysis.main.range[1] : undefined;
+        // Into main unless your cursor is inside a branch: on a line of its own, a snippet
+        // would belong to no branch at all.
+        const inBranch = !!analysis && [analysis.main, ...analysis.others].some((d) => sel.from >= d.range[0] && sel.from <= d.range[1]);
+        const mainEnd = analysis && (!editorTouched || !inBranch) ? analysis.main.range[1] : undefined;
         const ins = insertionFor(h, doc, sel.from, sel.to, { taken, ...(mainEnd !== undefined ? { mainEnd } : {}) });
         editor.view.dispatch({
           changes: { from: ins.from, to: ins.to, insert: ins.insert },

@@ -55,6 +55,9 @@ export interface Option {
   tags: Tag[];
   guard?: Guard | undefined;
   range: Range;
+  /** Set on the options a range such as `1..6` expands into: the range as written, so
+   *  printers can write it back as one range instead of every value. */
+  rangeText?: string | undefined;
 }
 
 export interface GroupNode {

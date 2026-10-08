@@ -238,8 +238,32 @@ export function removeAlternatives(src: string, node: ChoiceNode, indices: numbe
 }
 
 export function deleteAlternative(src: string, node: ChoiceNode, index: number): EditResult | undefined {
+  const alts = alternatives(node);
+  // A bracket choice left with one plain alternative is just that alternative: unwrap it
+  // (unless a repeat or transform after the bracket needs it to stay one piece).
+  const after = src[node.range[1]];
+  if (alts.length === 2 && node.kind === 'group' && !node.bare && node.delimiter === undefined && choiceForm(src, node) === 'short' && after !== '{' && after !== ':') {
+    const keep = alts[1 - index] as Alt;
+    const opt = keep.option;
+    if (keep.count === 1 && opt && !opt.tags.length && !opt.guard) {
+      const kr = trimRange(src, keep.range);
+      const text = src.slice(kr[0], kr[1]);
+      let from = node.range[0];
+      let to = node.range[1];
+      if (text === '') {
+        if (src[to] === ' ') to++;
+        else if (src[from - 1] === ' ') from--;
+      }
+      return { patches: [{ from, to, insert: text }], select: [from, from + text.length] };
+    }
+  }
   const patches = removeAlternatives(src, node, [index]);
-  return patches ? { patches } : undefined;
+  if (!patches) return undefined;
+  // Select the alternative that takes its place (or the one before, when it was the last).
+  const neighbour = alts[index + 1] ?? alts[index - 1];
+  if (!neighbour) return { patches };
+  const at = mapOffset(patches, trimRange(src, neighbour.range)[0]);
+  return { patches, select: [at, at] };
 }
 
 /** Move an alternative up (delta -1) or down (+1) by swapping the text of two neighbours. */

@@ -102,6 +102,18 @@ export function compile(source: string, opts: CompileOptions = {}): Program {
 
   checkCycles(all);
 
+  // With a main, an unnamed line is never used: almost always a slip (a missing `name =`, or a
+  // line meant to continue main). Say so instead of dropping it silently.
+  if (root.anonymous && root.defs.has('main')) {
+    const { line, col } = lineCol(root.source, root.anonymous.range[0]);
+    throw new PermError(
+      `Line ${line} is not part of any branch, so it is never used. Put a name and = in front of it, or move it into main (line ${line}, column ${col})`,
+      root.anonymous.range[0],
+      line,
+      col,
+    );
+  }
+
   const entryName = opts.entry ?? 'main';
   const entry = root.defs.get(entryName) ?? (opts.entry === undefined ? root.anonymous : undefined);
   if (!entry) {

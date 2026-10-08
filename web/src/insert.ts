@@ -5,6 +5,7 @@
 import { visit } from '../../src/index';
 import type { Node, SeqNode, TextNode } from '../../src/core/types';
 import { EditResult, formAt, longLine } from './patch';
+import { isReservedLine } from '../../src/core/longform';
 import { escapeText, indentOf, indentUnit, isAtLineEnd, isAtLineStart, Range, trimRange } from './ranges';
 
 /** A piece that can be wrapped or followed: plain text or a reference. */
@@ -61,12 +62,29 @@ function containsNode(outer: Node, inner: Node): boolean {
 }
 
 /**
- * Insert a reference to `name` right after the piece at `after`. Inside a line this adds
- * ` $name`; after a whole long-form line it adds a `ref name` line at the same indent.
+ * Insert a reference to `name` right after a piece. Inside a line this adds ` $name`. After a
+ * whole long-form line it adds a `ref name` line at the same indent, except when that line is
+ * itself an alternative of `one of` (or an any-order item): a sibling line there would be a new
+ * alternative, so the reference joins the line instead (` $name`, or a `sequence` block for a
+ * keyword or quoted line).
  */
-export function insertReference(src: string, after: Range, name: string): EditResult {
-  const r = trimRange(src, after);
+export function insertReference(src: string, at: { range: Range; seq?: SeqNode; parent?: string }, name: string): EditResult {
+  const r = trimRange(src, at.range);
   if (formAt(src, r[0]) === 'long' && isWholeLine(src, r)) {
+    const lineIsAlternative = !!at.seq && at.seq.pieces.length === 1 && (at.parent === 'option' || at.parent === 'item');
+    if (lineIsAlternative) {
+      const text = src.slice(r[0], r[1]);
+      if (!text.includes('\n') && !isReservedLine(text.trim()) && !text.trim().startsWith('"')) {
+        const insert = ` $${name}`;
+        return { patches: [{ from: r[1], to: r[1], insert }], select: [r[1] + 1, r[1] + insert.length] };
+      }
+      // A keyword or quoted line (or a block): wrap it and the reference in a sequence.
+      const ind = indentOf(src, r[0]);
+      const unit = indentUnit(src);
+      const body = text.split('\n').map((l, i) => (i === 0 ? ind + unit + l : unit + l)).join('\n');
+      const insert = `sequence\n${body}\n${ind}${unit}ref ${name}`;
+      return { patches: [{ from: r[0], to: r[1], insert }], select: [r[0] + insert.length - name.length, r[0] + insert.length] };
+    }
     const line = `ref ${name}`;
     const insert = `\n${indentOf(src, r[0])}${line}`;
     return { patches: [{ from: r[1], to: r[1], insert }], select: [r[1] + insert.length - line.length, r[1] + insert.length] };

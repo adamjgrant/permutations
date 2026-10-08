@@ -138,6 +138,8 @@ function generate(rand: () => number): string {
     for (let i = 0; i < n; i++) {
       let o = depth > 0 && rand() < 0.4 ? seq(depth - 1) : text();
       if (rand() < 0.1) o = '';
+      // Ranges expand into one option per value, and printers must write them back as ranges.
+      else if (rand() < 0.08) o = pick(['1..3', 'a..c', '7..9']);
       if (allowTags && rand() < 0.3) o = (o ? o + ' ' : '') + '@' + pick(tags);
       if (allowTags && rand() < 0.25 && i > 0) o = (rand() < 0.3 ? '@else: ' : '@' + (rand() < 0.3 ? '!' : '') + pick(tags) + ': ') + o;
       opts.push(o);

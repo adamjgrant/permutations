@@ -201,6 +201,18 @@ describe('formatter round trips', () => {
     }
   }
 
+  test('ranges stay ranges through every conversion', () => {
+    const src = 'hex = [0..9|A..F]\nroom = Room [1..2000]\nmain = #$hex{3} $room';
+    const long = formatSource(src, 'long').output;
+    expect(long).toContain('[0..9]');
+    expect(long).toContain('[1..2000]');
+    expect(long.length).toBeLessThan(300);
+    const back = formatSource(long, 'short').output;
+    expect(back).toContain('0..9');
+    expect(back.length).toBeLessThan(120);
+    expect(compile(back).count).toBe(compile(src).count);
+  });
+
   test('long form output looks like long form', () => {
     const { output } = formatSource('greeting = [Hello|Hi] [world|friend]!', 'long');
     expect(output).toBe(`branch greeting

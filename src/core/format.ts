@@ -106,15 +106,50 @@ function shortOption(o: Option): string {
 }
 
 function checkRangeLike(o: Option): void {
-  const only = o.seq.pieces.length === 1 ? o.seq.pieces[0] : undefined;
+  // Only an option with no tag and no guard turns "1..3" into a range, so only there would a
+  // literal "1..3" be misread. Look through nested single pieces, as the parser builds them.
+  if (o.tags.length || o.guard) return;
+  const flat = flatten(o.seq.pieces);
+  const only = flat.length === 1 ? flat[0] : undefined;
   if (only && only.node.kind === 'text' && /^(\d+\.\.\d+|.\.\..)$/u.test(only.node.value)) {
     throw new Unprintable('contains text that looks like a range');
   }
 }
 
+/** The options of a group, with each run of options expanded from one range written once. */
+function printedOptions(g: GroupNode): (Option | string)[] {
+  const out: (Option | string)[] = [];
+  for (let i = 0; i < g.options.length; i++) {
+    const o = g.options[i] as Option;
+    if (o.rangeText !== undefined) {
+      const prev = g.options[i - 1];
+      if (prev?.rangeText === o.rangeText && prev.range[0] === o.range[0]) continue;
+      out.push(o.rangeText);
+      continue;
+    }
+    const sole = soleRangeGroup(o);
+    if (sole !== undefined) {
+      out.push(sole);
+      continue;
+    }
+    out.push(o);
+  }
+  return out;
+}
+
+/** An option that is nothing but a nested `[0..9]` group: its range, so `[[0..9]|x]` prints as `[0..9|x]`. */
+function soleRangeGroup(o: Option): string | undefined {
+  if (o.tags.length || o.guard || o.seq.pieces.length !== 1 || o.seq.joinDelim !== undefined || o.seq.scopeDelim !== undefined) return undefined;
+  const p = (o.seq.pieces[0] as Piece).node;
+  if (p.kind !== 'group' || p.delimiter !== undefined) return undefined;
+  const first = p.options[0];
+  if (!first?.rangeText || !p.options.every((x) => x.rangeText === first.rangeText && x.range[0] === first.range[0])) return undefined;
+  return first.rangeText;
+}
+
 function shortGroup(g: GroupNode, brackets: boolean): string {
-  for (const o of g.options) checkRangeLike(o);
-  const parts = g.options.map(shortOption);
+  for (const o of g.options) if (o.rangeText === undefined) checkRangeLike(o);
+  const parts = printedOptions(g).map((o) => (typeof o === 'string' ? o : shortOption(o)));
   if (!brackets) {
     if (g.delimiter !== undefined) throw new Unprintable('a bracket-free choice cannot carry a delimiter');
     return parts.join(' | ');
@@ -247,8 +282,12 @@ function longNode(n: Node): string[] {
       return [`ref ${n.path}`];
     case 'seq':
       return longSeqAsItem(n);
-    case 'group':
-      return ['one of', ...indent([...delimLeaf(n.delimiter), ...n.options.flatMap(longOption)])];
+    case 'group': {
+      const opts = printedOptions(n);
+      // A group that is one range is one line: `[0..9]`.
+      if (opts.length === 1 && typeof opts[0] === 'string' && n.delimiter === undefined) return [`[${opts[0]}]`];
+      return ['one of', ...indent([...delimLeaf(n.delimiter), ...opts.flatMap((o) => (typeof o === 'string' ? [`[${o}]`] : longOption(o)))])];
+    }
     case 'anyorder':
       return ['any order', ...indent([...delimLeaf(n.delimiter), ...n.items.flatMap(longSeqAsItem)])];
     case 'repeat': {

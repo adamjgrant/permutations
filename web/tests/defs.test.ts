@@ -328,7 +328,7 @@ test('inline replaces a reference with the branch content and keeps the meaning'
     assert.ok(!out.split('\n')[0]!.includes('$g'), `still references g: ${out}`);
   }
   const bare = 'main = Say $g\ng = a | b [c | d]';
-  assert.equal(run(bare, inlineReference(bare, refs(bare)[0]!)).split('\n')[0], 'main = Say [a|b [c|d]]');
+  assert.equal(run(bare, inlineReference(bare, refs(bare)[0]!)).split('\n')[0], 'main = Say [a|b [c | d]]');
 });
 
 test('inline a long-form ref line keeps the meaning and the file indent', () => {
@@ -340,4 +340,16 @@ test('inline a long-form ref line keeps the meaning and the file indent', () => 
   const seq = 'branch main\n  one of\n    ref g\n    other\ng = a [b|c]\n';
   const out2 = run(seq, inlineReference(seq, refs(seq).find((r) => r.path === 'g')!));
   assert.equal(meaning(out2), meaning(seq), 'several top-level pieces stay one alternative');
+});
+
+test('inline keeps ranges and spacing as written, and adds brackets only when needed', () => {
+  const r1 = 'main = #$hex{3}\nhex = [0..9|A..F]';
+  assert.equal(run(r1, inlineReference(r1, refs(r1)[0]!)).split('\n')[0], 'main = #[0..9|A..F]{3}');
+  const r2 = 'main = Say $g now\ng = hello there';
+  assert.equal(run(r2, inlineReference(r2, refs(r2)[0]!)).split('\n')[0], 'main = Say hello there now');
+  const r3 = 'main = Say $g:upper\ng = hello there';
+  assert.equal(run(r3, inlineReference(r3, refs(r3)[0]!)).split('\n')[0], 'main = Say [hello there]:upper');
+  const r4 = 'main = [$b|$c]\nb = b\nc = c';
+  assert.equal(run(r4, inlineReference(r4, refs(r4)[0]!)).split('\n')[0], 'main = [b|$c]');
+  for (const src of [r1, r2, r3, r4]) assert.equal(meaning(run(src, inlineReference(src, refs(src)[0]!))), meaning(src));
 });

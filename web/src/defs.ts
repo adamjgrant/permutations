@@ -225,6 +225,19 @@ function tightenTopLevel(text: string): string {
   return out;
 }
 
+/** True when `text` has a `|` outside any brackets (a bracket-free choice). */
+function topLevelPipe(text: string): boolean {
+  let depth = 0;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (c === '\\') i++;
+    else if (c === '[') depth++;
+    else if (c === ']') depth--;
+    else if (c === '|' && depth === 0) return true;
+  }
+  return false;
+}
+
 /** True when `text` is one bracket group from its first character to its last. */
 function isOneGroup(text: string): boolean {
   if (!text.startsWith('[') || !text.endsWith(']')) return false;
@@ -267,9 +280,26 @@ export function inlineReference(src: string, node: RefNode): EditOrError {
       const insert = body.map((l, i) => (i === 0 ? l : base + l)).join('\n');
       return { patches: [{ from: r[0], to: r[1], insert }], select: [r[0], r[0] + insert.length] };
     }
-    const printed = printShortDef(def);
-    const text = printed.slice(printed.indexOf('=') + 1).trim();
-    const insert = text === '' ? '[]' : isOneGroup(text) ? text : `[${tightenTopLevel(text)}]`;
+    // A short-form branch goes in as you wrote it (ranges, spacing and escapes untouched); a
+    // long-form one is printed in short form first.
+    let text: string;
+    let choice: boolean;
+    if (def.form === 'short') {
+      text = src.slice(def.body.range[0], def.body.range[1]).trim();
+      choice = def.body.kind === 'group' && def.body.bare;
+    } else {
+      const printed = printShortDef(def);
+      text = printed.slice(printed.indexOf('=') + 1).trim();
+      choice = topLevelPipe(text);
+    }
+    // Brackets only where they are needed: a bracket-free choice must become one piece, and so
+    // must anything a repeat or transform after the reference applies to.
+    const suffix = src[r[1]] === ':' || src[r[1]] === '{';
+    let insert: string;
+    if (text === '') insert = '[]';
+    else if (choice) insert = `[${tightenTopLevel(text)}]`;
+    else if (suffix && !isOneGroup(text) && !/^\$?[\w.]+$/.test(text)) insert = `[${text}]`;
+    else insert = text;
     return { patches: [{ from: r[0], to: r[1], insert }], select: [r[0], r[0] + insert.length] };
   } catch (e) {
     return { error: `${node.path} cannot be inlined here: ${(e as Error).message}.` };

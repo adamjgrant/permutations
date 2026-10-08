@@ -73,7 +73,7 @@ export function deletePiece(src: string, loc: PieceLoc): EditResult | { error: s
   if (formAt(src, a) === 'long' && isAtLineStart(src, a) && isAtLineEnd(src, b)) {
     const from = lineStart(src, a);
     const end = lineEnd(src, b);
-    return { patches: [{ from, to: end < src.length ? end + 1 : end, insert: '' }] };
+    return { patches: [{ from, to: end < src.length ? end + 1 : end, insert: '' }], select: [from, from] };
   }
   // Take one run of spaces with it: the one after, or before when it is the last piece.
   let from = a;
@@ -87,5 +87,5 @@ export function deletePiece(src: string, loc: PieceLoc): EditResult | { error: s
     while (i > 0 && (src[i - 1] === ' ' || src[i - 1] === '\t')) i--;
     from = i;
   }
-  return { patches: [{ from, to, insert: '' }] };
+  return { patches: [{ from, to, insert: '' }], select: [from, from] };
 }

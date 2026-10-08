@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { analyze } from '../src/model';
 import { insertReference, pieceRange, varyWords, wordsOf, wrapInChoice } from '../src/insert';
+import { locatePiece } from '../src/remove';
 import { meaning, refs, run, texts } from './helpers';
 
 const text = (src: string, s: string) => texts(src).find((t) => t.value === s)!;
@@ -48,10 +49,10 @@ test('new alternative text is escaped', () => {
 
 test('insert a reference after a piece, short and long form', () => {
   const src = 'main = Hello [world|friend]!\ng = hi';
-  const after = pieceRange(bodies(src), text(src, 'Hello'))!;
+  const after = locatePiece(bodies(src), text(src, 'Hello'))!;
   assert.equal(run(src, insertReference(src, after, 'g')), 'main = Hello $g [world|friend]!\ng = hi');
   const long = 'branch main\n  Hello\n  there\ng = hi\n';
-  const a2 = pieceRange(bodies(long), text(long, 'Hello'))!;
+  const a2 = locatePiece(bodies(long), text(long, 'Hello'))!;
   assert.equal(run(long, insertReference(long, a2, 'g')), 'branch main\n  Hello\n  ref g\n  there\ng = hi\n');
 });
 
@@ -59,7 +60,7 @@ test('inserting after a transformed reference goes after the transform', () => {
   const src = 'main = $x:upper now\nx = a\ny = b';
   const r = pieceRange(bodies(src), refs(src)[0]!)!;
   assert.equal(src.slice(r[0], r[1]), '$x:upper');
-  assert.equal(run(src, insertReference(src, r, 'y')), 'main = $x:upper $y now\nx = a\ny = b');
+  assert.equal(run(src, insertReference(src, { range: r }, 'y')), 'main = $x:upper $y now\nx = a\ny = b');
 });
 
 test('vary words: some words of a text become a choice or optional, the rest stays', () => {
@@ -86,4 +87,16 @@ test('vary words keeps specials escaped and works on a long-form line', () => {
   const long = 'branch main\n  Hello dear world\n';
   const lt = text(long, 'Hello dear world');
   assert.equal(run(long, varyWords(long, lt, 1, 1, null)), 'branch main\n  Hello [dear|] world\n');
+});
+
+test('inserting a reference into a long-form alternative keeps it one alternative', () => {
+  const src = 'branch main\n  Hello\n  one of\n    friend\n    pal\nbranch x\n  hi\n';
+  const loc = locatePiece(bodies(src), text(src, 'friend'))!;
+  const out = run(src, insertReference(src, loc, 'x'));
+  assert.equal(out, 'branch main\n  Hello\n  one of\n    friend $x\n    pal\nbranch x\n  hi\n');
+  assert.equal(analyze(out).program.count, 2n);
+  const kw = 'branch main\n  one of\n    "one of"\n    pal\nbranch x\n  hi\n';
+  const out2 = run(kw, insertReference(kw, locatePiece(bodies(kw), text(kw, 'one of'))!, 'x'));
+  assert.equal(analyze(out2).program.count, 2n);
+  assert.match(meaning(out2), /one of hi/);
 });
