@@ -480,8 +480,19 @@ function defAction(def: Box, action: DefAction): void {
   }
   const r = deleteDefinition(src, name);
   if (failed(r)) {
-    notify(r.error, 'warn');
-    openPopover({ title: `Cannot delete ${name}`, message: r.error, anchor: anchorOf(def), returnFocus: document.activeElement as HTMLElement | null, actions: [{ label: 'OK', kind: 'primary', run: () => undefined }] });
+    // Offer the way out: jump to the first branch that still uses this one.
+    const users = [...new Set(referencesTo(src, name).map((x) => x.from))];
+    const first = users[0];
+    openPopover({
+      title: `Cannot delete ${name}`,
+      message: r.error,
+      anchor: anchorOf(def),
+      returnFocus: document.activeElement as HTMLElement | null,
+      actions: [
+        ...(first ? [{ label: `Go to ${first}`, kind: 'primary' as const, run: () => void gotoBranch(first) }] : []),
+        { label: first ? 'Close' : 'OK', kind: first ? ('plain' as const) : ('primary' as const), run: () => undefined },
+      ],
+    });
     return;
   }
   openPopover({
