@@ -116,8 +116,8 @@ button.primary:hover:not(:disabled) { background: var(--accent-strong); }
 .chart-svg .edge { stroke: var(--edge); stroke-width: 1.5; stroke-linejoin: round; }
 .chart-svg .edge.divider { stroke-dasharray: 6 5; stroke-width: 1.25; }
 .chart-svg .edge.rail { stroke-width: 1.5; }
-.chart-svg .edge.ref { stroke: var(--ref-edge); stroke-dasharray: 5 4; stroke-width: 1.4; opacity: 0.75; }
-.chart-svg .ref-end { fill: var(--ref-edge); opacity: 0.75; }
+.chart-svg .edge.ref { stroke: var(--ref-edge); stroke-dasharray: 5 4; stroke-width: 1.4; opacity: 0.4; }
+.chart-svg .ref-end { fill: var(--ref-edge); opacity: 0.5; }
 .k-def rect { fill: var(--surface); stroke: var(--border); stroke-width: 1.25; }
 .k-frame rect { fill: var(--frame-fill); stroke: none; }
 .k-row rect { fill: transparent; stroke: none; }
@@ -198,7 +198,10 @@ button.primary:hover:not(:disabled) { background: var(--accent-strong); }
   position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 20px); opacity: 0; pointer-events: none;
   background: var(--text); color: var(--bg); padding: 8px 16px; border-radius: 10px; font-size: 13px; transition: opacity 0.2s, transform 0.2s;
 }
-.toast.show { opacity: 1; transform: translate(-50%, 0); }
+.toast.show { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+.toast { display: flex; gap: 12px; align-items: center; }
+.toast-action { background: transparent; color: inherit; border: 1px solid currentColor; padding: 1px 10px; min-height: 24px; }
+.toast-action:hover:not(:disabled) { background: rgba(127, 127, 127, 0.25); }
 @media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
 @media (max-width: 760px) {
   body { overflow: auto; }
@@ -214,20 +217,12 @@ button.primary:hover:not(:disabled) { background: var(--accent-strong); }
 .k-tag, .k-guard { cursor: pointer; }
 .chart-svg .edge-label { fill: var(--chip-misc); font-size: 10.5px; font-weight: 600; paint-order: stroke; stroke: var(--bg); stroke-width: 4px; stroke-linejoin: round; }
 
-/* controls: hover toolbar and definition card buttons are real buttons */
-.ctl { cursor: pointer; }
-.ctl rect { fill: var(--bg); stroke: var(--accent); stroke-width: 1.25; }
-.ctl text { fill: var(--accent-strong); font-size: 11px; font-weight: 600; }
-.ctl:hover rect { fill: var(--accent-tint); }
-.ctl.disabled { opacity: 0.45; cursor: default; }
-.defctl rect { stroke: var(--border); fill: var(--bg); }
-.defctl text { fill: var(--text); font-weight: 500; }
-.ctl:focus { outline: none; }
-.ctl:focus-visible rect { stroke: var(--focus); stroke-width: 3; }
 .box:focus { outline: none; }
 .chart-svg .focus-ring { fill: none; stroke: var(--focus); stroke-width: 3; }
 .chart-svg .k-defLabel .hit { fill: transparent; stroke: none; }
 .k-defLabel { cursor: pointer; }
+.k-defLabel:hover text { text-decoration: underline; text-underline-offset: 3px; }
+.k-def { cursor: pointer; }
 
 /* popover */
 .popover {
@@ -271,8 +266,6 @@ button.danger:hover:not(:disabled) { background: var(--danger-bg); }
   *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
 }
 
-.chart-pane .tools { flex-basis: 100%; margin-left: 0; justify-content: flex-start; }
-.chart-pane .pane-head { padding-bottom: 8px; }
 
 @media (prefers-color-scheme: dark) {
   /* white on the light dark-mode blue is only 2.6:1, so use dark text */
@@ -289,9 +282,9 @@ button.danger:hover:not(:disabled) { background: var(--danger-bg); }
 }
 .selbar-hint { margin: 0; color: var(--text-2); font-size: 12.5px; }
 .selbar-hint[hidden], .selbar-caption[hidden], .selbar-actions[hidden] { display: none; }
-.selbar-caption { font-weight: 600; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.selbar-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
-.selbar-actions button { padding: 2px 10px; min-height: 30px; font-size: 13px; white-space: nowrap; }
+.selbar-caption { flex: 1 1 90px; min-width: 90px; max-width: 280px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.selbar-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; flex: 0 1 auto; }
+.selbar-actions button { padding: 2px 9px; min-height: 30px; font-size: 13px; white-space: nowrap; }
 .selbar-actions button.danger { color: var(--danger); }
 .selbar-actions .sep { width: 1px; height: 20px; margin: 0 4px; background: var(--border); }
 .chart-svg .k-row.ctx > rect { fill: var(--ctx); stroke: var(--accent); stroke-width: 1; stroke-dasharray: 4 3; }

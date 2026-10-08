@@ -235,9 +235,38 @@ test('a guard on a tag nobody sets is flagged', () => {
   assert.ok(!l.boxes.find((b) => b.kind === 'guard' && b.label === '@q:')!.warn);
 });
 
-test('definition cards leave room for their controls', () => {
-  const { l } = build('main = $s\ns = [one|two]');
-  const d = l.boxes.find((b) => b.kind === 'def' && b.name === 's')!;
-  const label = l.boxes.find((b) => b.kind === 'defLabel' && b.name === 's')!;
-  assert.ok(d.x + d.w - (label.x + label.w) >= 150);
+test('branch cards pack into rows that wrap at the given width, in order, without overlapping', () => {
+  const src = 'main = $a $b $c $d\na = [one|two]\nb = [three|four]\nc = [five|six]\nd = [seven|eight]';
+  const a = analyze(src);
+  const narrow = layout({ main: a.main, others: a.others, source: src, defaultDelimiter: a.delimiter, knownTags: a.knownTags });
+  const wide = layout({ main: a.main, others: a.others, source: src, defaultDelimiter: a.delimiter, knownTags: a.knownTags, wrapWidth: 900 });
+  const defs = (l: typeof wide) => ['a', 'b', 'c', 'd'].map((n) => l.boxes.find((b) => b.kind === 'def' && b.name === n)!);
+  const n = defs(narrow);
+  const w = defs(wide);
+  // Without a wrap width each card fits beside the next only within main's width.
+  assert.ok(w.filter((d) => d.y === w[0]!.y).length > n.filter((d) => d.y === n[0]!.y).length, 'a wider pane puts more cards on a row');
+  for (const l of [narrow, wide]) {
+    const cards = l.boxes.filter((b) => b.kind === 'def');
+    for (let i = 0; i < cards.length; i++)
+      for (let j = i + 1; j < cards.length; j++) {
+        const p = cards[i]!;
+        const q = cards[j]!;
+        assert.ok(p.x + p.w <= q.x || q.x + q.w <= p.x || p.y + p.h <= q.y || q.y + q.h <= p.y, `cards overlap: ${p.name} / ${q.name}`);
+      }
+    for (const b of l.boxes) assert.ok(b.x + b.w <= l.width && b.y + b.h <= l.height, `outside canvas: ${b.kind} ${b.label}`);
+  }
+  // Reading order: left to right, then down.
+  for (let i = 1; i < w.length; i++) assert.ok(w[i]!.y > w[i - 1]!.y || (w[i]!.y === w[i - 1]!.y && w[i]!.x > w[i - 1]!.x));
+});
+
+test('a reference to a card beside it runs sideways into the card', () => {
+  const src = 'main = x\na = [one|$b]\nb = [two|three]';
+  const a = analyze(src);
+  const l = layout({ main: a.main, others: a.others, source: src, defaultDelimiter: a.delimiter, knownTags: a.knownTags, wrapWidth: 900 });
+  const da = l.boxes.find((b) => b.kind === 'def' && b.name === 'a')!;
+  const db = l.boxes.find((b) => b.kind === 'def' && b.name === 'b')!;
+  assert.equal(da.y, db.y, 'a and b share a row');
+  const e = l.edges.find((x) => x.kind === 'ref')!;
+  assert.ok(Math.abs(e.points[3]!.x - db.x) < 1e-6, 'enters the left side of the card');
+  assert.ok(e.points[3]!.y > db.y && e.points[3]!.y < db.y + db.h);
 });

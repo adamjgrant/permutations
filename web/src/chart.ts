@@ -189,7 +189,8 @@ export class ChartView {
     this.cancelEdit();
     this.layout = layout;
     const avail = this.host.clientWidth - 8;
-    if (this.fit) this.scale = Math.max(0.4, Math.min(1, avail / layout.width));
+    // Fit shrinks a little at most: below this, text gets too small to read, so scroll instead.
+    if (this.fit) this.scale = Math.max(0.8, Math.min(1, avail / layout.width));
     this.host.textContent = '';
     this.elements.clear();
     const svg = el('svg', {
@@ -205,7 +206,6 @@ export class ChartView {
     const edgeLayer = el('g', { class: 'edges' }, svg);
     const refLayer = el('g', { class: 'refs' }, svg);
     const fore = el('g', { class: 'fore' }, svg);
-    const controls = el('g', { class: 'controls' }, svg);
     this.ring = el('rect', { class: 'focus-ring', rx: 8, visibility: 'hidden', 'pointer-events': 'none' }, svg);
 
     for (const b of layout.boxes) {
@@ -214,7 +214,6 @@ export class ChartView {
     for (const e of layout.edges) this.drawEdge(e, e.kind === 'ref' ? refLayer : edgeLayer);
     for (const b of layout.boxes) {
       if (LEAF_KINDS.has(b.kind)) this.drawBox(b, fore);
-      if (b.kind === 'def') this.drawDefControls(b, controls);
     }
     this.initRoving();
     svg.addEventListener('click', (ev) => this.onClick(ev));
@@ -231,11 +230,11 @@ export class ChartView {
     const first = p[0];
     if (!first) return;
     if (e.kind === 'ref') {
-      const [a, b, c, d] = p as [typeof first, typeof first, typeof first, typeof first];
-      const path = el('path', { d: `M${a.x},${a.y} C${b.x},${b.y} ${c.x},${c.y} ${d.x},${d.y}`, class: 'edge ref', fill: 'none' }, parent);
+      const end = p[p.length - 1] ?? first;
+      const path = el('path', { d: roundedPath(p, 10), class: 'edge ref', fill: 'none' }, parent);
       path.dataset['from'] = e.from ?? '';
       path.dataset['to'] = e.to ?? '';
-      el('circle', { cx: d.x, cy: d.y, r: 3, class: 'ref-end' }, parent);
+      el('circle', { cx: end.x, cy: end.y, r: 3, class: 'ref-end' }, parent);
       return;
     }
     const d = 'M' + p.map((q) => `${q.x},${q.y}`).join(' L');
@@ -320,45 +319,6 @@ export class ChartView {
     }
   }
 
-  // --- definition card controls -------------------------------------------
-
-  private drawDefControls(def: Box, parent: Element): void {
-    const ok = this.actions.canEdit();
-    const labels: [DefAction, string, string][] = [
-      ['convert', def.form === 'long' ? 'Collapse' : 'Expand', def.form === 'long' ? `Collapse ${def.name} to short form` : `Expand ${def.name} to long form`],
-      ['rename', 'Rename', `Rename ${def.name}`],
-      ['delete', 'Delete', `Delete ${def.name}`],
-    ];
-    const widths = labels.map(([, t]) => Math.ceil(t.length * 6.2) + 16);
-    let x = def.x + def.w - 12;
-    for (let i = labels.length - 1; i >= 0; i--) {
-      const [action, label, aria] = labels[i] as [DefAction, string, string];
-      const w = widths[i] as number;
-      x -= w;
-      const y = def.y + 12;
-      // Out of the tab order: selecting the branch name offers the same actions in the strip.
-      const g = el('g', { class: 'ctl defctl' + (ok ? '' : ' disabled'), role: 'button', tabindex: -1, 'aria-label': aria, 'aria-disabled': String(!ok), 'data-def': def.name ?? '', 'data-action': action }, parent);
-      el('rect', { x, y, width: w, height: 22, rx: 11 }, g);
-      el('text', { x: x + w / 2, y: y + 11.5, 'text-anchor': 'middle', 'dominant-baseline': 'central' }, g).textContent = label;
-      el('title', {}, g).textContent = aria;
-      const run = (): void => {
-        if (ok) this.actions.defAction(def, action);
-      };
-      g.addEventListener('click', (e) => {
-        e.stopPropagation();
-        run();
-      });
-      g.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          e.stopPropagation();
-          run();
-        }
-      });
-      x -= 8;
-    }
-  }
-
   // --- selection and focus ---------------------------------------------------
 
   setSelected(ids: string[]): void {
@@ -388,8 +348,10 @@ export class ChartView {
       e.classList.toggle('ctx', this.context.has(id));
     }
     const one = this.selected.size === 1 ? this.byId([...this.selected][0]) : undefined;
+    // A selected branch lights up the references into it; a selected pill, its own edge.
+    const branch = one && (one.kind === 'def' || one.kind === 'defLabel') ? this.boxes.find((x) => x.kind === 'def' && x.name === one.name) : undefined;
     this.svg?.querySelectorAll<SVGPathElement>('.edge.ref').forEach((p) => {
-      p.classList.toggle('active', !!one && p.dataset['from'] === one.id);
+      p.classList.toggle('active', !!one && (p.dataset['from'] === one.id || (!!branch && p.dataset['to'] === branch.id)));
     });
   }
 
@@ -499,7 +461,6 @@ export class ChartView {
 
   private onClick(ev: MouseEvent): void {
     const target = ev.target as Element;
-    if (target.closest('.defctl')) return;
     const b = this.boxFromEvent(ev);
     if (!b) {
       this.actions.clearSelection();
@@ -763,6 +724,25 @@ export class ChartView {
     e.classList.add('flash');
     window.setTimeout(() => e.classList.remove('flash'), 1300);
   }
+}
+
+/** A polyline with its corners rounded off. */
+function roundedPath(p: { x: number; y: number }[], r: number): string {
+  const first = p[0];
+  if (!first) return '';
+  let d = `M${first.x},${first.y}`;
+  for (let i = 1; i < p.length - 1; i++) {
+    const a = p[i - 1]!;
+    const b = p[i]!;
+    const c = p[i + 1]!;
+    const d1 = Math.hypot(b.x - a.x, b.y - a.y);
+    const d2 = Math.hypot(c.x - b.x, c.y - b.y);
+    if (d1 < 0.01 || d2 < 0.01) continue;
+    const rr = Math.min(r, d1 / 2, d2 / 2);
+    d += ` L${b.x + ((a.x - b.x) * rr) / d1},${b.y + ((a.y - b.y) * rr) / d1} Q${b.x},${b.y} ${b.x + ((c.x - b.x) * rr) / d2},${b.y + ((c.y - b.y) * rr) / d2}`;
+  }
+  const last = p[p.length - 1]!;
+  return d + ` L${last.x},${last.y}`;
 }
 
 function isTextual(b: Box): boolean {

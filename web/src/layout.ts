@@ -126,6 +126,8 @@ export interface LayoutInput {
   defaultDelimiter?: string;
   /** Names of every tag some option sets. A guard on any other name gets a hint. */
   knownTags?: ReadonlySet<string>;
+  /** Width to fill before branch cards wrap to a new row (layout units). Default: one column. */
+  wrapWidth?: number;
 }
 
 export const M = {
@@ -145,7 +147,7 @@ export const M = {
   defPad: 16,
   defLabelH: 22,
   defGap: 28,
-  defControlsW: 190,
+  defControlsW: 0,
   maxTextW: 300,
 };
 
@@ -527,9 +529,10 @@ export function layout(input: LayoutInput): Layout {
   }
 
   interface Item {
-    indent: number;
     w: number;
     h: number;
+    /** Names of the definitions in this item (a namespace column holds several). */
+    names: string[];
     place(x: number, y: number): void;
   }
   const items: Item[] = [];
@@ -540,33 +543,41 @@ export function layout(input: LayoutInput): Layout {
   for (const e of entries) {
     if (e.kind === 'def') {
       const b = defBlock(e.def, e.def.name);
-      items.push({ indent: 0, w: b.w, h: b.h, place: (x, y) => void (defBoxes[b.name] = b.place(x, y)) });
+      items.push({ w: b.w, h: b.h, names: [b.name], place: (x, y) => void (defBoxes[b.name] = b.place(x, y)) });
       continue;
     }
+    // A namespace is one column: its header, then its members indented under it.
     const isCollapsed = collapsed.has(e.ns);
     const header = leaf('nsHeader', `${isCollapsed ? '▸' : '▾'} ${e.ns}  (${e.members.length})`, { ns: e.ns, collapsed: isCollapsed });
+    if (isCollapsed) for (const m of e.members) hiddenInNs[m.name] = e.ns;
+    const members = isCollapsed ? [] : e.members.map((m) => defBlock(m, m.name));
+    const indent = 24;
+    const w = Math.max(header.w, ...members.map((m) => m.w + indent));
+    const h = header.h + members.reduce((acc, m) => acc + M.defGap + m.h, 0);
     items.push({
-      indent: 0,
-      w: header.w,
-      h: header.h,
-      place: (x, y) => void (nsBoxes[e.ns] = header.place(x, y).first),
+      w,
+      h,
+      names: e.members.map((m) => m.name),
+      place: (x, y) => {
+        nsBoxes[e.ns] = header.place(x, y).first;
+        let yy = y + header.h;
+        for (const m of members) {
+          yy += M.defGap;
+          defBoxes[m.name] = m.place(x + indent, yy);
+          yy += m.h;
+        }
+      },
     });
-    if (isCollapsed) {
-      for (const m of e.members) hiddenInNs[m.name] = e.ns;
-      continue;
-    }
-    for (const m of e.members) {
-      const b = defBlock(m, m.name);
-      items.push({ indent: 24, w: b.w, h: b.h, place: (x, y) => void (defBoxes[b.name] = b.place(x, y)) });
-    }
   }
 
-  // --- vertical stacking ---------------------------------------------------
+  // --- placement: main on top, then the branches in rows that wrap ------------
+  const wrap = Math.max(mainBlock.w, input.wrapWidth !== undefined ? input.wrapWidth - M.margin * 2 : 0);
   let width = mainBlock.w;
-  for (const it of items) width = Math.max(width, it.w + it.indent);
-  width += M.margin * 2;
-  width = Math.max(width, 360);
+  for (const it of items) width = Math.max(width, it.w);
 
+  // Rows of cards ("shelves"): their top edges, and which shelf each definition sits on (main is -1).
+  const shelfTops: number[] = [];
+  const shelfOf: Record<string, number> = {};
   let y = M.margin;
   mainBlock.place(M.margin, y);
   defBoxes[mainBlock.name] = boxes.find((b) => b.kind === 'def')!.id;
@@ -578,35 +589,95 @@ export function layout(input: LayoutInput): Layout {
     dividerY = y;
     const lab = leaf('sectionLabel', 'BRANCHES');
     lab.place(M.margin, y - lab.h / 2);
-    edges.push({ id: nid('e'), kind: 'divider', from: null, to: null, points: [{ x: M.margin + lab.w + 12, y }, { x: width - M.margin, y }] });
     y += 28;
+    let x = M.margin;
+    let rowH = 0;
+    shelfTops.push(y);
     for (const it of items) {
-      it.place(M.margin + it.indent, y);
-      y += it.h + M.defGap;
+      if (x > M.margin && x - M.margin + it.w > wrap) {
+        y += rowH + M.defGap;
+        x = M.margin;
+        rowH = 0;
+        shelfTops.push(y);
+      }
+      for (const n of it.names) shelfOf[n] = shelfTops.length - 1;
+      it.place(x, y);
+      width = Math.max(width, x - M.margin + it.w);
+      x += it.w + M.defGap;
+      rowH = Math.max(rowH, it.h);
     }
-    y -= M.defGap;
+    y += rowH;
+    edges.push({ id: nid('e'), kind: 'divider', from: null, to: null, points: [{ x: M.margin + lab.w + 12, y: dividerY }, { x: M.margin + Math.max(width, 300), y: dividerY }] });
   }
+  width = Math.max(width + M.margin * 2, 360);
   const height = y + M.margin;
 
-  // Reference edges: pill -> the definition box (or the collapsed namespace header).
+  // Reference edges: pill -> the definition box (or the collapsed namespace header). They run
+  // through the gaps between cards: into the gap above the next row of cards, or down the left
+  // margin to rows further away, so they do not cut across other cards.
   const byId = new Map(boxes.map((b) => [b.id, b]));
+  // The gap above shelf k. Above the first shelf the lane runs between main and the divider.
+  const laneBase = (k: number): number => (k === 0 ? (dividerY ?? shelfTops[0]! - 28) - 18 : shelfTops[k]! - M.defGap / 2);
+  const laneUse = new Map<number, number>();
+  const lane = (k: number): number => {
+    const n = laneUse.get(k) ?? 0;
+    laneUse.set(k, n + 1);
+    // Spread edges that share a lane a little, so each stays traceable.
+    return laneBase(k) + ((n % 3) - 1) * 4;
+  };
+  const shelfOfBox = (b: Box): number => {
+    for (const [name, id] of Object.entries(defBoxes)) {
+      const d = byId.get(id);
+      if (d && b.x >= d.x && b.y >= d.y && b.x + b.w <= d.x + d.w && b.y + b.h <= d.y + d.h) return name === mainBlock.name ? -1 : (shelfOf[name] ?? -1);
+    }
+    return -1;
+  };
+  const targetOrder = new Map<string, number>();
   for (const p of pills) {
     const pill = byId.get(p.id) as Box;
     const ns = hiddenInNs[p.target];
     const targetId = ns !== undefined ? nsBoxes[ns] : defBoxes[p.target];
     const target = targetId ? byId.get(targetId) : undefined;
     if (!target) continue;
-    const p0: Pt = { x: pill.x + pill.w / 2, y: pill.y + pill.h };
-    const tx = target.x + Math.min(28, target.w / 2);
+    if (!targetOrder.has(target.id)) targetOrder.set(target.id, targetOrder.size);
+    const from = shelfOfBox(pill);
+    const to = target.id === defBoxes[mainBlock.name] ? -1 : ns !== undefined ? shelfOfBox(target) : (shelfOf[p.target] ?? -1);
+    const atColumnTop = to >= 0 && Math.abs(target.y - shelfTops[to]!) < 1;
+    const entryY = target.y + Math.min(26, target.h / 2);
+    const gutter = 6 + ((targetOrder.get(target.id) ?? 0) % 4) * 3;
     let pts: Pt[];
-    if (target.y >= p0.y) {
-      const d = Math.max(36, (target.y - p0.y) / 2);
-      pts = [p0, { x: p0.x, y: p0.y + d }, { x: tx, y: target.y - d }, { x: tx, y: target.y }];
+    if (to === from && target.y < pill.y && target.y + target.h > pill.y) {
+      // Side by side on one row: a short sideways connector into the card's header.
+      const right = target.x > pill.x;
+      const s0: Pt = { x: right ? pill.x + pill.w : pill.x, y: pill.y + pill.h / 2 };
+      const t0: Pt = { x: right ? target.x : target.x + target.w, y: entryY };
+      const mx = right ? Math.max(s0.x + 12, target.x - M.defGap / 2) : Math.min(s0.x - 12, target.x + target.w + M.defGap / 2);
+      pts = [s0, { x: mx, y: s0.y }, { x: mx, y: t0.y }, t0];
+    } else if (to === from + 1 && atColumnTop) {
+      // The next row down: drop into the gap above it, then into the top of the card.
+      const p0: Pt = { x: pill.x + pill.w / 2, y: pill.y + pill.h };
+      const tx = target.x + Math.min(28, target.w / 2);
+      const ly = lane(to);
+      pts = [p0, { x: p0.x, y: ly }, { x: tx, y: ly }, { x: tx, y: target.y }];
+    } else if (to > from) {
+      // Further down: through the gap under this row, down the left margin, along the gap above
+      // the target's row, and into the card from above (or from beside, inside a namespace column).
+      const p0: Pt = { x: pill.x + pill.w / 2, y: pill.y + pill.h };
+      const l1 = lane(from + 1);
+      const l2 = lane(to);
+      if (atColumnTop) {
+        const tx = target.x + Math.min(28, target.w / 2);
+        pts = [p0, { x: p0.x, y: l1 }, { x: gutter, y: l1 }, { x: gutter, y: l2 }, { x: tx, y: l2 }, { x: tx, y: target.y }];
+      } else {
+        const gx = target.x - Math.min(M.defGap / 2, 10);
+        pts = [p0, { x: p0.x, y: l1 }, { x: gutter, y: l1 }, { x: gutter, y: l2 }, { x: gx, y: l2 }, { x: gx, y: entryY }, { x: target.x, y: entryY }];
+      }
     } else {
-      const q0: Pt = { x: pill.x + pill.w / 2, y: pill.y };
-      const ty = target.y + target.h;
-      const d = Math.max(36, (q0.y - ty) / 2);
-      pts = [q0, { x: q0.x, y: q0.y - d }, { x: tx, y: ty + d }, { x: tx, y: ty }];
+      // Up to an earlier row (or to main): through the gap above this row, up the left margin,
+      // and into the card from its left side.
+      const p0: Pt = { x: pill.x + pill.w / 2, y: pill.y };
+      const ly = from >= 0 ? lane(from) : pill.y - 12;
+      pts = [p0, { x: p0.x, y: ly }, { x: gutter, y: ly }, { x: gutter, y: entryY }, { x: target.x, y: entryY }];
     }
     edges.push({ id: nid('e'), kind: 'ref', from: p.id, to: target.id, points: pts });
   }

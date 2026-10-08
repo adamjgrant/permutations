@@ -495,6 +495,7 @@ function relayout(): void {
     measure,
     defaultDelimiter: analysis.delimiter,
     knownTags: analysis.knownTags,
+    wrapWidth: Math.max(360, $('chart').clientWidth - 8),
   });
   chart.render(lastLayout);
   const names = [...new Set(lastLayout.boxes.filter((b) => b.kind === 'guard' && b.warn && b.guard?.kind === 'tag').map((b) => (b.guard as { name: string }).name))];
@@ -510,7 +511,21 @@ function relayout(): void {
   updateTools();
 }
 
-/** Draw the same layout again (zoom, resize) and keep the selection. */
+/** Lay out again for a new pane width, and keep the selection. */
+function relayoutKeepingSelection(): void {
+  const sel = chart.boxes.find((b) => b.id === selectedId);
+  const key = sel ? chart.focusKey(sel) : undefined;
+  const keep = barOn;
+  const focusInChart = chart.hasFocus();
+  relayout();
+  if (!key) return;
+  const box = chart.boxForKey(key, (n) => n);
+  if (!box) return;
+  if (focusInChart) chart.focusBox(box.id, false, true);
+  selectBox(box, { bar: keep, reveal: false });
+}
+
+/** Draw the same layout again (zoom) and keep the selection. */
 function rerender(): void {
   if (!lastLayout) return;
   chart.render(lastLayout);
@@ -694,7 +709,7 @@ window.addEventListener('resize', () => {
   window.clearTimeout(resizeTimer);
   resizeTimer = window.setTimeout(
     safe(() => {
-      if (chart.fit && lastLayout) rerender();
+      if (lastLayout) relayoutKeepingSelection();
     }),
     120,
   );
@@ -842,11 +857,32 @@ on('b-new', renderSamples);
 
 // --- toolbar ---------------------------------------------------------------
 
-function toast(msg: string): void {
+let toastTimer: number | undefined;
+
+/** A short message at the bottom of the window, optionally with one action such as Undo. */
+function toast(msg: string, action?: { label: string; run: () => void }): void {
   const t = $('toast');
-  t.textContent = msg;
+  t.textContent = '';
+  const span = document.createElement('span');
+  span.textContent = msg;
+  t.appendChild(span);
+  if (action) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'toast-action';
+    b.textContent = action.label;
+    b.addEventListener(
+      'click',
+      safe(() => {
+        t.classList.remove('show');
+        action.run();
+      }),
+    );
+    t.appendChild(b);
+  }
   t.classList.add('show');
-  window.setTimeout(() => t.classList.remove('show'), 2200);
+  window.clearTimeout(toastTimer);
+  toastTimer = window.setTimeout(() => t.classList.remove('show'), action ? 8000 : 2200);
 }
 
 $('b-share').addEventListener(
@@ -868,7 +904,15 @@ $('b-share').addEventListener(
     }
   }),
 );
-on('b-reset', () => editor.setText(DEFAULT_PROGRAM));
+on('b-reset', () => {
+  const before = editor.getText();
+  if (before === DEFAULT_PROGRAM) {
+    toast('This is already the example.');
+    return;
+  }
+  editor.setText(DEFAULT_PROGRAM);
+  toast('Example loaded. Your code was replaced.', { label: 'Undo', run: () => editor.setText(before) });
+});
 on('b-expand', () => runConvert('long', undefined, undefined));
 on('b-collapse', () => runConvert('short', undefined, undefined));
 
