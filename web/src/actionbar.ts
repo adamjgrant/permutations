@@ -142,12 +142,17 @@ export class ActionBar {
         this.onRun('clear');
         return;
       }
-      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-        const btns = [...this.actions.querySelectorAll<HTMLButtonElement>('button:not(:disabled)')];
-        const i = btns.indexOf(document.activeElement as HTMLButtonElement);
-        if (i === -1) return;
+      const btns = [...this.actions.querySelectorAll<HTMLButtonElement>('button:not(:disabled)')];
+      const i = btns.indexOf(document.activeElement as HTMLButtonElement);
+      if (i === -1) return;
+      let next: HTMLButtonElement | undefined;
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') next = btns[(i + (e.key === 'ArrowRight' ? 1 : btns.length - 1)) % btns.length];
+      else if (e.key === 'Home') next = btns[0];
+      else if (e.key === 'End') next = btns[btns.length - 1];
+      if (next) {
         e.preventDefault();
-        btns[(i + (e.key === 'ArrowRight' ? 1 : btns.length - 1)) % btns.length]?.focus();
+        this.rove(next);
+        next.focus();
       }
     });
   }
@@ -183,8 +188,12 @@ export class ActionBar {
         if (s.danger) btn.classList.add('danger');
         btn.disabled = !!s.disabled;
         btn.addEventListener('click', () => this.onRun(s.id));
+        btn.addEventListener('focus', () => this.rove(btn));
         this.actions.appendChild(btn);
       }
+      // A toolbar is one Tab stop: arrows move between its buttons.
+      const first = this.actions.querySelector<HTMLButtonElement>('button:not(:disabled)');
+      if (first) this.rove(first);
     }
     this.caption.textContent = label;
     this.caption.title = label;
@@ -201,6 +210,10 @@ export class ActionBar {
     this.caption.hidden = note === undefined;
     this.caption.textContent = note ?? '';
     this.hint.hidden = note !== undefined;
+  }
+
+  private rove(to: HTMLButtonElement): void {
+    for (const b of this.actions.querySelectorAll<HTMLButtonElement>('button')) b.tabIndex = b === to ? 0 : -1;
   }
 
   /** Focus the button for an action, or the first enabled one when it is gone or disabled. */

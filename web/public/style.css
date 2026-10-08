@@ -195,10 +195,10 @@ button.primary:hover:not(:disabled) { background: var(--accent-strong); }
 .all-intro { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; padding: 4px 0 8px; }
 .empty-state { color: var(--text-2); padding: 12px 0; }
 .toast {
-  position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 20px); opacity: 0; pointer-events: none;
+  position: fixed; left: 16px; bottom: 64px; transform: translate(0, 12px); opacity: 0; pointer-events: none; max-width: min(420px, calc(100vw - 32px));
   background: var(--text); color: var(--bg); padding: 8px 16px; border-radius: 10px; font-size: 13px; transition: opacity 0.2s, transform 0.2s;
 }
-.toast.show { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+.toast.show { opacity: 1; transform: translate(0, 0); pointer-events: auto; }
 .toast { display: flex; gap: 12px; align-items: center; }
 .toast-action { background: transparent; color: inherit; border: 1px solid currentColor; padding: 1px 10px; min-height: 24px; }
 .toast-action:hover:not(:disabled) { background: rgba(127, 127, 127, 0.25); }

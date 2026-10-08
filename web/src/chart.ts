@@ -203,6 +203,8 @@ export class ChartView {
       height: Math.ceil(layout.height * this.scale),
       class: 'chart-svg',
       role: 'group',
+      tabindex: -1,
+      focusable: 'false',
       'aria-label': 'Flow chart of the program. Arrow keys move between boxes, Enter edits, Delete removes.',
     });
     this.svg = svg;
