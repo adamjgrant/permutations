@@ -363,3 +363,9 @@ kbd { font: 11.5px ui-monospace, "SF Mono", Menlo, monospace; padding: 1px 5px; 
 .lg-guard-label { fill: var(--chip-guard); }
 .lg-misc-label { fill: var(--chip-misc); }
 .lg-fn-label { fill: var(--chip-fn); }
+
+@media (max-width: 1180px) {
+  .pane-head { gap: 8px; }
+  .pane-head .tools { gap: 6px; }
+  .pane-head .tools button { padding: 2px 8px; font-size: 13px; }
+}
