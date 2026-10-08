@@ -82,6 +82,7 @@ export function barActions(s: BarInput): ActionSpec[] {
     const long = b.form === 'long';
     const isMain = b.name === 'main' || b.name === '<main>';
     return [
+      { id: 'insert-ref', label: 'Add at the end…', title: 'Add text or a reference at the end of this branch', group: 0 },
       { id: 'rename', label: 'Rename…', title: isMain ? 'main is where the program starts, so it keeps its name' : 'Rename this branch and every reference to it', group: 0, disabled: isMain },
       { id: 'convert', label: long ? 'Collapse to short form' : 'Expand to long form', title: long ? 'Write this branch on one line' : 'Write this branch one piece per line', group: 0 },
       { id: 'delete-def', label: 'Delete branch…', title: isMain ? 'main is where the program starts, so it cannot be deleted' : 'Delete this branch (only when nothing refers to it)', group: 1, danger: true, disabled: isMain },
@@ -125,7 +126,9 @@ export function barActions(s: BarInput): ActionSpec[] {
     if (b.kind !== 'tag' && b.kind !== 'guard') {
       const own = b.kind === 'text' || b.kind === 'ref' || b.kind === 'value';
       if (own && s.piece && !s.piece.sole && s.piece.deletable) {
-        // The alternative holds more than this piece: say which one Delete removes.
+        // The alternative holds more than this piece: it can be left out on its own.
+        if (b.kind !== 'value') out.push({ id: 'optional', label: 'Make optional', title: `Allow “${b.full}” to be left out of this alternative`, group: 1 });
+        // Say which one Delete removes.
         out.push({ id: 'delete-piece', label: 'Delete', title: `Delete “${b.full}” only (Delete)`, group: 4, danger: true });
         out.push({ id: 'delete', label: any ? 'Delete item' : 'Delete alternative', title: count < 2 ? `The only ${any ? 'item' : 'alternative'} cannot be deleted` : `Delete the whole ${any ? 'item' : 'alternative'}, everything in it`, group: 4, danger: true, disabled: count < 2 });
       } else {
@@ -153,9 +156,10 @@ export function barActions(s: BarInput): ActionSpec[] {
     const thing = b.frameOf === 'anyorder' ? 'group' : b.frameOf === 'repeat' ? 'repeat' : b.frameOf === 'transform' ? 'piece' : 'choice';
     out.push({ id: 'delete-piece', label: `Delete ${thing}`, title: `Delete this whole ${thing} (Delete)`, group: 4, danger: true });
   }
-  if ((b.kind === 'text' || b.kind === 'ref') && (s.branches ?? 1) > 0) {
-    out.push({ id: 'insert-ref', label: 'Insert reference…', title: 'Insert $name of a branch right after this', group: 3 });
-  }
+  // Something new right after this piece: text, or a reference to a branch. On a choice it goes
+  // after the whole choice, which is how to continue a sentence past one.
+  const piece = b.kind === 'text' || b.kind === 'ref' || b.kind === 'value' || (b.kind === 'frame' && !!s.piece);
+  if (piece) out.push({ id: 'insert-ref', label: 'Insert after…', title: b.kind === 'frame' ? 'Insert text or a reference after this whole part' : 'Insert text or a reference right after this', group: 3 });
   if (s.delimFrame && (b.kind === 'frame' || b.kind === 'anyorder' || b.kind === 'delimiter' || b.kind === 'repeat')) {
     const what = s.delimFrame.frameOf === 'repeat' ? 'the copies of this repeat' : 'the parts of this choice';
     out.push({ id: 'delimiter', label: 'Delimiter…', title: `Set what joins ${what}`, group: 2 });

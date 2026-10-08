@@ -14,7 +14,7 @@ import {
 import { closePopover, openPopover } from './popover';
 import { EXAMPLE_PROGRAMS, HELP_ITEMS, insertionFor, SHORTCUTS } from './help';
 import { ActionBar, ActionId, barActions } from './actionbar';
-import { insertReference, pieceRange, varyWords, wordsOf, WrapNode, wrapInChoice } from './insert';
+import { appendToBranch, insertReference, insertText, pieceRange, varyWords, wordsOf, WrapNode, wrapInChoice } from './insert';
 import { anyOrderSequence, pathBoxes } from './trace';
 import { deletePiece, isSolePiece, locatePiece } from './remove';
 import { setDelimiter, setSettings } from './delim';
@@ -454,7 +454,7 @@ const actions: ChartActions = {
       const made = named.filter((n) => branches.has(n));
       const unknown = named.filter((n) => !branches.has(n));
       if (made.length) toast(`${made.map((n) => '$' + n).join(', ')} ${made.length === 1 ? 'is a reference' : 'are references'} to the branch${made.length === 1 ? '' : 'es'} of that name.`, UNDO);
-      else if (unknown.length) notify(`There is no branch named ${unknown[0]}, so $${unknown[0]} is written as text. To make it a reference, create the branch first, or use Insert reference.`);
+      else if (unknown.length) notify(`There is no branch named ${unknown[0]}, so $${unknown[0]} is written as text. To make it a reference, create the branch first.`);
     }
     return err;
   },
@@ -1326,39 +1326,62 @@ function safeTargets(into: string): string[] {
   return defs.map((d) => d.name).filter((n) => n !== into && n !== '<main>' && !reaches(n, into));
 }
 
+/**
+ * Insert after a piece (or, from a branch label, at the end of the branch): text, or a reference.
+ * The field takes either; a live line says which it will be.
+ */
 function insertRefDialog(box: Box): void {
-  if (!analysis || !canEdit() || !box.node) return;
+  if (!analysis || !canEdit()) return;
   const src = analysis.source;
+  const atBranch = box.kind === 'defLabel' || box.kind === 'def';
+  const branchName = atBranch ? (box.name === '<main>' ? 'main' : box.name) : undefined;
+  const def = atBranch ? [analysis.main, ...analysis.others].find((d) => d.name === box.name || (box.name === '<main>' && d === analysis?.main)) : undefined;
   const card = chart.boxes.find((d) => d.kind === 'def' && inside(box, d));
-  const names = safeTargets(card?.name ?? analysis.main.name);
-  if (!names.length) {
-    openPopover({
-      title: 'Insert reference',
-      message: 'No branch can go here without making a loop, where a branch ends up using itself. Create a new branch first, then insert it.',
-      anchor: anchorOf(box),
-      returnFocus: document.activeElement as HTMLElement | null,
-      actions: [
-        { label: 'New branch…', kind: 'primary', run: () => void setTimeout(() => $('t-new').click(), 0) },
-        { label: 'Cancel', run: () => undefined },
-      ],
-    });
+  const into = def?.name ?? card?.name ?? analysis.main.name;
+  const names = safeTargets(into);
+  const all = new Set(branchNames());
+  const after = !atBranch && box.node ? locatePiece(bodies(), box.node) : undefined;
+  if ((atBranch && !def) || (!atBranch && !after)) {
+    notify('Nothing can be inserted here from the chart. Type it in the code.', 'warn');
     return;
   }
-  const after = locatePiece(bodies(), box.node);
-  if (!after) {
-    notify('A reference cannot be inserted here.', 'warn');
-    return;
-  }
-  // The label may end with its own full stop: do not add a second one after the quote.
+  // What the typed value means: a branch name (bare or with $) is a reference; anything else is
+  // text, in which $name of a branch is a reference too. Quotes force text.
+  const meaning = (v: string): { ref: string } | { text: string } | { error: string } | undefined => {
+    const t = v.trim();
+    if (t === '') return undefined;
+    const quoted = /^"(.*)"$/.exec(t);
+    if (quoted) return { text: quoted[1] as string };
+    const name = t.replace(/^\$/, '');
+    if (/^[A-Za-z_][\w.]*$/.test(name) && all.has(name)) {
+      return names.includes(name) ? { ref: name } : { error: `${name} cannot go here: it uses this branch already, so it would loop.` };
+    }
+    if (t.startsWith('$') && /^\$[A-Za-z_][\w.]*$/.test(t)) return { error: `There is no branch named ${name}. Create it with New branch first.` };
+    return { text: t };
+  };
   const what = box.label.replace(/[.!?…]+$/, '');
+  const frameName = box.frameOf === 'anyorder' ? 'this any-order group' : box.frameOf === 'repeat' ? 'this repeat' : box.frameOf === 'transform' ? 'this part' : 'this choice';
   openPopover({
-    title: 'Insert reference',
-    label: 'Branch',
-    // With one branch to choose from, it is already filled in.
-    value: names.length === 1 ? (names[0] as string) : '',
-    placeholder: names[0] ?? 'name',
-    hint: `Inserts $name right after “${what}”. Branches: ${names.join(', ')}.`,
+    title: atBranch
+      ? `Add to the end of ${branchName}`
+      : box.kind === 'frame' || !what
+        ? `Insert after ${frameName}`
+        : `Insert after “${what.length > 30 ? what.slice(0, 29) + '…' : what}”`,
+    label: 'Text, or a branch name',
+    value: '',
+    placeholder: names.length ? `text, or ${names[0]}` : 'text',
+    hint: names.length
+      ? `A branch name inserts a reference to it (${names.join(', ')}). Anything else is text, and $name in it refers to that branch.`
+      : 'Type the text to insert. (No branch can be referred to here without making a loop.)',
     suggestions: names,
+    preview: (v) => {
+      const m = meaning(v);
+      if (!m) return 'Type something to insert.';
+      if ('error' in m) return m.error;
+      if ('ref' in m) return `Inserts $${m.ref}, a reference to the branch ${m.ref}.`;
+      const refs = [...m.text.matchAll(/\$([A-Za-z_][\w.]*)/g)].map((x) => x[1] as string).filter((n) => all.has(n));
+      return `Inserts the text “${m.text}”${refs.length ? `, with a reference to ${refs.join(', ')}` : ''}.`;
+    },
     anchor: anchorOf(box),
     returnFocus: document.activeElement as HTMLElement | null,
     actions: [
@@ -1366,14 +1389,12 @@ function insertRefDialog(box: Box): void {
         label: 'Insert',
         kind: 'primary',
         run(v) {
-          const name = v.trim().replace(/^\$/, '') || (names.length === 1 ? (names[0] as string) : '');
-          if (!name) return `Type the name of a branch: ${names.join(', ')}.`;
-          if (!names.includes(name)) {
-            return branchNames().includes(name)
-              ? `${name} cannot go here: it uses this branch already, so it would loop.`
-              : `There is no branch named ${name}. Create it with New branch first.`;
-          }
-          return applyEdit(insertReference(src, after, name));
+          const m = meaning(v);
+          if (!m) return 'Type the text to insert, or the name of a branch.';
+          if ('error' in m) return m.error;
+          if (def) return applyEdit(appendToBranch(src, def, 'ref' in m ? { ref: m.ref } : { text: m.text, branches: all }));
+          if (!after) return 'Nothing can be inserted here.';
+          return applyEdit('ref' in m ? insertReference(src, after, m.ref) : insertText(src, after, m.text, all));
         },
       },
       { label: 'Cancel', run: () => undefined },

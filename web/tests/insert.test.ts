@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { analyze } from '../src/model';
-import { insertReference, pieceRange, varyWords, wordsOf, wrapInChoice } from '../src/insert';
+import { appendToBranch, insertReference, insertText, pieceRange, varyWords, wordsOf, wrapInChoice } from '../src/insert';
 import { locatePiece } from '../src/remove';
-import { meaning, refs, run, texts } from './helpers';
+import { groups, meaning, refs, run, texts } from './helpers';
 
 const text = (src: string, s: string) => texts(src).find((t) => t.value === s)!;
 const bodies = (src: string) => {
@@ -118,4 +118,21 @@ test('vary words keeps punctuation outside the choice, and pins spacing under an
   assert.equal(dout.split('\n')[1], 'main = [Hello [dear|] world; delimiter=" "]');
   assert.match(meaning(dout), /"Hello world"/);
   assert.match(meaning(dout), /"Hello dear world"/);
+});
+
+test('insert text after a piece, after a whole choice, and at the end of a branch', () => {
+  const src = 'main = Say [hi|hello [there|you]] now\ncl = Bye';
+  const g = groups(src)[0]!;
+  const after = { range: pieceRange(bodies(src), g)! };
+  assert.equal(run(src, insertText(src, after, 'and then', new Set(['cl']))).split('\n')[0], 'main = Say [hi|hello [there|you]] and then now');
+  assert.equal(run(src, insertText(src, after, 'see $cl', new Set(['main', 'cl']))).split('\n')[0], 'main = Say [hi|hello [there|you]] see $cl now');
+  const defs = analyze(src);
+  assert.equal(run(src, appendToBranch(src, defs.main, { text: 'please.' })).split('\n')[0], 'main = Say [hi|hello [there|you]] now please.');
+  const bare = 'main = $g\ng = Hello | Hi';
+  const gdef = analyze(bare).others[0]!;
+  assert.equal(run(bare, appendToBranch(bare, gdef, { text: 'there' })).split('\n')[1], 'g = [Hello | Hi] there');
+  assert.match(meaning(run(bare, appendToBranch(bare, gdef, { text: 'there' }))), /"Hi there"/);
+  const long = 'branch main\n  Hello\n  one of\n    a\n    b\n';
+  const ldef = analyze(long).main;
+  assert.equal(run(long, appendToBranch(long, ldef, { ref: 'x' })), 'branch main\n  Hello\n  one of\n    a\n    b\n  ref x\n');
 });

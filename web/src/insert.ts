@@ -4,7 +4,7 @@
 
 import { compile, visit } from '../../src/index';
 import type { Node, SeqNode, TextNode } from '../../src/core/types';
-import { EditResult, formAt, longLine } from './patch';
+import { EditResult, formAt, longLine, withReferences } from './patch';
 import { isReservedLine } from '../../src/core/longform';
 import { escapeText, indentOf, indentUnit, isAtLineEnd, isAtLineStart, Range, trimRange } from './ranges';
 
@@ -69,28 +69,74 @@ function containsNode(outer: Node, inner: Node): boolean {
  * keyword or quoted line).
  */
 export function insertReference(src: string, at: { range: Range; seq?: SeqNode; parent?: string }, name: string): EditResult {
+  return insertAfter(src, at, `$${name}`, `ref ${name}`);
+}
+
+/** Insert typed text right after a piece. `$name` of a branch in it becomes a reference. */
+export function insertText(src: string, at: { range: Range; seq?: SeqNode; parent?: string }, text: string, branches?: ReadonlySet<string>): EditResult {
+  return insertAfter(src, at, withReferences(escapeText(text.trim(), false), branches), withReferences(longLine(text.trim()), branches));
+}
+
+/**
+ * Insert right after a piece: `short` (a short-form snippet, `$name` or text) inside a line, or
+ * `line` (a whole long-form line, `ref name`) after a whole long-form line.
+ */
+function insertAfter(src: string, at: { range: Range; seq?: SeqNode; parent?: string }, short: string, line: string): EditResult {
   const r = trimRange(src, at.range);
   if (formAt(src, r[0]) === 'long' && isWholeLine(src, r)) {
     const lineIsAlternative = !!at.seq && at.seq.pieces.length === 1 && (at.parent === 'option' || at.parent === 'item');
     if (lineIsAlternative) {
       const text = src.slice(r[0], r[1]);
       if (!text.includes('\n') && !isReservedLine(text.trim()) && !text.trim().startsWith('"')) {
-        const insert = ` $${name}`;
+        const insert = ` ${short}`;
         return { patches: [{ from: r[1], to: r[1], insert }], select: [r[1] + 1, r[1] + insert.length] };
       }
-      // A keyword or quoted line (or a block): wrap it and the reference in a sequence.
+      // A keyword or quoted line (or a block): wrap it and the new line in a sequence.
       const ind = indentOf(src, r[0]);
       const unit = indentUnit(src);
       const body = text.split('\n').map((l, i) => (i === 0 ? ind + unit + l : unit + l)).join('\n');
-      const insert = `sequence\n${body}\n${ind}${unit}ref ${name}`;
-      return { patches: [{ from: r[0], to: r[1], insert }], select: [r[0] + insert.length - name.length, r[0] + insert.length] };
+      const insert = `sequence\n${body}\n${ind}${unit}${line}`;
+      return { patches: [{ from: r[0], to: r[1], insert }], select: [r[0] + insert.length - line.length, r[0] + insert.length] };
     }
-    const line = `ref ${name}`;
     const insert = `\n${indentOf(src, r[0])}${line}`;
     return { patches: [{ from: r[1], to: r[1], insert }], select: [r[1] + insert.length - line.length, r[1] + insert.length] };
   }
-  const insert = ` $${name}`;
+  const insert = ` ${short}`;
   return { patches: [{ from: r[1], to: r[1], insert }], select: [r[1] + 1, r[1] + insert.length] };
+}
+
+/**
+ * Add text or a reference at the end of a branch. A bracket-free choice is bracketed first, so
+ * what is added follows the whole choice rather than joining its last alternative.
+ */
+export function appendToBranch(
+  src: string,
+  def: { body: Node; range: Range; form?: 'short' | 'long' | undefined },
+  value: { ref: string } | { text: string; branches?: ReadonlySet<string> },
+): EditResult {
+  const short = 'ref' in value ? `$${value.ref}` : withReferences(escapeText(value.text.trim(), false), value.branches);
+  const line = 'ref' in value ? `ref ${value.ref}` : withReferences(longLine(value.text.trim()), value.branches);
+  if (def.form === 'long') {
+    // After the last line of the body, at the body's indent.
+    const end = trimRange(src, def.range)[1];
+    const first = src.indexOf('\n', def.range[0]);
+    const bodyIndent = first === -1 ? indentUnit(src) : (/^[ \t]*/.exec(src.slice(first + 1)) as RegExpExecArray)[0];
+    const insert = `\n${bodyIndent}${line}`;
+    return { patches: [{ from: end, to: end, insert }], select: [end + insert.length - line.length, end + insert.length] };
+  }
+  const [b0, b1] = trimRange(src, def.body.range);
+  if (def.body.kind === 'group' && def.body.bare) {
+    const insert = ` ${short}`;
+    return {
+      patches: [
+        { from: b0, to: b0, insert: '[' },
+        { from: b1, to: b1, insert: ']' + insert },
+      ],
+      select: [b1 + 2 + 1, b1 + 2 + insert.length],
+    };
+  }
+  const insert = ` ${short}`;
+  return { patches: [{ from: b1, to: b1, insert }], select: [b1 + 1, b1 + insert.length] };
 }
 
 /**

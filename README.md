@@ -41,9 +41,10 @@ How the web app works:
 
 - **Click any box** in the chart to select it. The strip at the bottom of the chart names the
   selection and offers its actions: edit, vary some words, add, move or delete alternatives,
-  make something optional, tags and guards, insert a reference, inline or extract a branch,
-  set a delimiter, change or remove a repeat or transform, and rename, convert or delete a
-  branch. Nothing depends on hover, and the keyboard can do all of it (Help lists the keys).
+  make something optional, tags and guards, insert text or a reference after any piece (or at
+  the end of a branch), inline or extract a branch, set a delimiter and a final join, change
+  or remove a repeat or transform, and rename, convert or delete a branch. Nothing depends on
+  hover, and the keyboard can do all of it (Help lists the keys).
 - **Click an example** to see the path that made it light up in the chart. While you edit,
   even when you add alternatives, the examples keep their picks everywhere else, so you see
   the effect of each change.

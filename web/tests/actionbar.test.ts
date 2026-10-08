@@ -39,7 +39,8 @@ test('first and last alternatives disable the moves that would fall off the end'
 
 test('text outside any choice can become a choice or optional', () => {
   assert.deepEqual(ids(input('main = Say [red|green] now', (b) => b.kind === 'text' && b.full === 'Say')), ['edit', 'wrap', 'optional', 'insert-ref', 'extract']);
-  assert.deepEqual(ids(input('main = Say [red|green] now', (b) => b.kind === 'text' && b.full === 'Say', { branches: 0 })), ['edit', 'wrap', 'optional', 'extract']);
+  // Insert after works without any branch to refer to: it can insert text.
+  assert.deepEqual(ids(input('main = Say [red|green] now', (b) => b.kind === 'text' && b.full === 'Say', { branches: 0 })), ['edit', 'wrap', 'optional', 'insert-ref', 'extract']);
 });
 
 test('a reference offers go to and change target', () => {
@@ -75,8 +76,8 @@ test('nothing to offer when the code has an error', () => {
   assert.deepEqual(ids(input('main = [a|b]', (b) => b.kind === 'text', { canEdit: false })), []);
 });
 
-test('a branch name offers rename, expand or collapse, and delete', () => {
-  assert.deepEqual(ids(input('main = [a|b]', (b) => b.kind === 'defLabel')), ['rename', 'convert', 'delete-def']);
+test('a branch name offers add at the end, rename, expand or collapse, and delete', () => {
+  assert.deepEqual(ids(input('main = [a|b]', (b) => b.kind === 'defLabel')), ['insert-ref', 'rename', 'convert', 'delete-def']);
   const long = barActions(input('branch main\n  one of\n    a\n    b\n', (b) => b.kind === 'defLabel'));
   assert.equal(long.find((a) => a.id === 'convert')?.label, 'Collapse to short form');
 });
