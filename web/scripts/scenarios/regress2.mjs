@@ -10,7 +10,26 @@ export default async (t) => {
     t.log('ok', m);
   };
   const txt = (s) => page.locator('.k-text', { hasText: s }).first();
-  const act = (a) => page.locator(`.selbar-actions button[data-action="${a}"]`);
+  // A strip action, from the row or, when it did not fit, from the More… menu.
+  const act = (a) => {
+    const row = page.locator(`.selbar-actions button[data-action="${a}"]`);
+    const shown = page.locator(`.selbar-actions button[data-action="${a}"]:not([hidden])`);
+    const open = async () => {
+      if (await shown.count()) return shown;
+      if (await row.count()) {
+        await page.locator('.selbar-actions button[data-action="more"]').click();
+        return page.locator(`.selbar-more-menu button[data-action="${a}"]`);
+      }
+      return shown;
+    };
+    return {
+      click: async (o) => (await open()).click(o),
+      isVisible: async () => (await row.count()) > 0,
+      isDisabled: async () => row.isDisabled(),
+      textContent: async () => row.textContent(),
+      boundingBox: async () => (await open()).boundingBox(),
+    };
+  };
   const code = () => t.code();
 
   // Long form edited from the chart keeps its shape.

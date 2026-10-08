@@ -441,3 +441,10 @@ kbd { font: 11.5px ui-monospace, "SF Mono", Menlo, monospace; padding: 1px 5px; 
 #view-random { overflow: hidden; }
 #view-random .samples { flex: 0 1 auto; min-height: 0; overflow: auto; }
 #view-random .ex-foot { flex: none; }
+
+.selbar-actions .sep[hidden], .selbar-actions button[hidden] { display: none; }
+.selbar-more-menu { position: fixed; z-index: 60; display: flex; flex-direction: column; gap: 2px; min-width: 180px; padding: 4px; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16); }
+.selbar-more-menu[hidden] { display: none; }
+.selbar-more-menu button { text-align: left; border: none; background: transparent; padding: 6px 10px; min-height: 30px; font-size: 13px; border-radius: 6px; white-space: nowrap; }
+.selbar-more-menu button:hover:not(:disabled), .selbar-more-menu button:focus-visible { background: var(--accent-tint); }
+.selbar-more-menu button.danger { color: var(--danger); }

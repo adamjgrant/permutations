@@ -15,6 +15,7 @@ export type ActionId =
   | 'delete'
   | 'tag'
   | 'guard'
+  | 'more'
   | 'chip-edit'
   | 'chip-remove'
   | 'extract'
@@ -175,6 +176,9 @@ export class ActionBar {
   private actions: HTMLDivElement;
   private caption: HTMLSpanElement;
   private hint: HTMLElement;
+  /** The actions that did not fit, in the More… menu. */
+  private overflow: ActionSpec[] = [];
+  private menu: HTMLDivElement;
 
   /** `root` holds the hint (shown when nothing is selected) and gets the caption and buttons. */
   constructor(
@@ -189,7 +193,16 @@ export class ActionBar {
     this.actions.className = 'selbar-actions';
     this.actions.setAttribute('role', 'toolbar');
     this.actions.hidden = true;
+    this.menu = document.createElement('div');
+    this.menu.className = 'selbar-more-menu';
+    this.menu.setAttribute('role', 'menu');
+    this.menu.hidden = true;
     el.append(this.caption, this.actions);
+    document.body.appendChild(this.menu);
+    this.menu.addEventListener('keydown', (e) => this.menuKey(e));
+    document.addEventListener('pointerdown', (e) => {
+      if (!this.menu.hidden && !this.menu.contains(e.target as Node) && (e.target as Element).closest?.('[data-action="more"]') === null) this.closeMenu(false);
+    }, true);
     this.actions.addEventListener('scroll', () => this.markOverflow(), { passive: true });
     // A plain mouse wheel scrolls the row sideways.
     this.actions.addEventListener(
@@ -201,7 +214,7 @@ export class ActionBar {
       },
       { passive: false },
     );
-    new ResizeObserver(() => this.markOverflow()).observe(this.actions);
+    new ResizeObserver(() => this.fit()).observe(this.el);
     // Focus moving along the row reveals hidden buttons; keep the fade up to date.
     this.actions.addEventListener('focusin', () => requestAnimationFrame(() => this.markOverflow()));
     this.actions.addEventListener('keydown', (e) => {
@@ -210,7 +223,7 @@ export class ActionBar {
         this.onRun('clear');
         return;
       }
-      const btns = [...this.actions.querySelectorAll<HTMLButtonElement>('button:not(:disabled)')];
+      const btns = [...this.actions.querySelectorAll<HTMLButtonElement>('button:not(:disabled):not([hidden])')];
       const i = btns.indexOf(document.activeElement as HTMLButtonElement);
       if (i === -1) return;
       let next: HTMLButtonElement | undefined;
@@ -267,6 +280,20 @@ export class ActionBar {
         btn.addEventListener('focus', () => this.rove(btn));
         this.actions.appendChild(btn);
       }
+      // Where the actions that do not fit go: before the destructive ones, which stay last.
+      const more = document.createElement('button');
+      more.type = 'button';
+      more.textContent = 'More…';
+      more.title = 'More actions for this selection';
+      more.dataset['action'] = 'more';
+      more.setAttribute('aria-haspopup', 'menu');
+      more.setAttribute('aria-expanded', 'false');
+      more.hidden = true;
+      more.addEventListener('click', () => (this.menu.hidden ? this.openMenu() : this.closeMenu(true)));
+      more.addEventListener('focus', () => this.rove(more));
+      const firstDanger = [...this.actions.querySelectorAll('button.danger')][0];
+      this.actions.insertBefore(more, firstDanger ? firstDanger.previousElementSibling?.classList.contains('sep') ? firstDanger.previousElementSibling : firstDanger : null);
+      this.closeMenu(false);
       // A toolbar is one Tab stop: arrows move between its buttons.
       const first = this.actions.querySelector<HTMLButtonElement>('button:not(:disabled)');
       if (first) this.rove(first);
@@ -278,10 +305,138 @@ export class ActionBar {
     this.actions.hidden = false;
     this.actions.setAttribute('aria-label', `Actions for ${label}`);
     this.hint.hidden = true;
+    this.fit();
+  }
+
+  /**
+   * Show as many actions as fit on one row. The rest go into More…, the least used first:
+   * extract and insert, then tags, guards and the delimiter, then the second and later actions
+   * of the first groups. The first action, + Alternative and Delete always stay in the row.
+   */
+  fit(): void {
+    if (this.actions.hidden) return;
+    const buttons = [...this.actions.querySelectorAll<HTMLButtonElement>('button[data-action]')].filter((b) => b.dataset['action'] !== 'more');
+    const more = this.actions.querySelector<HTMLButtonElement>('button[data-action="more"]');
+    for (const b of buttons) b.hidden = false;
+    if (more) more.hidden = true;
+    this.overflow = [];
+    const fits = (): boolean => this.actions.scrollWidth <= this.actions.clientWidth + 1;
+    this.syncSeparators();
+    if (fits() || !more) {
+      this.markOverflow();
+      return;
+    }
+    more.hidden = false;
+    const byId = new Map(this.specs.map((sp) => [sp.id, sp] as const));
+    const firstOfGroup = new Set<string>();
+    const seenGroups = new Set<number>();
+    for (const sp of this.specs) {
+      if (!seenGroups.has(sp.group)) firstOfGroup.add(sp.id);
+      seenGroups.add(sp.group);
+    }
+    const rank = (sp: ActionSpec): number => (sp.group === 3 ? 0 : sp.group === 2 ? 1 : sp.group === 0 ? 2 : 3);
+    const candidates = this.specs
+      .map((sp, i) => ({ sp, i }))
+      .filter(({ sp, i }) => sp.group !== 4 && !(i === 0) && !(sp.group === 1 && firstOfGroup.has(sp.id)))
+      .sort((a, b) => rank(a.sp) - rank(b.sp) || b.i - a.i);
+    for (const { sp } of candidates) {
+      const btn = buttons.find((b) => b.dataset['action'] === sp.id);
+      if (!btn) continue;
+      btn.hidden = true;
+      this.syncSeparators();
+      if (fits()) break;
+    }
+    this.overflow = this.specs.filter((sp) => buttons.find((b) => b.dataset['action'] === sp.id)?.hidden && byId.has(sp.id));
+    if (this.overflow.length === 0) more.hidden = true;
+    // Focus may have been on a button that just moved into the menu.
+    const active = document.activeElement as HTMLButtonElement | null;
+    if (active && this.actions.contains(active) && active.hidden) more.focus();
+    this.syncSeparators();
     this.markOverflow();
   }
 
+  /** A separator shows only between two visible groups. */
+  private syncSeparators(): void {
+    const kids = [...this.actions.children] as HTMLElement[];
+    let seenButton = false;
+    let pending: HTMLElement | undefined;
+    for (const k of kids) {
+      if (k.classList.contains('sep')) {
+        k.hidden = true;
+        if (seenButton) pending = k;
+        continue;
+      }
+      if (k.hidden) continue;
+      if (pending) pending.hidden = false;
+      pending = undefined;
+      seenButton = true;
+    }
+  }
+
+  private openMenu(): void {
+    const more = this.actions.querySelector<HTMLButtonElement>('button[data-action="more"]');
+    if (!more || !this.overflow.length) return;
+    this.menu.textContent = '';
+    for (const sp of this.overflow) {
+      const item = document.createElement('button');
+      item.type = 'button';
+      item.setAttribute('role', 'menuitem');
+      item.textContent = sp.label.length <= 2 ? sp.title : sp.label;
+      item.title = sp.title;
+      item.dataset['action'] = sp.id;
+      item.disabled = !!sp.disabled;
+      if (sp.danger) item.classList.add('danger');
+      item.addEventListener('click', () => {
+        this.closeMenu(false);
+        more.focus();
+        this.lastAction = sp.id;
+        this.onRun(sp.id);
+      });
+      this.menu.appendChild(item);
+    }
+    this.menu.hidden = false;
+    more.setAttribute('aria-expanded', 'true');
+    const r = more.getBoundingClientRect();
+    const w = this.menu.offsetWidth;
+    this.menu.style.left = `${Math.max(8, Math.min(r.left, window.innerWidth - w - 8))}px`;
+    this.menu.style.bottom = `${Math.max(8, window.innerHeight - r.top + 4)}px`;
+    this.menu.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus();
+  }
+
+  private closeMenu(focusMore: boolean): void {
+    if (this.menu.hidden) return;
+    this.menu.hidden = true;
+    const more = this.actions.querySelector<HTMLButtonElement>('button[data-action="more"]');
+    more?.setAttribute('aria-expanded', 'false');
+    if (focusMore) more?.focus();
+  }
+
+  private menuKey(e: KeyboardEvent): void {
+    const items = [...this.menu.querySelectorAll<HTMLButtonElement>('button:not(:disabled)')];
+    const i = items.indexOf(document.activeElement as HTMLButtonElement);
+    let next: HTMLButtonElement | undefined;
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      this.closeMenu(true);
+      return;
+    }
+    if (e.key === 'Tab') {
+      this.closeMenu(true);
+      return;
+    }
+    if (e.key === 'ArrowDown') next = items[(i + 1) % items.length];
+    else if (e.key === 'ArrowUp') next = items[(i - 1 + items.length) % items.length];
+    else if (e.key === 'Home') next = items[0];
+    else if (e.key === 'End') next = items[items.length - 1];
+    if (next) {
+      e.preventDefault();
+      next.focus();
+    }
+  }
+
   hide(note?: string): void {
+    this.closeMenu(false);
     this.specs = [];
     this.actions.hidden = true;
     this.actions.textContent = '';
@@ -303,23 +458,29 @@ export class ActionBar {
     for (const b of this.actions.querySelectorAll<HTMLButtonElement>('button')) b.tabIndex = b === to ? 0 : -1;
   }
 
-  /** Focus the button for an action, or the first enabled one when it is gone or disabled. */
-  /** Focus the button for `id`; false when the strip no longer has it. */
+  /** Focus the button for `id` (More… when it is in the menu); false when the strip no longer has it. */
   focusAction(id: string): boolean {
     const b = this.actions.querySelector<HTMLButtonElement>(`button[data-action="${id}"]:not(:disabled)`);
-    b?.focus();
-    return !!b;
+    if (b && !b.hidden) {
+      b.focus();
+      return true;
+    }
+    if (b && this.overflow.some((sp) => sp.id === id)) {
+      this.actions.querySelector<HTMLButtonElement>('button[data-action="more"]')?.focus();
+      return true;
+    }
+    return false;
   }
 
   /** Focus the first enabled button. */
   focusFirst(): boolean {
-    const b = this.actions.querySelector<HTMLButtonElement>('button:not(:disabled)');
+    const b = this.actions.querySelector<HTMLButtonElement>('button:not(:disabled):not([hidden])');
     b?.focus();
     return !!b;
   }
 
   contains(node: Node | null): boolean {
-    return !!node && this.actions.contains(node);
+    return !!node && (this.actions.contains(node) || this.menu.contains(node));
   }
 }
 
