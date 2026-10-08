@@ -22,21 +22,48 @@ export const HELP_ITEMS: HelpItem[] = [
   { id: 'guard', title: 'Guard', text: 'Start an option with @name: so it is only eligible when the tag is set. @else: catches the rest.', snippet: '[@q: ?|@else: .]', at: 'cursor' },
   { id: 'delimiter', title: 'Delimiter', text: 'What joins the pieces of one group. The default is a space.', snippet: '[A & T; delimiter="-"]', at: 'cursor' },
   { id: 'transform', title: 'Transform', text: 'Change the text of one piece: lower, upper, capitalize, title, trim.', snippet: '[hello]:upper', at: 'cursor' },
-  { id: 'long', title: 'Long form', text: 'The same constructs, one per line. Use Expand on a branch card to convert.', snippet: 'branch pick\n  one of\n    first\n    second\n', at: 'end' },
+  { id: 'long', title: 'Long form', text: 'The same constructs, one per line. To convert a branch, select its name and choose Expand to long form.', snippet: 'branch pick\n  one of\n    first\n    second\n', at: 'end' },
 ];
 
 /** Where and what to insert for a help item, given the current document. */
-export function insertionFor(item: HelpItem, doc: string, selFrom: number, selTo: number): { from: number; to: number; insert: string; cursor: number } {
+export function insertionFor(
+  item: HelpItem,
+  doc: string,
+  selFrom: number,
+  selTo: number,
+  opts: { taken?: ReadonlySet<string>; mainEnd?: number } = {},
+): { from: number; to: number; insert: string; cursor: number; select: [number, number] } {
   if (item.at === 'end') {
+    // A definition snippet takes a name nobody uses yet, so it never duplicates one.
+    let snippet = item.snippet;
+    const m = /^(branch[ \t]+)?([A-Za-z_]\w*)/.exec(snippet);
+    if (m && opts.taken?.has(m[2] as string)) {
+      const base = m[2] as string;
+      let i = 2;
+      while (opts.taken.has(base + i)) i++;
+      snippet = (m[1] ?? '') + base + i + snippet.slice(m[0].length);
+    }
     const lead = doc === '' || doc.endsWith('\n') ? '' : '\n';
-    const insert = lead + item.snippet;
-    return { from: doc.length, to: doc.length, insert, cursor: doc.length + insert.length };
+    const insert = lead + snippet;
+    const start = doc.length + lead.length;
+    return { from: doc.length, to: doc.length, insert, cursor: doc.length + insert.length, select: [start, start + snippet.trimEnd().length] };
   }
-  return { from: selFrom, to: selTo, insert: item.snippet, cursor: selFrom + item.snippet.length };
+  // Without a cursor of your own (you have not clicked into the code), add to the end of main.
+  let from = selFrom;
+  let to = selTo;
+  if (opts.mainEnd !== undefined) from = to = opts.mainEnd;
+  // Keep words apart: a space where the snippet would otherwise glue onto its neighbours.
+  const before = doc[from - 1];
+  const after = doc[to];
+  const pre = before !== undefined && !/\s/.test(before) && !'[|'.includes(before) ? ' ' : '';
+  const post = after !== undefined && !/\s/.test(after) && !']|'.includes(after) ? ' ' : '';
+  const insert = pre + item.snippet + post;
+  const s = from + pre.length;
+  return { from, to, insert, cursor: s + item.snippet.length, select: [s, s + item.snippet.length] };
 }
 
 export const SHORTCUTS: [string, string][] = [
-  ['Click', 'Select a box. Its action bar appears next to it.'],
+  ['Click', 'Select a box. Its actions appear in the strip at the bottom of the chart.'],
   ['Click again', 'Edit the selected text.'],
   ['Double-click', 'Edit text, or go to the branch a reference points at.'],
   ['Shift-click', 'Select several alternatives of one choice, to extract them together.'],

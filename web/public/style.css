@@ -278,18 +278,22 @@ button.danger:hover:not(:disabled) { background: var(--danger-bg); }
 .warn-hint { background: var(--warn-bg); color: var(--warn); }
 .warn-hint[hidden] { display: none; }
 
-/* selection strip at the bottom of the chart pane: names the selection and offers its actions */
+/* selection strip at the bottom of the chart pane: names the selection and offers its actions.
+   Its height never changes, so nothing moves under the pointer when the selection changes
+   (a double-click must not land on a button that just appeared). */
 .selbar {
-  display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; min-height: 46px; padding: 6px 12px;
+  display: grid; grid-template-rows: 18px 32px; row-gap: 4px; align-content: center;
+  height: 70px; padding: 6px 12px; box-sizing: border-box;
   border-top: 1px solid var(--border); background: var(--surface); font-size: 13px;
 }
-.selbar-hint { margin: 0; color: var(--text-2); font-size: 12.5px; }
+.selbar-hint { grid-row: 1 / span 2; align-self: center; margin: 0; color: var(--text-2); font-size: 12.5px; line-height: 1.45; }
 .selbar-hint[hidden], .selbar-caption[hidden], .selbar-actions[hidden] { display: none; }
-.selbar-caption { flex: 1 1 90px; min-width: 90px; max-width: 280px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.selbar-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; flex: 0 1 auto; }
-.selbar-actions button { padding: 2px 9px; min-height: 30px; font-size: 13px; white-space: nowrap; }
+.selbar-caption { grid-row: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 18px; }
+.selbar-caption.note { grid-row: 1 / span 2; align-self: center; white-space: normal; font-weight: 500; color: var(--text-2); line-height: 1.45; }
+.selbar-actions { grid-row: 2; display: flex; flex-wrap: nowrap; align-items: center; gap: 4px; min-width: 0; overflow-x: auto; scrollbar-width: thin; }
+.selbar-actions button { flex: none; padding: 2px 9px; min-height: 30px; font-size: 13px; white-space: nowrap; }
 .selbar-actions button.danger { color: var(--danger); }
-.selbar-actions .sep { width: 1px; height: 20px; margin: 0 4px; background: var(--border); }
+.selbar-actions .sep { flex: none; width: 1px; height: 20px; margin: 0 4px; background: var(--border); }
 .chart-svg .k-row.ctx > rect { fill: var(--ctx); stroke: var(--accent); stroke-width: 1; stroke-dasharray: 4 3; }
 .k-def.ctx > rect { stroke: var(--accent); stroke-width: 2; }
 .chart-svg .edge.ref.active { opacity: 1; stroke-width: 2.2; }
@@ -374,4 +378,12 @@ kbd { font: 11.5px ui-monospace, "SF Mono", Menlo, monospace; padding: 1px 5px; 
 @media (prefers-reduced-motion: no-preference) {
   .ex-row.changed { animation: changed 1.6s ease-out forwards; }
   @keyframes changed { from { background: var(--warn-bg); } to { background: transparent; } }
+}
+
+.ex-foot button { flex: none; white-space: nowrap; }
+.ex-foot .note { min-width: 0; }
+
+.editor-wrap.help-open .cm-content { padding-right: min(390px, 62%); }
+@media (max-width: 760px) {
+  .selbar-actions { mask-image: linear-gradient(to right, #000 88%, transparent); }
 }

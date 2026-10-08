@@ -915,6 +915,8 @@ window.addEventListener('resize', () => {
 
 // --- editor ----------------------------------------------------------------
 
+/** True once you have put the cursor in the code yourself (Help inserts at your cursor then). */
+let editorTouched = false;
 const editor = createEditor($('editor'), loadInitial(), {
   onChange: schedule,
   onCursor: safe(() => {
@@ -924,6 +926,10 @@ const editor = createEditor($('editor'), loadInitial(), {
     }
     syncFromCursor(true);
   }),
+});
+
+editor.view.contentDOM.addEventListener('focus', () => {
+  editorTouched = true;
 });
 
 function schedule(): void {
@@ -1268,9 +1274,18 @@ function buildHelp(): void {
       'click',
       safe(() => {
         const sel = editor.view.state.selection.main;
-        const ins = insertionFor(h, editor.getText(), sel.from, sel.to);
-        editor.view.dispatch({ changes: { from: ins.from, to: ins.to, insert: ins.insert }, selection: { anchor: ins.cursor }, scrollIntoView: true, userEvent: 'input.snippet' });
-        toast(`Inserted ${h.title.toLowerCase()}`);
+        const doc = editor.getText();
+        const taken = new Set(branchNames());
+        const mainEnd = !editorTouched && analysis ? analysis.main.range[1] : undefined;
+        const ins = insertionFor(h, doc, sel.from, sel.to, { taken, ...(mainEnd !== undefined ? { mainEnd } : {}) });
+        editor.view.dispatch({
+          changes: { from: ins.from, to: ins.to, insert: ins.insert },
+          selection: { anchor: ins.select[0], head: ins.select[1] },
+          scrollIntoView: true,
+          userEvent: 'input.snippet',
+        });
+        editor.highlight(ins.select);
+        toast(`Inserted ${h.title.toLowerCase()}. It is highlighted in the code.`);
       }),
     );
     li.append(title, text, code, btn);
@@ -1298,6 +1313,8 @@ buildHelp();
 
 function setHelp(open: boolean): void {
   $('help').hidden = !open;
+  // Make room: the code wraps to the left of the open drawer instead of hiding under it.
+  document.querySelector('.editor-wrap')?.classList.toggle('help-open', open);
   $('b-help').setAttribute('aria-expanded', String(open));
   if (open) $('help-close').focus();
   else $('b-help').focus();

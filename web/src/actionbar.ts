@@ -206,6 +206,7 @@ export class ActionBar {
     }
     this.caption.textContent = label;
     this.caption.title = label;
+    this.caption.classList.remove('note');
     this.caption.hidden = false;
     this.actions.hidden = false;
     this.actions.setAttribute('aria-label', `Actions for ${label}`);
@@ -218,6 +219,9 @@ export class ActionBar {
     this.actions.textContent = '';
     this.caption.hidden = note === undefined;
     this.caption.textContent = note ?? '';
+    this.caption.title = note ?? '';
+    // A note gets the whole strip, so it is never cut short.
+    this.caption.classList.toggle('note', note !== undefined);
     this.hint.hidden = note !== undefined;
   }
 
