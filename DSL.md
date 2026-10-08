@@ -540,13 +540,19 @@ Do:
 - Give shared sub-phrases a name and reference it, instead of repeating text.
 - Use `[x|]` for optional text.
 - Use tags and guards when a later choice must agree with an earlier one.
+- Give a repeat of words a delimiter, `[cat|dog]{2; delimiter=" "}`: repeats glue their
+  copies together by default, which suits codes like `[0..9|A..F]{6}` but not words.
 
 Do not:
 
 - Do not write JavaScript or `${...}`. There is no inline code. Use ranges, transforms,
   tags and host values.
 - Do not create cycles between definitions.
-- Do not write `then`, `branch`, `rotate`, `$$flag`, or JSON arrays from older versions.
+- Do not write `then`, `rotate`, `$$flag`, `${...}`, or JSON such as `{ "branch": ... }`
+  from older versions. (`branch name` on its own line is fine: it starts a long-form
+  definition.)
+- Do not leave a line without `name =` in a file that has `main`. It is an error, because
+  it would never be used.
 - Do not rely on a global delimiter to place punctuation. The punctuation rules handle
   `. , ! ? ' ) %` already.
 - Do not put a `#` comment after text on a line. It will be treated as text.
