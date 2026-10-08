@@ -56,6 +56,13 @@ describe('perm CLI', () => {
     expect(r.stdout).toBe('Hello world!\nHello friend!\n');
   });
 
+  test('a missing file is an error, not a one-line program', () => {
+    const r = run(['nosuchfile.perm', '--count']);
+    expect(r.code).toBe(1);
+    expect(r.err).toMatch(/File not found: nosuchfile.perm/);
+    expect(run(['Hello.']).out).toBe('Hello.\n');
+  });
+
   test('--help and no arguments', () => {
     expect(run(['--help']).code).toBe(0);
     expect(run([]).code).toBe(2);

@@ -166,6 +166,11 @@ function main(): void {
 
   const fromStdin = args.target === '-';
   const isFile = !fromStdin && fs.existsSync(args.target) && fs.statSync(args.target).isFile();
+  // A mistyped file name would otherwise run as a one-line program and print its own name.
+  if (!fromStdin && !isFile && /^[^\s\[\]|$@]+(\.perm|\/[^\s]*)$/.test(args.target)) {
+    console.error(`Error: File not found: ${args.target}`);
+    process.exit(1);
+  }
   const source = fromStdin ? fs.readFileSync(0, 'utf-8') : isFile ? fs.readFileSync(args.target, 'utf-8') : args.target;
   const progPath = isFile ? path.resolve(args.target) : '<program>';
 
