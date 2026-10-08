@@ -20,6 +20,7 @@ import { setDelimiter } from './delim';
 type DelimTarget = Parameters<typeof setDelimiter>[1];
 import { inside } from './nav';
 import { redo, undo } from '@codemirror/commands';
+import { seededRandom } from '../../src/index';
 
 const STORAGE_KEY = 'permutations.v3.source';
 const ALL_LIMIT = 1000;
@@ -1086,7 +1087,8 @@ function renderSamples(): void {
   const p = analysis.program;
   try {
     clearTrace();
-    const idx = p.sampleIndices(5);
+    // A fixed seed keeps the same five while you edit; Make a new 5 moves to the next seed.
+    const idx = p.sampleIndices(5, seededRandom(sampleSeed));
     list.innerHTML = idx.map((ix, i) => {
       const o = p.at(ix);
       return item(i + 1, o.text, o.tags, ix);
@@ -1138,7 +1140,11 @@ function showTab(which: 'random' | 'all'): void {
 }
 on('tab-random', () => showTab('random'));
 on('tab-all', () => showTab('all'));
-on('b-new', renderSamples);
+let sampleSeed = Math.floor(Math.random() * 2 ** 31);
+on('b-new', () => {
+  sampleSeed = (sampleSeed + 1) % 2 ** 31;
+  renderSamples();
+});
 on('b-copy5', () => copyTexts('#samples'));
 
 /** Copy the texts of a list of examples, one per line. */

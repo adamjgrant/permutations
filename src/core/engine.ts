@@ -433,12 +433,15 @@ export class Program {
   }
 
   /** Up to n distinct random permutations (distinct by text). Everything, shuffled, if n covers them all. */
-  sample(n: number): Output[] {
-    return this.sampleIndices(n).map((i) => this.at(i));
+  sample(n: number, rng?: () => number): Output[] {
+    return this.sampleIndices(n, rng).map((i) => this.at(i));
   }
 
-  /** Indexes of up to n random permutations with distinct text, for `at` or `trace`. */
-  sampleIndices(n: number): bigint[] {
+  /**
+   * Indexes of up to n random permutations with distinct text, for `at` or `trace`. Pass a
+   * seeded `rng` to get the same picks again (the web app keeps examples steady while you edit).
+   */
+  sampleIndices(n: number, rng: () => number = this.rng): bigint[] {
     this.requireAny();
     const seenText = new Set<string>();
     const out: bigint[] = [];
@@ -446,7 +449,7 @@ export class Program {
     if (count <= 5000n) {
       const idx = Array.from({ length: Number(count) }, (_v, i) => BigInt(i));
       for (let i = idx.length - 1; i > 0; i--) {
-        const j = Math.floor(this.rng() * (i + 1));
+        const j = Math.floor(rng() * (i + 1));
         [idx[i], idx[j]] = [idx[j] as bigint, idx[i] as bigint];
       }
       for (const i of idx) {
@@ -461,7 +464,7 @@ export class Program {
     const seenIdx = new Set<bigint>();
     let misses = 0;
     while (out.length < n && misses < 1000) {
-      const i = randBelow(count, this.rng);
+      const i = randBelow(count, rng);
       if (seenIdx.has(i)) continue;
       seenIdx.add(i);
       const text = this.at(i).text;

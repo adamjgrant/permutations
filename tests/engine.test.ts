@@ -1,4 +1,4 @@
-import { compile, CompileOptions, PermError } from '../src';
+import { compile, CompileOptions, PermError, seededRandom } from '../src';
 
 const texts = (src: string, opts?: CompileOptions): string[] =>
   [...compile(src, opts).all()].map((o) => o.text).sort();
@@ -404,6 +404,14 @@ describe('tracing a result', () => {
     const tr = p.trace(5n);
     expect(tr.picks).toHaveLength(3);
     expect(tr.picks.map((x) => ['a', 'b'][x.option]).join('')).toBe(tr.text);
+  });
+
+  test('sampleIndices with a seeded rng repeats, and stays put across an edit that keeps the shape', () => {
+    const a = compile('[red|green|blue] [cat|dog|fox|owl]');
+    const b = compile('[red|green|blue] [cat|dog|fox|bat]');
+    const pick = (p: typeof a) => p.sampleIndices(5, seededRandom(9));
+    expect(pick(a)).toEqual(pick(a));
+    expect(pick(a)).toEqual(pick(b));
   });
 
   test('sampleIndices gives distinct texts that at() reproduces', () => {
