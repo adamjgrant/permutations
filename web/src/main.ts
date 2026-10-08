@@ -596,7 +596,16 @@ function rerender(): void {
 }
 
 function syncFromCursor(scroll = false): void {
-  if (!canEdit()) return;
+  // Mirror the code cursor in the chart only while you are working in the code; otherwise a
+  // box would look selected (with nothing in the strip) before you have touched anything.
+  const inCode = editor.view.contentDOM.contains(document.activeElement);
+  if (!canEdit() || !inCode) {
+    if (!inCode && !barOn) {
+      selectedId = undefined;
+      chart.setSelected([]);
+    }
+    return;
+  }
   const pos = editor.view.state.selection.main.head;
   const box = chart.boxAtOffset(pos);
   selectedId = box?.id;
