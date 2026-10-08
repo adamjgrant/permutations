@@ -1,5 +1,5 @@
 import type { RefNode, TextNode } from '../../src/core/types';
-import { Analysis, analyze, DEFAULT_PROGRAM, decodeShare, describeError, encodeShare, formatCount, tagLabel } from './model';
+import { Analysis, analyze, DEFAULT_PROGRAM, decodeShare, describeError, encodeShare, formatCount, isBlank, tagLabel } from './model';
 import { Box, layout, Layout } from './layout';
 import { canvasMeasure, ChartActions, ChartView, DefAction, FocusKey } from './chart';
 import { createEditor } from './editor';
@@ -612,6 +612,7 @@ function currentExtraction(): ExtractSelection | undefined {
 
 function updateTools(): void {
   $<HTMLButtonElement>('t-new').disabled = !canEdit();
+  $<HTMLButtonElement>('b-new').disabled = !analysis;
   updateBar();
 }
 
@@ -836,10 +837,47 @@ function persist(): void {
   }
 }
 
+function showBlank(): void {
+  hasError = false;
+  analysis = undefined;
+  lastLayout = undefined;
+  selectedId = undefined;
+  multi.clear();
+  barOn = false;
+  $('error').hidden = true;
+  $('stale').hidden = true;
+  $('chart-hints').hidden = true;
+  editor.error(null);
+  const box = document.createElement('div');
+  box.className = 'chart-empty';
+  box.innerHTML =
+    '<h3>Nothing to draw yet</h3><p>Write a line in the code to see it here, for example <code>Hello [world|friend]!</code></p>';
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'primary';
+  b.textContent = 'Insert the example';
+  b.addEventListener('click', safe(() => editor.setText(DEFAULT_PROGRAM)));
+  box.appendChild(b);
+  chart.showEmpty(box);
+  $('count').textContent = '0';
+  $('count').title = '';
+  $('count-unit').textContent = 'permutations';
+  $('samples').innerHTML = '<li><span class="empty-state">Examples appear here as soon as the code has something to run.</span></li>';
+  $('sample-note').textContent = '';
+  $('all-list').innerHTML = '';
+  $('all-note').textContent = '';
+  $('all-intro').innerHTML = '';
+  updateTools();
+}
+
 function refresh(): void {
   window.clearTimeout(timer);
   const src = editor.getText();
   persist();
+  if (isBlank(src)) {
+    showBlank();
+    return;
+  }
   let next: Analysis;
   try {
     next = analyze(src);
@@ -896,6 +934,7 @@ function renderCount(): void {
   if (!analysis) return;
   const c = analysis.program.count;
   $('count').textContent = formatCount(c);
+  $('count').title = c.toString().length > 15 ? `${new Intl.NumberFormat('en-US').format(c)} permutations` : '';
   $('count-unit').textContent = c === 1n ? 'permutation' : 'permutations';
 }
 

@@ -184,7 +184,10 @@ export class Evaluator {
   private orderings(node: AnyOrderNode): SeqNode[] {
     if (!node.orderings) {
       if (node.items.length > MAX_TAGGED_ANYORDER) {
-        throw new PermError(`Any-order groups in programs that use tags support up to ${MAX_TAGGED_ANYORDER} items`);
+        throw new PermError(
+          `This any-order group has ${node.items.length} items, but in programs that use tags any-order groups can have at most ${MAX_TAGGED_ANYORDER}`,
+          node.range[0],
+        );
       }
       node.orderings = allPermutations(node.items.length).map((perm) => ({
         kind: 'seq' as const,

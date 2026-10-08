@@ -656,6 +656,17 @@ export class ChartView {
     if (e && this.layout && this.byId(b.id)) (e as unknown as HTMLElement).focus({ preventScroll: true });
   }
 
+  /** Replace the drawing with a message (nothing to draw yet). */
+  showEmpty(content: HTMLElement): void {
+    this.cancelEdit();
+    this.layout = undefined;
+    this.svg = undefined;
+    this.elements.clear();
+    this.selected = new Set();
+    this.host.textContent = '';
+    this.host.appendChild(content);
+  }
+
   isEditing(): boolean {
     return !!this.input;
   }

@@ -244,6 +244,18 @@ describe('tags and guards', () => {
     expect(texts('[hi @k=1|yo @k=2] [@k=1: one|@k=2: two]')).toEqual(['hi one', 'yo two']);
   });
 
+  test('too many any-order items with tags is a positioned error, not a crash', () => {
+    const src = 'main = [a & b & c & d & e & f & g & h & i] [x @t|y]';
+    try {
+      void compile(src).count;
+      throw new Error('expected an error');
+    } catch (e) {
+      expect(e).toBeInstanceOf(PermError);
+      expect((e as PermError).message).toMatch(/has 9 items.*at most 8/);
+      expect((e as PermError).offset).toBe(src.indexOf('['));
+    }
+  });
+
   test('any order inside a program that uses tags', () => {
     expect(texts('[a & b] [@q: x|@else: y]')).toEqual(['a b y', 'b a y']);
   });

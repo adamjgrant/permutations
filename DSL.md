@@ -270,7 +270,8 @@ equal odds, exactly as if you had written `[A|B|C]`.
 [A & T; delimiter=""]        # "AT" or "TA"
 ```
 
-`n` items give `n!` results, so the editor warns above 7 items. The items are joined with
+`n` items give `n!` results, so the editor warns above 7 items. In a program that uses tags,
+an any-order group can have at most 8 items. The items are joined with
 that group's delimiter (section 7). Items can be any piece, not only text.
 
 Long form: `any order`.

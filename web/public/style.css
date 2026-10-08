@@ -306,3 +306,16 @@ button.linkish:hover:not(:disabled) { background: none; color: var(--accent-stro
 kbd { font: 11.5px ui-monospace, "SF Mono", Menlo, monospace; padding: 1px 5px; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 5px; background: var(--surface); color: var(--text); }
 
 .error-fix { margin-left: 8px; font: 13px -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif; color: var(--danger); border-color: var(--danger); background: var(--bg); }
+
+.chart-empty { max-width: 420px; margin: 48px auto; padding: 0 24px; text-align: center; color: var(--text-2); }
+.chart-empty h3 { margin: 0 0 8px; font-size: 17px; color: var(--text); }
+.chart-empty p { margin: 0 0 16px; line-height: 1.5; }
+.chart-empty code { white-space: nowrap; font: 13px ui-monospace, "SF Mono", Menlo, monospace; background: var(--surface); padding: 2px 6px; border-radius: 6px; color: var(--text); }
+.ex-pane .count strong { white-space: nowrap; }
+
+@media (max-width: 760px) {
+  .pane-head { padding: 6px 10px; gap: 8px; }
+  .pane-head .tools { gap: 6px; }
+  .pane-head button { padding: 2px 8px; font-size: 13px; }
+  .selbar { padding: 6px 10px; }
+}
