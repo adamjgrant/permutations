@@ -15,7 +15,7 @@ import { closePopover, openPopover } from './popover';
 import { EXAMPLE_PROGRAMS, HELP_ITEMS, insertionFor, SHORTCUTS } from './help';
 import { ActionBar, ActionId, barActions } from './actionbar';
 import { insertReference, pieceRange, varyWords, wordsOf, WrapNode, wrapInChoice } from './insert';
-import { pathBoxes } from './trace';
+import { anyOrderSequence, pathBoxes } from './trace';
 import { deletePiece, isSolePiece, locatePiece } from './remove';
 import { setDelimiter } from './delim';
 import { parseCount, removeRepeat, removeTransform, setRepeatCount, setTransforms } from './wrappers';
@@ -1445,7 +1445,7 @@ function reapplyTrace(): void {
   if (traced === undefined || !analysis || !tracedRow) return;
   const btn = document.querySelector<HTMLElement>(tracedRow);
   const tr = btn ? traceFor(btn) : undefined;
-  if (tr) chart.setTrace(pathBoxes(chart.boxes, tr), false);
+  if (tr) chart.setTrace(pathBoxes(chart.boxes, tr), false, anyOrderSequence(chart.boxes, tr));
 }
 
 function clearTrace(): void {
@@ -1467,7 +1467,7 @@ function toggleTrace(btn: HTMLElement): void {
   clearTrace();
   const tr = traceFor(btn);
   if (!tr) return;
-  chart.setTrace(pathBoxes(chart.boxes, tr));
+  chart.setTrace(pathBoxes(chart.boxes, tr), true, anyOrderSequence(chart.boxes, tr));
   traced = key;
   tracedIndex = BigInt(btn.dataset['index']);
   tracedRow = `#${btn.closest('ol')?.id} .ex-row[data-index="${btn.dataset['index']}"]`;

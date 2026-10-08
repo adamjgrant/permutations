@@ -779,8 +779,19 @@ export class ChartView {
   }
 
   /** Show how one result was made: light the boxes on its path and dim the rest. */
-  setTrace(ids: Set<string> | null, scroll = true): void {
+  setTrace(ids: Set<string> | null, scroll = true, order?: Map<string, number>): void {
     this.svg?.classList.toggle('tracing', !!ids);
+    // Any-order items get the position they were used in, on the left of each.
+    this.svg?.querySelectorAll('.order-badge').forEach((e) => e.remove());
+    if (ids && order && this.svg) {
+      for (const [rowId, n] of order) {
+        const r = this.byId(rowId);
+        if (!r) continue;
+        const g = el('g', { class: 'order-badge', 'aria-hidden': 'true' }, this.svg);
+        el('circle', { cx: r.x - 5, cy: r.y + r.h / 2, r: 7 }, g);
+        el('text', { x: r.x - 5, y: r.y + r.h / 2 + 0.5, 'text-anchor': 'middle', 'dominant-baseline': 'central' }, g).textContent = String(n);
+      }
+    }
     for (const [id, e] of this.elements) e.classList.toggle('on-path', !!ids && ids.has(id));
     this.svg?.querySelectorAll<SVGElement>('.edge.ref, .ref-end').forEach((p) => p.classList.toggle('on-path', !!ids && ids.has(p.dataset['from'] ?? '')));
     if (ids && scroll) {

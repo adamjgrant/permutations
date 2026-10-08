@@ -57,3 +57,27 @@ export function pathBoxes(boxes: Box[], tr: Trace): Set<string> {
   }
   return on;
 }
+
+/**
+ * For each any-order group on a traced path, the order its items were used in: row id to its
+ * position (1, 2, 3...), from the first node of each item the walk reached.
+ */
+export function anyOrderSequence(boxes: Box[], tr: Trace): Map<string, number> {
+  const out = new Map<string, number>();
+  const firstAt = (r: Box): number => {
+    if (!r.range) return Infinity;
+    const [a, b] = r.range;
+    const i = tr.nodes.findIndex((n) => n.range[0] >= a && n.range[1] <= b);
+    return i === -1 ? Infinity : i;
+  };
+  const frames = boxes.filter((f) => f.kind === 'frame' && f.frameOf === 'anyorder' && f.node && tr.nodes.includes(f.node));
+  for (const f of frames) {
+    const rows = boxes.filter((r) => r.kind === 'row' && r.frameId === f.id);
+    rows
+      .map((r) => ({ r, at: firstAt(r) }))
+      .filter((x) => x.at !== Infinity)
+      .sort((x, y) => x.at - y.at)
+      .forEach((x, i) => out.set(x.r.id, i + 1));
+  }
+  return out;
+}

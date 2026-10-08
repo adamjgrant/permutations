@@ -423,3 +423,7 @@ kbd { font: 11.5px ui-monospace, "SF Mono", Menlo, monospace; padding: 1px 5px; 
 
 .ex-pane { position: relative; }
 .help.over-examples { width: 100%; border-left: 0; border-top: 1px solid var(--border); box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.12); }
+
+.chart-svg .order-badge circle { fill: var(--accent); }
+.chart-svg .order-badge text { fill: #fff; font-size: 10px; font-weight: 700; }
+@media (prefers-color-scheme: dark) { .chart-svg .order-badge text { fill: #0a0a0c; } }

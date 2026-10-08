@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { layout } from '../src/layout';
 import { analyze } from '../src/model';
-import { pathBoxes } from '../src/trace';
+import { anyOrderSequence, pathBoxes } from '../src/trace';
 
 function setup(src: string) {
   const a = analyze(src);
@@ -45,4 +45,16 @@ test('chips follow their alternative; empty alternatives light when taken', () =
   assert.ok(!on.has(guards.find((g) => g.label === '@else:')!.id));
   const empty = s.boxes.find((b) => b.kind === 'empty')!;
   assert.ok(s.on('is it.').has(empty.id));
+});
+
+test('an any-order trace knows the order the items came in', () => {
+  const s = setup('main = Pack [tent & stove & map]');
+  for (let i = 0n; i < s.a.program.count; i++) {
+    const tr = s.a.program.trace(i);
+    const order = anyOrderSequence(s.boxes, tr);
+    const rows = s.boxes.filter((b) => b.kind === 'row');
+    const byPos = rows.slice().sort((p, q) => (order.get(p.id) ?? 0) - (order.get(q.id) ?? 0));
+    const words = byPos.map((r) => s.boxes.find((b) => b.kind === 'text' && b.rowId === r.id)!.full);
+    assert.equal('Pack ' + words.join(' '), tr.text);
+  }
 });
