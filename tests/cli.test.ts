@@ -38,6 +38,15 @@ describe('perm CLI', () => {
     expect(run(['useplain.perm'], dir).out).toBe('x+a+b\n');
   });
 
+  test('--entry can start from an imported branch; a branch here that hides an imported one is a warning', () => {
+    fs.writeFileSync(path.join(dir, 'shared.perm'), 'greeting = Hi | Hello\ncode = [1..3]\n');
+    fs.writeFileSync(path.join(dir, 'uses.perm'), 'from shared use greeting\nuse shared\ngreeting = Yo\nmain = $greeting $shared.code\n');
+    const r = run(['uses.perm', '--all'], dir);
+    expect(r.out).toBe('Yo 1\nYo 2\nYo 3\n');
+    expect(r.err).toMatch(/greeting is defined here and also brought in from shared.perm/);
+    expect(run(['uses.perm', '--entry', 'shared.code', '--all', '-q'], dir).out).toBe('1\n2\n3\n');
+  });
+
   test('--fn loads named exports, and says when a file adds none', () => {
     fs.writeFileSync(path.join(dir, 'fns.js'), 'module.exports = { shout: (t) => t.toUpperCase() + "!" };\n');
     fs.writeFileSync(path.join(dir, 'esm.mjs'), 'export default { whisper: (t) => t.toLowerCase() };\n');

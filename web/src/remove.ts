@@ -12,8 +12,11 @@ export interface PieceLoc {
   index: number;
   /** The source range of the whole piece (a transform or repeat around the node included). */
   range: Range;
-  /** What the sequence is: an alternative of a choice, an item of an any-order group, a branch body. */
-  parent: 'option' | 'item' | 'body' | 'other';
+  /**
+   * What the sequence is: an alternative of a choice, an item of an any-order group, a branch
+   * body, or the pieces before a tag written mid-sentence (`inline`, part of the sentence).
+   */
+  parent: 'option' | 'item' | 'body' | 'inline' | 'other';
 }
 
 const same = (a: Node, b: Node): boolean => a.kind === b.kind && a.range[0] === b.range[0] && a.range[1] === b.range[1];
@@ -45,7 +48,7 @@ function innermost(bodies: Node[], node: Node): PieceLoc | undefined {
     const parents = new Map<SeqNode, PieceLoc['parent']>();
     if (body.kind === 'seq') parents.set(body, 'body');
     visit(body, (n) => {
-      if (n.kind === 'group') for (const o of n.options) parents.set(o.seq, 'option');
+      if (n.kind === 'group') for (const o of n.options) parents.set(o.seq, n.inline ? 'inline' : 'option');
       if (n.kind === 'anyorder') for (const it of n.items) parents.set(it, 'item');
     });
     visit(body, (n) => {
@@ -62,6 +65,8 @@ function innermost(bodies: Node[], node: Node): PieceLoc | undefined {
 
 /** True when the piece is all its sequence holds (so deleting it means deleting the alternative). */
 export function isSolePiece(loc: PieceLoc): boolean {
+  // The words before a mid-sentence tag are part of the sentence around them: the tag stays.
+  if (loc.parent === 'inline') return false;
   return loc.seq.pieces.filter((p) => !(p.node.kind === 'text' && p.node.value === '')).length <= 1;
 }
 

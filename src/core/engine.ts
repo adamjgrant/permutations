@@ -21,7 +21,9 @@ export interface Trace {
 
 type Table = Map<string, bigint>;
 
-const CLOSING = /^[.,;:!?)\]'’”%…]/;
+// A straight ' is closing (no delimiter before it) for a suffix such as 's or 're, or on its
+// own; before a word it opens a quotation: She said 'loudly'.
+const CLOSING = /^(?:[.,;:!?)\]’”%…]|'(?:(?:s|re|ll|d|ve|m|t)(?!\p{L})|(?!\p{L})))/u;
 const OPENING = /[(\[“‘¿¡]$/;
 export const MAX_TAGGED_ANYORDER = 8;
 
@@ -63,7 +65,7 @@ export function tagsOf(s: string): Output['tags'] {
   const out: Output['tags'] = {};
   // A bare tag is true, true and false are booleans, and a number is a number unless writing it as
   // one would change it (05 stays the text "05").
-  for (const [k, v] of decode(s)) out[k] = v === '' || v === 'true' ? true : v === 'false' ? false : /^-?(0|[1-9]\d*)(\.\d+)?$/.test(v) ? Number(v) : v;
+  for (const [k, v] of decode(s)) out[k] = v === '' || v === 'true' ? true : v === 'false' ? false : /^-?(0|[1-9]\d*)(\.\d+)?$/.test(v) && String(Number(v)) === v ? Number(v) : v;
   return out;
 }
 
@@ -209,7 +211,13 @@ function joinOutputs(outs: string[], joins: boolean[], delim: string, last?: str
     const out = outs[i] as string;
     if (i > 0 && joins[i]) pending = true;
     if (out === '') continue;
-    if (res !== '' && pending && !CLOSING.test(out) && !OPENING.test(res)) res += i === lastIndex ? (last as string) : delim;
+    // No delimiter before closing punctuation, after opening punctuation, or next to a line break.
+    // What follows is judged with the pieces glued to it, so it reads the same however it is split.
+    let ahead = out;
+    for (let j = i + 1; j < outs.length && !joins[j] && ahead.length < 4; j++) ahead += outs[j] as string;
+    if (res !== '' && pending && !CLOSING.test(ahead) && !OPENING.test(res) && !res.endsWith('\n') && !out.startsWith('\n')) {
+      res += i === lastIndex ? (last as string) : delim;
+    }
     res += out;
     pending = false;
   }
@@ -277,6 +285,20 @@ export class Evaluator {
 
   private eligible(group: GroupNode, s: string) {
     return eligibleOptions(group, s);
+  }
+
+  /** Run a transform. One from the host that throws, or gives back something other than text, is reported as such. */
+  private applyFn(name: string, text: string): string {
+    const fn = this.fns[name];
+    if (!fn) throw new PermError(`Unknown transform '${name}'`);
+    let out: unknown;
+    try {
+      out = fn(text);
+    } catch (e) {
+      throw new PermError(`The transform ${name} failed on ${JSON.stringify(text)}: ${e instanceof Error ? e.message : String(e)}`);
+    }
+    if (typeof out !== 'string') throw new PermError(`The transform ${name} must give back text, but gave ${out === null ? 'null' : typeof out} for ${JSON.stringify(text)}`);
+    return out;
   }
 
   /** The tag states each node has been entered with so far: after counting, every reachable one. */
@@ -421,9 +443,7 @@ export class Evaluator {
         const n = BigInt(node.fns.length);
         const text = this.walk(node.inner, sIn, sOut, k / n, delim, tr);
         const name = node.fns[Number(k % n)] as string;
-        const fn = this.fns[name];
-        if (!fn) throw new PermError(`Unknown transform '${name}'`);
-        return fn(text);
+        return this.applyFn(name, text);
       }
     }
     throw new PermError('Internal error: index out of range while walking');
@@ -516,9 +536,7 @@ export class Evaluator {
         const text = this.walkKeyed(node.inner, sIn, sOut, delim, `${key}/i`, draw, visits, tr);
         const fnCands = node.fns.map((name) => ({ id: name, w: 1n }));
         const name = node.fns[Math.max(0, pickRendezvous(fnCands, (id) => draw(`${key}/t/${id}`)))] as string;
-        const fn = this.fns[name];
-        if (!fn) throw new PermError(`Unknown transform '${name}'`);
-        return fn(text);
+        return this.applyFn(name, text);
       }
     }
   }

@@ -298,3 +298,13 @@ test('a repeat of words without a delimiter is flagged; a repeat of characters i
   assert.equal(flagged('main = [Thanks a lot|Cheers]{2; delimiter=" "}'), false);
   assert.equal(flagged('main = [Thanks a lot]{1}'), false);
 });
+
+test('a tag written mid-sentence is a chip in line, with no choice frame', () => {
+  const src = 'main = Hi @casual there, [@casual: mate|@else: sir].';
+  const a = analyze(src);
+  const l = layout({ main: a.main, others: a.others, source: src, defaultDelimiter: a.delimiter, knownTags: a.knownTags });
+  const tag = l.boxes.find((b) => b.kind === 'tag');
+  assert.ok(tag, 'the tag has a chip');
+  assert.equal(l.boxes.filter((b) => b.kind === 'frame').length, 1, 'only the real choice has a frame');
+  assert.equal(src.slice(tag!.range![0], tag!.range![1]), '@casual');
+});

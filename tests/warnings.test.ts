@@ -18,13 +18,18 @@ describe('warnings for code that does not do what it looks like', () => {
   test('inline code and settings outside brackets', () => {
     expect(warn('Say ${x}')[0]).toMatch(/no inline code/);
     expect(warn('[a & b]; delimiter="-"')[0]).toMatch(/settings only work at the end/);
-    expect(warn("[a & b; delimiter=', ']")[0]).toMatch(/double quotes/);
+    // Inside brackets a malformed clause is an error, not text.
+    expect(() => compile("[a & b; delimiter=', ']")).toThrow(/double quotes/);
   });
 
-  test('a tag in the middle of text, and a tag on a whole branch', () => {
-    expect(warn('email me @bob please')[0]).toMatch(/"@bob" is a tag, not text.*\\@bob/);
+  test('a tag in the middle of text, and a tag on a whole branch, when nothing tests it', () => {
+    expect(warn('email me @bob please')[0]).toMatch(/"@bob" is a tag: it is not printed, and no guard tests it.*\\@bob/);
     expect(warn('main = Hello @x')[0]).toMatch(/"@x" is a tag/);
     expect(warn('main = [what @q|that] [@q: ?|@else: .]')).toEqual([]);
+    // Tested by a guard: the tag is meant, and it takes effect where it is written.
+    expect(warn('main = Hi @casual there, [@casual: mate|@else: sir].')).toEqual([]);
+    // Long-form tag lines are never mistaken for text.
+    expect(warn('branch main\n  hello\n  tag t\n  there')).toEqual([]);
   });
 
   test('guards: else not last, and nothing to fall back on', () => {

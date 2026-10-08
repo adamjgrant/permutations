@@ -16,8 +16,10 @@ web_out=$(npm test 2>&1) || true
 echo "$web_out" | grep -q "^ℹ fail 0" || { echo "$web_out" | grep -B2 -A12 "✖" | head -40; exit 1; }
 all=""
 for s in regress regress2 regress3; do
-  out=$(node scripts/drive.mjs "scripts/scenarios/$s.mjs" 2>&1)
-  echo "$out" | grep -q "SCENARIO FAILED\|ERRORS:" && { echo "$out" | grep -v "^ok"; exit 1; }
+  # A connection refused by the sandbox now and then is not a test failure: try once more.
+  out=$(node scripts/drive.mjs "scripts/scenarios/$s.mjs" 2>&1) || true
+  if echo "$out" | grep -q "EPERM"; then sleep 2; out=$(node scripts/drive.mjs "scripts/scenarios/$s.mjs" 2>&1) || true; fi
+  if echo "$out" | grep -q "SCENARIO FAILED\|ERRORS:" || ! echo "$out" | grep -q "^ok"; then echo "$s:"; echo "$out" | grep -v "^ok" | head -30; exit 1; fi
   all="$all
 $out"
 done

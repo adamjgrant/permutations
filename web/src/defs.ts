@@ -7,7 +7,7 @@ import type { FormatMode } from '../../src/index';
 import { visit } from '../../src/core/compile';
 import { isReservedLine } from '../../src/core/longform';
 import { parseModule } from '../../src/core/parser';
-import type { Def, Node, RefNode } from '../../src/core/types';
+import type { Def, Node, Option, RefNode } from '../../src/core/types';
 import {
   alternatives,
   ChoiceNode,
@@ -370,6 +370,16 @@ export function extractToBranch(src: string, sel: ExtractSelection, newName: str
     if (idx.length === 0) return { error: 'Select one or more alternatives first.' };
     if (idx.length === alts.length) return extractToBranch(src, { kind: 'node', node }, newName);
     const form = choiceForm(src, node);
+    // A guard decides when its alternative can be picked, and @else: depends on the guards around
+    // it, so a guard stays in the choice: one alternative moves out as its content only, with
+    // the guard (and tags) left on the reference. Several with different guards cannot move together.
+    const opts = idx.map((i) => (alts[i] as { option?: Option }).option);
+    const guarded = opts.some((o) => o?.guard);
+    if (guarded && idx.length === 1) {
+      const r = guardedExtract(src, node, alts[idx[0] as number] as { range: Range; option?: Option }, newName, step, form === 'long');
+      if (r) return verified(src, r, 'extracted');
+    }
+    if (guarded) return { error: 'These alternatives have guards, so extracting them together would change when they can be picked. Extract them one at a time.' };
     const slot = idx[0] as number;
     const rest = idx.slice(1);
     const long = form === 'long';
@@ -408,7 +418,7 @@ export function extractToBranch(src: string, sel: ExtractSelection, newName: str
     }
     const defLong = formAt(src, node.range[0]) === 'long';
     const def = newDefText(newName, body, defLong, step);
-    return appendDefinition(src, def, defLong, patches);
+    return verified(src, appendDefinition(src, def, defLong, patches), 'extracted');
   }
 
   // A whole node: text, reference, choice, repeat or transform.
@@ -429,6 +439,65 @@ export function extractToBranch(src: string, sel: ExtractSelection, newName: str
   const patch: Patch = { from, to, insert: replacement };
   const def = newDefText(newName, body, long, step);
   return appendDefinition(src, def, long, [patch]);
+}
+
+/**
+ * Extract one guarded alternative: its content goes into the new branch, and the alternative
+ * keeps its guard and tags around a reference to it. Short form `@q: yes @t` becomes
+ * `@q: $name @t`; long form keeps the `when q` line and puts `ref name` under it.
+ */
+function guardedExtract(src: string, node: ChoiceNode, alt: { range: Range; option?: Option }, newName: string, step: string, long: boolean): EditResult | undefined {
+  const o = alt.option;
+  if (!o?.guard?.range) return undefined;
+  const defLong = formAt(src, node.range[0]) === 'long';
+  if (long) {
+    // `when q` / `otherwise` with indented lines: the lines move, the header stays.
+    const header = lineEnd(src, alt.range[0]);
+    const firstChild = header + 1;
+    const end = alt.range[1];
+    if (firstChild >= end) return undefined;
+    const childIndent = (/^[ \t]*/.exec(src.slice(firstChild)) as RegExpExecArray)[0];
+    const lines = dedentLines(src.slice(firstChild, end), childIndent);
+    const body = lines.length === 1 ? lines : ['sequence', ...lines.map((l) => step + l)];
+    const def = newDefText(newName, body, true, step);
+    return appendDefinition(src, def, true, [{ from: firstChild, to: end, insert: `${childIndent}ref ${newName}` }]);
+  }
+  const from = o.guard.range[1];
+  const tagStarts = o.tags.map((t) => t.range?.[0]).filter((x): x is number => x !== undefined);
+  const to = tagStarts.length ? Math.min(...tagStarts) : trimRange(src, alt.range)[1];
+  const [a, b] = trimRange(src, [from, to]);
+  if (b <= a) return undefined;
+  const content = src.slice(a, b);
+  const body = isRangeText(content) ? `[${content}]` : content;
+  if (defLong && isReservedLine(body)) return undefined;
+  const def = newDefText(newName, [body], defLong, step);
+  return appendDefinition(src, def, defLong, [{ from: a, to: b, insert: `$${newName}` }]);
+}
+
+/**
+ * An edit that must not change the results (in any order: extracting moves alternatives around):
+ * refused, with a reason, if it would. Large programs are checked by their count.
+ */
+function verified(src: string, r: EditOrError, what: string): EditOrError {
+  if ('error' in r) return r;
+  const out = [...r.patches].sort((x, y) => y.from - x.from).reduce((acc, p) => acc.slice(0, p.from) + p.insert + acc.slice(p.to), src);
+  return sameResultsUnordered(src, out) ? r : { error: `This cannot be ${what} without changing the results.` };
+}
+
+function sameResultsUnordered(a: string, b: string): boolean {
+  try {
+    const opts = { load: () => undefined };
+    const pa = compile(a, opts);
+    const pb = compile(b, opts);
+    if (pa.count !== pb.count) return false;
+    if (pa.count > 5000n) return true;
+    const all = (p: typeof pa): string[] => [...p.all()].map((o) => o.text + '\u0000' + JSON.stringify(o.tags)).sort();
+    const x = all(pa);
+    const y = all(pb);
+    return x.every((v, i) => v === y[i]);
+  } catch {
+    return false;
+  }
 }
 
 // --- Expand and Collapse -------------------------------------------------------------

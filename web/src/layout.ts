@@ -325,8 +325,16 @@ export function layout(input: LayoutInput): Layout {
       }
       case 'seq':
         return seqBlock(node, d);
-      case 'group':
+      case 'group': {
+        // A tag written mid-sentence (Hi @casual there): its pieces and the tag chip, in line.
+        if (node.inline) {
+          const o = node.options[0] as Option;
+          const items: ChainItem[] = o.seq.pieces.length ? seqItems(o.seq, o.seq.range, d) : [];
+          for (const t of o.tags) items.push({ b: chip('tag', tagLabel(t), { range: t.range ?? trim(o.range), tag: t }), gapBefore: items.length ? M.chipGap : 0, link: false });
+          return items.length === 1 ? (items[0] as ChainItem).b : chain(items);
+        }
         return choiceBlock(node, d);
+      }
       case 'anyorder':
         return choiceBlock(node, d);
       case 'repeat': {
@@ -404,9 +412,11 @@ export function layout(input: LayoutInput): Layout {
       items.push({ b: chip('guard', guardLabel(g), extra), gapBefore: 0, link: false });
     }
     const rangeText = rangeLabel(alt);
+    // A range box covers the range's own text, so editing it leaves a guard or tags alone.
+    const rangeAt = alt.option?.seq.pieces[0]?.node.range ?? range;
     const body: ChainItem[] =
       rangeText !== undefined
-        ? [{ b: leaf('range', rangeText, { range: trim(range), values: alt.count, ...(alt.option ? { node: alt.option.seq } : {}) }), gapBefore: 0, link: false }]
+        ? [{ b: leaf('range', rangeText, { range: trim(rangeAt), values: alt.count, ...(alt.option ? { node: alt.option.seq } : {}) }), gapBefore: 0, link: false }]
         : seqItems(alt.seq, range, d);
     body.forEach((it, i) => {
       items.push(i === 0 && items.length > 0 ? { ...it, gapBefore: M.chipGap, link: false } : it);
@@ -421,7 +431,8 @@ export function layout(input: LayoutInput): Layout {
     const first = alt.option.seq.pieces[0]?.node;
     if (first?.kind !== 'text' || alt.option.seq.pieces.length !== 1) return undefined;
     if (source !== undefined) {
-      const t = trim(alt.range);
+      // The range's own text: the alternative's range also holds its guard and tags.
+      const t = trim(first.range);
       const text = source.slice(t[0], t[1]);
       if (isRangeText(text) && (alt.count > 1 || text !== first.value)) return text;
       return undefined;

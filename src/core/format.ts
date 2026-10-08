@@ -117,9 +117,8 @@ function shortOption(o: Option): string {
 }
 
 function checkRangeLike(o: Option): void {
-  // Only an option with no tag and no guard turns "1..3" into a range, so only there would a
-  // literal "1..3" be misread. Look through nested single pieces, as the parser builds them.
-  if (o.tags.length || o.guard) return;
+  // An option that is only "1..3" is read as a range, so a literal "1..3" would be misread.
+  // Look through nested single pieces, as the parser builds them.
   const flat = flatten(o.seq.pieces);
   const only = flat.length === 1 ? flat[0] : undefined;
   if (only && only.node.kind === 'text' && /^(\d+\.\.\d+|.\.\..)$/u.test(only.node.value)) {
@@ -127,25 +126,41 @@ function checkRangeLike(o: Option): void {
   }
 }
 
+/** A run of options expanded from one range, written once (with the guard and tags they share). */
+interface RangeRun {
+  range: string;
+  guard?: Guard | undefined;
+  tags: Tag[];
+}
+
 /** The options of a group, with each run of options expanded from one range written once. */
-function printedOptions(g: GroupNode): (Option | string)[] {
-  const out: (Option | string)[] = [];
+function printedOptions(g: GroupNode): (Option | RangeRun)[] {
+  const out: (Option | RangeRun)[] = [];
   for (let i = 0; i < g.options.length; i++) {
     const o = g.options[i] as Option;
     if (o.rangeText !== undefined) {
       const prev = g.options[i - 1];
       if (prev?.rangeText === o.rangeText && prev.range[0] === o.range[0]) continue;
-      out.push(o.rangeText);
+      out.push({ range: o.rangeText, guard: o.guard, tags: o.tags });
       continue;
     }
     const sole = soleRangeGroup(o);
     if (sole !== undefined) {
-      out.push(sole);
+      out.push({ range: sole, tags: [] });
       continue;
     }
     out.push(o);
   }
   return out;
+}
+
+const isRun = (o: Option | RangeRun): o is RangeRun => 'range' in o && typeof (o as RangeRun).range === 'string';
+
+function shortRun(r: RangeRun): string {
+  let s = r.range;
+  if (r.tags.length) s += ' ' + r.tags.map(tagText).join(' ');
+  if (r.guard) s = `${guardPrefix(r.guard)} ${s}`;
+  return s;
 }
 
 /** An option that is nothing but a nested `[0..9]` group: its range, so `[[0..9]|x]` prints as `[0..9|x]`. */
@@ -155,12 +170,14 @@ function soleRangeGroup(o: Option): string | undefined {
   if (p.kind !== 'group' || p.delimiter !== undefined) return undefined;
   const first = p.options[0];
   if (!first?.rangeText || !p.options.every((x) => x.rangeText === first.rangeText && x.range[0] === first.range[0])) return undefined;
+  // A range with its own guard or tags keeps its brackets: [[1..3 @t]|x].
+  if (first.guard || first.tags.length) return undefined;
   return first.rangeText;
 }
 
 function shortGroup(g: GroupNode, brackets: boolean): string {
   for (const o of g.options) if (o.rangeText === undefined) checkRangeLike(o);
-  const parts = printedOptions(g).map((o) => (typeof o === 'string' ? o : shortOption(o)));
+  const parts = printedOptions(g).map((o) => (isRun(o) ? shortRun(o) : shortOption(o)));
   if (!brackets) {
     if (g.delimiter !== undefined) throw new Unprintable('a bracket-free choice cannot carry a delimiter');
     return parts.join(' | ');
@@ -189,6 +206,8 @@ function shortNode(n: Node): string {
       }
       return shortSeq(n);
     case 'group':
+      // A tag written mid-sentence: its pieces and the tag, as written, without brackets.
+      if (n.inline) return shortOption(n.options[0] as Option);
       return shortGroup(n, true);
     case 'anyorder':
       return '[' + n.items.map(shortSeq).join(' & ') + settingsClause(n.delimiter, n.last) + ']';
@@ -211,7 +230,7 @@ export function printShortDef(def: Def): string {
     if (b.kind === 'group' && b.bare) return b;
     if (b.kind === 'seq' && b.pieces.length === 1 && b.joinDelim === undefined && b.scopeDelim === undefined) {
       const p = (b.pieces[0] as Piece).node;
-      if (p.kind === 'group' && p.delimiter === undefined) return p;
+      if (p.kind === 'group' && p.delimiter === undefined && !p.inline) return p;
     }
     return undefined;
   };
@@ -285,6 +304,15 @@ function longOption(o: Option): string[] {
   return longSeqAsItem(o.seq);
 }
 
+/** A range run as an option of `one of`: its line, under `when` for a guard, with its tags. */
+function longRun(r: RangeRun): string[] {
+  const line = `[${r.range}]`;
+  const tags = r.tags.map(tagLeaf);
+  if (r.guard) return [whenHeader(r.guard), ...indent([line, ...tags])];
+  if (tags.length) return ['sequence', ...indent([line, ...tags])];
+  return [line];
+}
+
 function longNode(n: Node): string[] {
   switch (n.kind) {
     case 'text':
@@ -294,10 +322,16 @@ function longNode(n: Node): string[] {
     case 'seq':
       return longSeqAsItem(n);
     case 'group': {
+      // A tag written mid-sequence: its lines, then the tag line, in the sequence around it.
+      if (n.inline) {
+        const o = n.options[0] as Option;
+        return [...longPieces(o.seq.pieces), ...o.tags.map(tagLeaf)];
+      }
       const opts = printedOptions(n);
-      // A group that is one range is one line: `[0..9]`.
-      if (opts.length === 1 && typeof opts[0] === 'string' && n.delimiter === undefined) return [`[${opts[0]}]`];
-      return ['one of', ...indent([...delimLeaf(n.delimiter), ...opts.flatMap((o) => (typeof o === 'string' ? [`[${o}]`] : longOption(o)))])];
+      // A group that is one plain range is one line: `[0..9]`.
+      const first = opts[0];
+      if (opts.length === 1 && first && isRun(first) && !first.guard && !first.tags.length && n.delimiter === undefined) return [`[${first.range}]`];
+      return ['one of', ...indent([...delimLeaf(n.delimiter), ...opts.flatMap((o) => (isRun(o) ? longRun(o) : longOption(o)))])];
     }
     case 'anyorder':
       return ['any order', ...indent([...delimLeaf(n.delimiter), ...lastLeaf(n.last), ...n.items.flatMap(longSeqAsItem)])];
@@ -329,7 +363,7 @@ function groupDepth(n: Node): number {
     case 'seq':
       return Math.max(0, ...n.pieces.map((p) => groupDepth(p.node)));
     case 'group':
-      return 1 + Math.max(0, ...n.options.map((o) => groupDepth(o.seq)));
+      return (n.inline ? 0 : 1) + Math.max(0, ...n.options.map((o) => groupDepth(o.seq)));
     case 'anyorder':
       return 1 + Math.max(0, ...n.items.map(groupDepth));
     case 'repeat':

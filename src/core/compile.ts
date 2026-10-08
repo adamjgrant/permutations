@@ -128,7 +128,14 @@ export function compile(source: string, opts: CompileOptions = {}): Program {
   }
 
   const entryName = opts.entry ?? 'main';
-  const entry = root.defs.get(entryName) ?? (opts.entry === undefined ? root.anonymous : undefined);
+  // --entry can also name an imported branch: one from `from lib use x`, or lib.x after `use lib`.
+  const imported = (name: string): Def | undefined => {
+    const named = root.named.get(name);
+    if (named) return named.module.defs.get(named.name);
+    const dot = name.indexOf('.');
+    return dot === -1 ? undefined : root.namespaces.get(name.slice(0, dot))?.defs.get(name.slice(dot + 1));
+  };
+  const entry = root.defs.get(entryName) ?? (opts.entry === undefined ? root.anonymous : imported(opts.entry));
   if (!entry) {
     const names = [...root.defs.keys()];
     const list = names.length ? ` Its branches: ${names.slice(0, 8).join(', ')}${names.length > 8 ? ', ...' : ''}.` : '';
@@ -169,6 +176,21 @@ export function compile(source: string, opts: CompileOptions = {}): Program {
     }
   }
   program.warnings = findWarnings(all, root, reach);
+  // A branch defined here with the name of one brought in by `from lib use` hides that one.
+  for (const module of all) {
+    for (const [name, from] of module.named) {
+      const own = module.defs.get(name);
+      if (!own) continue;
+      const { line, col } = lineCol(module.source, own.range[0]);
+      program.warnings.push({
+        message: `${name} is defined here and also brought in from ${from.module.path.split('/').pop()}; the one here is used. Rename one of them, or drop it from the use line`,
+        offset: own.range[0],
+        line,
+        col,
+        ...(module === root ? {} : { path: module.path }),
+      });
+    }
+  }
   for (const key of Object.keys(opts.values ?? {})) {
     if (!usedValues.has(key)) program.warnings.push({ message: `The host value ${key} is not used: nothing in the program refers to $${key}`, offset: -1, line: 0, col: 0 });
   }

@@ -375,3 +375,24 @@ test('inline keeps the results: content that would merge with the text around it
     assert.equal(meaning(out), meaning(src));
   }
 });
+
+test('extracting a guarded alternative leaves its guard and tags in the choice', () => {
+  const src = 'main = what @q $x [@q: yes @t|@else: no]\nx = [a|b]\n';
+  const g = choices(src).find((c) => c.kind === 'group' && c.options[0]?.guard !== undefined)!;
+  const out = run(src, extractToBranch(src, { kind: 'alts', node: g, indices: [1] }, 'nope'));
+  assert.equal(out.split('\n')[0], 'main = what @q $x [@q: yes @t|@else: $nope]');
+  assert.match(out, /\nnope = no\n/);
+  assert.equal(meaning(out), meaning(src));
+  const first = run(src, extractToBranch(src, { kind: 'alts', node: g, indices: [0] }, 'yep'));
+  assert.equal(first.split('\n')[0], 'main = what @q $x [@q: $yep @t|@else: no]');
+  assert.equal(meaning(first), meaning(src));
+  // Two guarded alternatives at once (of three) would change when they can be picked.
+  const three = 'main = what @q [@q: yes|@!q: maybe|no]\n';
+  const g3 = choices(three).find((c) => c.kind === 'group' && !c.inline)!;
+  assert.ok('error' in extractToBranch(three, { kind: 'alts', node: g3, indices: [0, 1] }, 'both'));
+  const long = 'branch main\n  what\n  tag q\n  one of\n    when q\n      yes\n    otherwise\n      no\n';
+  const lg = choices(long).find((c) => c.kind === 'group' && !c.inline)!;
+  const lout = run(long, extractToBranch(long, { kind: 'alts', node: lg, indices: [1] }, 'nope'));
+  assert.match(lout, /    otherwise\n      ref nope\n/);
+  assert.equal(meaning(lout), meaning(long));
+});

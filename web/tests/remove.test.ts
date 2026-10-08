@@ -46,3 +46,14 @@ test('long form: deleting a piece removes its line', () => {
   assert.equal(run(src, del(src, text(src, 'there'))), 'branch main\n  Hello\n  one of\n    a\n    b\n');
   assert.equal(run(src, del(src, groups(src)[0]!)), 'branch main\n  Hello\n  there\n');
 });
+
+test('the words before a mid-sentence tag can be deleted; the tag stays', () => {
+  const src = 'main = Hello @casual there [@casual: mate|@else: sir]';
+  const a = analyze(src);
+  const bodies = [a.main.body, ...a.others.map((o) => o.body)];
+  const hello = texts(src).find((t) => t.value === 'Hello')!;
+  const loc = locatePiece(bodies, hello)!;
+  assert.equal(isSolePiece(loc), false);
+  const out = run(src, deletePiece(src, loc) as never);
+  assert.equal(out, 'main = @casual there [@casual: mate|@else: sir]');
+});

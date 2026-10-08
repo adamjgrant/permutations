@@ -162,6 +162,46 @@ function splitStatements(src: string): Statement[] {
   return out;
 }
 
+/**
+ * Tags take effect where they are written. A tag with more pieces after it in its sequence wraps
+ * the pieces before it (back to the previous such tag) in an inline one-alternative group that
+ * carries it, so what follows sees it. Tags with nothing after them stay on the option, which
+ * applies them when it is done: the same place.
+ */
+export function placeTags(pieces: Piece[], marks: { at: number; tag: Tag }[]): { pieces: Piece[]; tags: Tag[] } {
+  const end = marks.filter((m) => m.at >= pieces.length).map((m) => m.tag);
+  const mid = marks.filter((m) => m.at < pieces.length);
+  if (!mid.length) return { pieces, tags: end };
+  const out: Piece[] = [];
+  let cursor = 0;
+  for (let i = 0; i < mid.length; ) {
+    const at = (mid[i] as { at: number }).at;
+    const here: Tag[] = [];
+    while (i < mid.length && (mid[i] as { at: number }).at === at) here.push((mid[i++] as { tag: Tag }).tag);
+    const segment = pieces.slice(cursor, at);
+    const first = segment[0];
+    const tagEnd = Math.max(...here.map((t) => t.range?.[1] ?? 0));
+    const start = first ? first.node.range[0] : (here[0]?.range?.[0] ?? 0);
+    const seq: SeqNode = { kind: 'seq', id: newId(), pieces: segment.map((p, j) => (j === 0 ? { ...p, join: false } : p)), range: [start, tagEnd] };
+    const group: GroupNode = {
+      kind: 'group',
+      id: newId(),
+      options: [{ seq, tags: here, guard: undefined, range: [start, tagEnd] }],
+      delimiter: undefined,
+      bare: false,
+      inline: true,
+      range: [start, tagEnd],
+    };
+    out.push({ node: group, join: first ? first.join : false });
+    cursor = at;
+    // After a tag on its own (`@t x`), the next piece starts a new word, which it already does.
+    const next = pieces[at];
+    if (!first && next && !next.join) pieces[at] = { ...next, join: true };
+  }
+  out.push(...pieces.slice(cursor));
+  return { pieces: out, tags: end };
+}
+
 export class Parser {
   pos: number;
   constructor(
@@ -209,7 +249,10 @@ export class Parser {
     this.skipWs();
     if (this.pos < this.end) this.err('Unmatched ]');
     const only = options[0];
-    if (options.length === 1 && only && only.tags.length === 0 && !only.guard) return only.seq;
+    // A definition that is exactly a range is a choice too: digit = 0..9.
+    const onlyText = only && only.seq.pieces.length === 1 && only.seq.pieces[0]?.node.kind === 'text' ? (only.seq.pieces[0].node as TextNode).value : undefined;
+    const isRange = onlyText !== undefined && (/^\d+\.\.\d+$/.test(onlyText) || /^.\.\..$/u.test(onlyText));
+    if (options.length === 1 && only && only.tags.length === 0 && !only.guard && !isRange) return only.seq;
     // Brackets are optional around a whole definition's choice, so ranges work there too.
     const group: GroupNode = {
       kind: 'group',
@@ -235,7 +278,7 @@ export class Parser {
       this.module.hasTags = true;
     }
     const pieces: Piece[] = [];
-    const tags: Tag[] = [];
+    const marks: { at: number; tag: Tag }[] = [];
     let pending = false;
     let term = 'end';
     for (;;) {
@@ -264,6 +307,7 @@ export class Parser {
         term = ';';
         break;
       }
+      if (inGroup && c === ';') this.checkSettingsAttempt(this.pos, ']');
 
       let node: Node | undefined;
       if (c === '[') {
@@ -273,7 +317,7 @@ export class Parser {
       } else if (c === '@' && (pending || pieces.length === 0)) {
         const tm = this.matchAt(TAG_RE, this.pos);
         if (tm) {
-          tags.push({ name: tm[1] as string, value: tm[2], range: [this.pos, this.pos + tm[0].length] });
+          marks.push({ at: pieces.length, tag: { name: tm[1] as string, value: tm[2], range: [this.pos, this.pos + tm[0].length] } });
           this.module.hasTags = true;
           this.pos += tm[0].length;
           continue;
@@ -284,8 +328,28 @@ export class Parser {
       pieces.push({ node, join: pieces.length > 0 && pending });
       pending = false;
     }
-    const seq: SeqNode = { kind: 'seq', id: newId(), pieces, range: [start, this.pos] };
-    return { opt: { seq, tags, guard, range: [start, this.pos] }, term };
+    const placed = placeTags(pieces, marks);
+    const seq: SeqNode = { kind: 'seq', id: newId(), pieces: placed.pieces, range: [start, this.pos] };
+    return { opt: { seq, tags: placed.tags, guard, range: [start, this.pos] }, term };
+  }
+
+  /**
+   * `; something=...` that is not a valid settings clause would quietly become text in the last
+   * alternative. Say what is wrong instead: the key, the quotes, commas, or the place.
+   */
+  private checkSettingsAttempt(at: number, close: string): void {
+    const rest = this.src.slice(at, this.end);
+    const m = /^;\s*([A-Za-z_]\w*)\s*=/.exec(rest);
+    if (!m) return;
+    const key = m[1] as string;
+    const example = close === ']' ? '[a & b; delimiter=", " last=" and "]' : '[x]{3; delimiter=", " last=" and "}';
+    if (key !== 'delimiter' && key !== 'last') this.err(`Unknown setting '${key}'. The settings are delimiter and last, as in ${example}`, at);
+    const upTo = rest.indexOf(close);
+    const clause = upTo === -1 ? rest : rest.slice(0, upTo);
+    if (/=\s*'/.test(clause)) this.err(`Settings need double quotes, as in ${example}`, at);
+    if (/"\s*,\s*[A-Za-z_]/.test(clause)) this.err(`Separate settings with spaces, not commas, as in ${example}`, at);
+    if (/=\s*[^"\s]/.test(clause)) this.err(`A setting's value is text in double quotes, as in ${example}`, at);
+    this.err(`A settings clause goes at the very end, right before the closing ${close}, as in ${example}`, at);
   }
 
   private skipWsTracking(onSkip: () => void): void {
@@ -322,13 +386,13 @@ export class Parser {
         const d = src[j];
         if (inGroup && d === '&' && isWs(src[j + 1])) break;
         if (d === '@' && this.matchAt(TAG_RE, j)) break;
-        if (inGroup && d === ';' && this.matchAt(GROUP_SETTINGS_RE, j)) break;
+        if (inGroup && d === ';' && (this.matchAt(GROUP_SETTINGS_RE, j) || /^;\s*[A-Za-z_]\w*\s*=/.test(src.slice(j, this.end)))) break;
         const ws = src.slice(i, j);
         out += ws.includes('\n') ? ' ' : ws;
         i = j;
         continue;
       }
-      if (c === ';' && inGroup && this.matchAt(GROUP_SETTINGS_RE, i)) break;
+      if (c === ';' && inGroup && (this.matchAt(GROUP_SETTINGS_RE, i) || /^;\s*[A-Za-z_]\w*\s*=/.test(src.slice(i, this.end)))) break;
       out += c;
       i++;
       keep = out.length;
@@ -422,7 +486,11 @@ export class Parser {
       const c = this.src[this.pos];
       if (c === '{' && isDigit(this.src[this.pos + 1])) {
         const m = this.matchAt(REPEAT_RE, this.pos);
-        if (!m) break;
+        if (!m) {
+          const semi = /^\{\d+(?:\.\.\d+)?\s*;/.exec(this.src.slice(this.pos, this.end));
+          if (semi) this.checkSettingsAttempt(this.pos + semi[0].length - 1, '}');
+          break;
+        }
         const min = parseInt(m[1] as string, 10);
         const max = m[2] !== undefined ? parseInt(m[2], 10) : min;
         if (max < min) this.err(`Repeat range {${min}..${max}} is backwards`);
@@ -467,7 +535,7 @@ export function buildRepeat(inner: Node, min: number, max: number, delimiter: st
   return { kind: 'repeat', id: newId(), inner, min, max, delimiter, last, expanded, range };
 }
 
-function textOption(value: string, range: [number, number]): Option {
+function textOptionOf(value: string, range: [number, number]): Option {
   const text: TextNode = { kind: 'text', id: newId(), value, range };
   return { seq: { kind: 'seq', id: newId(), pieces: [{ node: text, join: false }], range }, tags: [], guard: undefined, range };
 }
@@ -478,7 +546,16 @@ function expandRanges(options: Option[], src: string): Option[] {
   for (const o of options) {
     const only = o.seq.pieces.length === 1 ? o.seq.pieces[0] : undefined;
     const text = only && only.node.kind === 'text' ? only.node.value : undefined;
-    if (text !== undefined && !o.tags.length && !o.guard) {
+    // A range with a guard or tags gives every value that guard and those tags. Each value's
+    // text keeps the place of the range itself (without the guard), so the chart can show it.
+    const textRange = only?.node.range ?? o.range;
+    const textOption = (value: string, range: [number, number]): Option => {
+      const made = textOptionOf(value, range);
+      const piece = made.seq.pieces[0] as Piece;
+      (piece.node as TextNode).range = textRange;
+      return { ...made, tags: o.tags, guard: o.guard };
+    };
+    if (text !== undefined) {
       const num = /^(\d+)\.\.(\d+)$/.exec(text);
       if (num) {
         const [x, y] = [num[1] as string, num[2] as string];
@@ -494,6 +571,11 @@ function expandRanges(options: Option[], src: string): Option[] {
       const chars = [...text];
       const ch = /^(.)\.\.(.)$/u.exec(text);
       if (ch && chars.length === 4) {
+        const kind = (c: string): string => (/\p{Lu}/u.test(c) ? 'upper' : /\p{Ll}/u.test(c) ? 'lower' : /\d/.test(c) ? 'digit' : 'other');
+        const [ka, kb] = [kind(ch[1] as string), kind(ch[2] as string)];
+        if (ka !== kb && (ka !== 'other' || kb !== 'other')) {
+          fail(src, `A character range goes between two characters of the same kind, as in [a..e] or [A..E]: ${text} would run through punctuation`, o.range[0]);
+        }
         const a = (ch[1] as string).codePointAt(0) as number;
         const b = (ch[2] as string).codePointAt(0) as number;
         const step = a <= b ? 1 : -1;
@@ -537,11 +619,16 @@ export function parseModule(source: string, path: string): { module: Module; imp
       imports.push({ spec: m[1] as string, names, offset: st.start });
     } else if ((m = DEF_RE.exec(text))) {
       const name = m[1] as string;
+      // `delimiter = ...` is the setting, so anything but the exact form is a mistake in it.
+      if (name === 'delimiter') fail(src, 'The delimiter setting is delimiter = "..." with double quotes and nothing after them, as in delimiter = ", "', st.start);
       if (module.defs.has(name)) fail(src, `Duplicate definition '${name}'`, st.start);
       const bodyStart = st.start + m[0].length;
       const body = new Parser(src, bodyStart, st.end, module).parseTop(true);
       module.defs.set(name, { name, body, module, range: [st.start, st.end], form: 'short' });
     } else {
+      // `my-name = Sam` is meant as a definition: say why it is not one, rather than print it.
+      const bad = /^[ \t]*([A-Za-z_][\w.-]*)[ \t]*=(?!=)/.exec(text);
+      if (bad) fail(src, `"${bad[1]}" is not a valid name, so this line is not a definition. Names use letters, digits and _ (and a dot for groups). To write the line as text, escape the =: \\=`, st.start);
       if (module.anonymous) fail(src, 'Only one unnamed expression is allowed per file', st.start);
       const body = new Parser(src, st.start, st.end, module).parseTop(false);
       module.anonymous = { name: '<main>', body, module, range: [st.start, st.end], form: 'short' };

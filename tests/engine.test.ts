@@ -208,7 +208,9 @@ describe('repeat and ranges', () => {
 
   test('ranges work in a bracket-free definition choice too', () => {
     expect(count('hex = 0..9 | A..F\nmain = $hex')).toBe(16n);
-    expect(count('v = 1..2\nmain = $v')).toBe(1n);
+    // A definition that is exactly a range is a choice too.
+    expect(count('v = 1..2\nmain = $v')).toBe(2n);
+    expect(count('digit = 0..9\nmain = $digit')).toBe(10n);
   });
 
   test('a line without a name next to main is an error, not ignored', () => {

@@ -69,7 +69,7 @@ const DEAD_END = 'When none of these guards holds, this choice has nothing to pi
  * the entry point). With them the guard warnings are exact; without them (a branch nothing uses)
  * they fall back to what the code says on its own.
  */
-function groupWarnings(g: GroupNode, add: (message: string, offset: number) => void, states: string[] | undefined): void {
+function groupWarnings(g: GroupNode, add: (message: string, offset: number) => void, states: string[] | undefined, ctx: { source: string; tested: ReadonlySet<string> }): void {
   const guards = g.options.map((o) => o.guard);
   const elseAt = guards.findIndex((x) => x?.kind === 'else');
   if (elseAt !== -1 && guards.slice(elseAt + 1).some((x) => x?.kind === 'tag')) {
@@ -87,14 +87,14 @@ function groupWarnings(g: GroupNode, add: (message: string, offset: number) => v
   } else if (g.options.length > 0 && g.options.every((o) => o.guard?.kind === 'tag')) {
     add(DEAD_END, g.range[0]);
   }
-  for (const o of g.options) {
-    for (const t of o.tags) {
-      if (!t.range) continue;
-      const after = o.seq.pieces.some((p) => p.node.range[0] >= (t.range as [number, number])[1] && !(p.node.kind === 'text' && p.node.value === ''));
-      // A tag in the middle of text (or on a whole branch with no choice) is easy to mistake for text.
-      if (after || (g.bare && g.options.length === 1)) {
+  // An @word in the middle of text, or on a whole branch, may be meant as text (an email
+  // handle, say). When no guard tests it, say what it does.
+  if (g.inline || (g.bare && g.options.length === 1)) {
+    for (const o of g.options) {
+      for (const t of o.tags) {
+        if (!t.range || ctx.source[t.range[0]] !== '@' || ctx.tested.has(t.name)) continue;
         const name = `@${t.name}${t.value !== undefined && t.value !== '' ? '=' + t.value : ''}`;
-        add(`"${name}" is a tag, not text, so it is left out of the result. To print it, write \\${name}`, t.range[0]);
+        add(`"${name}" is a tag: it is not printed, and no guard tests it, so it only labels the result. To print it as text, write \\${name}`, t.range[0]);
       }
     }
   }
@@ -102,6 +102,17 @@ function groupWarnings(g: GroupNode, add: (message: string, offset: number) => v
 
 export function findWarnings(modules: Module[], root: Module, reach?: Map<number, string[]>): Warning[] {
   const out: Warning[] = [];
+  // Every tag name some guard tests, anywhere.
+  const tested = new Set<string>();
+  for (const module of modules) {
+    const all: Def[] = [...module.defs.values()];
+    if (module.anonymous) all.push(module.anonymous);
+    for (const def of all) {
+      each(def.body, (n) => {
+        if (n.kind === 'group') for (const o of n.options) if (o.guard?.kind === 'tag') tested.add(o.guard.name);
+      });
+    }
+  }
   for (const module of modules) {
     const add = (message: string, offset: number): void => {
       const { line, col } = lineCol(module.source, offset);
@@ -123,7 +134,12 @@ export function findWarnings(modules: Module[], root: Module, reach?: Map<number
               break;
             }
           }
-        } else if (n.kind === 'group') groupWarnings(n, add, reach?.get(n.id));
+        } else if (n.kind === 'group') groupWarnings(n, add, reach?.get(n.id), { source: module.source, tested });
+        else if (n.kind === 'anyorder' && n.items.length > 7) {
+          let f = 1n;
+          for (let k = 2n; k <= BigInt(n.items.length); k++) f *= k;
+          add(`This any-order group has ${n.items.length} items, so it gives ${f.toLocaleString('en-US')} orderings. Is every ordering wanted?`, n.range[0]);
+        }
       });
     }
   }

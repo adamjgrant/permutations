@@ -9,7 +9,9 @@ interface Path {
   st: State;
 }
 
-const CLOSING = /^[.,;:!?)\]'’%…]/;
+// The same smart rules as the engine, written out again: closing punctuation (and a straight '
+// only for a suffix or on its own), opening punctuation, and line breaks.
+const CLOSING = /^(?:[.,;:!?)\]’”%…]|'(?:(?:s|re|ll|d|ve|m|t)(?!\p{L})|(?!\p{L})))/u;
 const OPENING = /[(\[“‘¿¡]$/;
 
 function permutations<T>(xs: T[]): T[][] {
@@ -28,7 +30,9 @@ function joinAll(outs: string[], joins: boolean[], delim: string, last?: string)
   outs.forEach((o, i) => {
     if (i > 0 && joins[i]) pending = true;
     if (o === '') return;
-    if (res !== '' && pending && !CLOSING.test(o) && !OPENING.test(res)) res += i === lastIndex ? (last as string) : delim;
+    let ahead = o;
+    for (let j = i + 1; j < outs.length && !joins[j] && ahead.length < 4; j++) ahead += outs[j] as string;
+    if (res !== '' && pending && !CLOSING.test(ahead) && !OPENING.test(res) && !res.endsWith('\n') && !o.startsWith('\n')) res += i === lastIndex ? (last as string) : delim;
     res += o;
     pending = false;
   });
@@ -128,7 +132,8 @@ function lcg(seed: number): () => number {
 
 function generate(rand: () => number): string {
   const pick = <T>(xs: T[]): T => xs[Math.floor(rand() * xs.length)] as T;
-  const words = ['a', 'b', 'cc', 'x y', 'Q', 'hi.'];
+  // Including a suffix, a word with an opening quote, and a line break (\\n in the source).
+  const words = ['a', 'b', 'cc', 'x y', 'Q', 'hi.', "'s", "'go", 'n\\nm'];
   const tags = ['t1', 't2'];
   const defNames: string[] = [];
 
@@ -176,7 +181,9 @@ function generate(rand: () => number): string {
       else {
         // Text pieces must be separated by a space or they would merge into one text run.
         const bothText = !out.endsWith(']') && !/[A-Za-z0-9_}]$/.test(out) ? false : true;
-        out += (rand() < 0.75 || (bothText && !p.startsWith('[') && !p.startsWith('$')) ? ' ' : '') + p;
+        // Sometimes a tag in the middle: it takes effect where it is written.
+        if (rand() < 0.12) out += ' @' + pick(tags) + ' ' + p;
+        else out += (rand() < 0.75 || (bothText && !p.startsWith('[') && !p.startsWith('$')) ? ' ' : '') + p;
       }
     }
     return out;
@@ -253,6 +260,8 @@ describe('formatter versus random programs', () => {
         const { output, skipped } = formatSource(src, mode);
         expect(skipped).toEqual([]);
         const again = compile(output);
+        // On a failure, say which program and conversion it was.
+        if (again.count !== prog.count) throw new Error(`${mode} changed the count of\n${src}\ninto\n${output}`);
         expect(again.count).toBe(prog.count);
         expect([...again.all()].map(key).sort()).toEqual(base);
         // Through the other form and back.

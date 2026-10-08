@@ -71,6 +71,12 @@ export interface GroupNode {
   delimiter?: string | undefined;
   /** True when written without brackets as a whole definition: `a = x | y`. */
   bare: boolean;
+  /**
+   * True for the one-alternative group the parser makes so a tag takes effect where it is
+   * written: in `Hi @casual there`, `Hi @casual` is such a group. It is printed and drawn
+   * without brackets.
+   */
+  inline?: boolean | undefined;
   range: Range;
 }
 

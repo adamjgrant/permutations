@@ -1,5 +1,5 @@
 import { newId } from './ids';
-import { buildRepeat, fail, indentWidth, Parser, unescapeString } from './parser';
+import { buildRepeat, fail, indentWidth, Parser, placeTags, unescapeString } from './parser';
 import {
   AnyOrderNode,
   Def,
@@ -107,22 +107,32 @@ class LongParser {
     return [first.start, last.end];
   }
 
-  split(items: Item[], lastAllowed = false): { content: Item[]; tags: Tag[]; delim: string | undefined; last: string | undefined } {
+  /**
+   * The settings lines of a block, and the rest: `content` without the tag lines, `ordered` with
+   * them in place (for blocks whose tags take effect where they are written).
+   */
+  split(items: Item[], lastAllowed = false): { content: Item[]; ordered: Item[]; tags: Tag[]; delim: string | undefined; last: string | undefined } {
     const content: Item[] = [];
+    const ordered: Item[] = [];
     const tags: Tag[] = [];
     let delim: string | undefined;
     let last: string | undefined;
     for (const it of items) {
-      if (it.t === 'tag') tags.push(it.tag);
-      else if (it.t === 'delim') {
+      if (it.t === 'tag') {
+        tags.push(it.tag);
+        ordered.push(it);
+      } else if (it.t === 'delim') {
         if (delim !== undefined) this.err('Only one delimiter per block', it.line);
         delim = it.value;
       } else if (it.t === 'last') {
         if (!lastAllowed) this.err("'last' joins the final two items of an 'any order' or 'repeat' block, so it belongs there", it.line);
         last = it.value;
-      } else content.push(it);
+      } else {
+        content.push(it);
+        ordered.push(it);
+      }
     }
-    return { content, tags, delim, last };
+    return { content, ordered, tags, delim, last };
   }
 
   private emptyText(range: [number, number]): TextNode {
@@ -136,14 +146,21 @@ class LongParser {
     return this.err('Unexpected line', it.line);
   }
 
+  /** The lines of a block as a sequence. A tag (a `tag` line, or `@t` on a line) takes effect where it is. */
   seqOf(content: Item[], join: boolean, delim: string | undefined, range: [number, number]): { seq: SeqNode; tags: Tag[] } {
-    const tags: Tag[] = [];
-    const pieces: Piece[] = content.map((c, i) => {
-      if (c.t === 'node') tags.push(...c.tags);
-      return this.asPiece(c, i > 0 && join);
-    });
-    const seq: SeqNode = { kind: 'seq', id: newId(), pieces, joinDelim: delim, scopeDelim: delim, range };
-    return { seq, tags };
+    const pieces: Piece[] = [];
+    const marks: { at: number; tag: Tag }[] = [];
+    for (const c of content) {
+      if (c.t === 'tag') {
+        marks.push({ at: pieces.length, tag: c.tag });
+        continue;
+      }
+      pieces.push(this.asPiece(c, pieces.length > 0 && join));
+      if (c.t === 'node') for (const t of c.tags) marks.push({ at: pieces.length, tag: t });
+    }
+    const placed = placeTags(pieces, marks);
+    const seq: SeqNode = { kind: 'seq', id: newId(), pieces: placed.pieces, joinDelim: delim, scopeDelim: delim, range };
+    return { seq, tags: placed.tags };
   }
 
   private toOption(it: Item): Option {
@@ -214,9 +231,9 @@ class LongParser {
     }
     if (RE.sequence.test(text) || RE.tight.test(text)) {
       const { items, next } = this.needChildren(index, text);
-      const { content, tags, delim } = this.split(items);
-      const { seq, tags: inner } = this.seqOf(content, text === 'sequence', delim, this.rangeOf(index, next));
-      return { item: { t: 'node', node: seq, tags: [...tags, ...inner], line }, next };
+      const { ordered, delim } = this.split(items);
+      const { seq, tags } = this.seqOf(ordered, text === 'sequence', delim, this.rangeOf(index, next));
+      return { item: { t: 'node', node: seq, tags, line }, next };
     }
     if (RE.nothing.test(text)) return { item: { t: 'empty', line }, next: this.noChildren(index, text) };
     if ((m = RE.ref.exec(text))) {
@@ -259,9 +276,9 @@ class LongParser {
         ? { kind: 'else', range: [line.start, line.end] }
         : { kind: 'tag', name: (m as RegExpExecArray)[2] as string, negate: !!(m as RegExpExecArray)[1], value: (m as RegExpExecArray)[3], range: [line.start, line.end] };
       const { items, next } = this.needChildren(index, text);
-      const { content, tags, delim } = this.split(items);
-      const { seq, tags: inner } = this.seqOf(content, true, delim, this.rangeOf(index, next));
-      return { item: { t: 'when', guard, seq, tags: [...tags, ...inner], line }, next };
+      const { ordered, delim } = this.split(items);
+      const { seq, tags } = this.seqOf(ordered, true, delim, this.rangeOf(index, next));
+      return { item: { t: 'when', guard, seq, tags, line }, next };
     }
     if ((m = RE.quoted.exec(text))) {
       const node: TextNode = { kind: 'text', id: newId(), value: unescapeString(m[1] as string), range: [line.start, line.end] };
@@ -294,9 +311,9 @@ export function parseBranch(src: string, st: { start: number; end: number }, nam
   const { items } = p.children(0);
   const header = lines[0] as Line;
   const range: [number, number] = [st.start, st.end];
-  const { content, tags, delim } = p.split(items);
-  const seqOf = p.seqOf(content, true, delim, range);
-  const allTags = [...tags, ...seqOf.tags];
+  const { ordered, delim } = p.split(items);
+  const seqOf = p.seqOf(ordered, true, delim, range);
+  const allTags = seqOf.tags;
   let body: Node = seqOf.seq;
   if (allTags.length) {
     const opt: Option = { seq: seqOf.seq, tags: allTags, guard: undefined, range };
