@@ -179,6 +179,17 @@ export class ChartView {
     return this.measureCtx.measureText(text).width;
   }
 
+  /** ", alternative 2 of 3" (or item) for a screen reader, from the layout's row of a box. */
+  private position(b: Box): string {
+    if (b.rowId === undefined) return '';
+    const row = this.rowById.get(b.rowId);
+    if (!row) return '';
+    const frame = this.frameById.get(row.frameId ?? '');
+    return `, ${frame?.frameOf === 'anyorder' ? 'item' : 'alternative'} ${(row.index ?? 0) + 1} of ${row.count ?? 1}`;
+  }
+  private rowById = new Map<string, Box>();
+  private frameById = new Map<string, Box>();
+
   get boxes(): Box[] {
     return this.layout?.boxes ?? [];
   }
@@ -202,6 +213,8 @@ export class ChartView {
     this.cancelEdit();
     this.clickedId = undefined;
     this.layout = layout;
+    this.rowById = new Map(layout.boxes.filter((b) => b.kind === 'row').map((b) => [b.id, b]));
+    this.frameById = new Map(layout.boxes.filter((b) => b.kind === 'frame').map((b) => [b.id, b]));
     const avail = this.host.clientWidth - 8;
     // Fit shrinks a little at most: below this, text gets too small to read, so scroll instead.
     if (this.fit) this.scale = Math.max(0.8, Math.min(1, avail / layout.width));
@@ -281,7 +294,7 @@ export class ChartView {
     if (focusable(b)) {
       g.setAttribute('tabindex', '-1');
       g.setAttribute('role', 'button');
-      g.setAttribute('aria-label', describe(b));
+      g.setAttribute('aria-label', describe(b) + this.position(b));
     }
     const rect = (rx: number): SVGRectElement => el('rect', { x: b.x, y: b.y, width: b.w, height: b.h, rx }, g);
     const text = (cls = ''): void => {

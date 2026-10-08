@@ -80,6 +80,8 @@ export interface Box {
   unused?: boolean;
   /** Definition labels: the branches that refer to this one. */
   usedBy?: string[];
+  /** Leaves: the innermost alternative (row) the box sits in. */
+  rowId?: string;
 }
 
 export interface Pt {
@@ -481,8 +483,15 @@ export function layout(input: LayoutInput): Layout {
         rows.forEach((r, i) => {
           const ry = y + (offsets[i] as number);
           const rx = x + M.framePad;
-          boxes.push({ id: nid('r'), kind: 'row', x: rx, y: ry, w: r.w, h: r.h, label: '', full: '', range: r.range, node, index: i, frameId: id, count: rows.length });
+          const rowId = nid('r');
+          boxes.push({ id: rowId, kind: 'row', x: rx, y: ry, w: r.w, h: r.h, label: '', full: '', range: r.range, node, index: i, frameId: id, count: rows.length });
+          const before = boxes.length;
           const p = r.content.place(rx + M.rowPadX, ry + M.rowPadY);
+          // Leaves placed for this row belong to it, unless a nested row claimed them first.
+          for (let k = before; k < boxes.length; k++) {
+            const lb = boxes[k] as Box;
+            if (LEAF_KINDS.has(lb.kind) && lb.rowId === undefined) lb.rowId = rowId;
+          }
           if (isAny) {
             // Not a choice: every item is used, in some order. No rails, only what joins them.
             if (i > 0) edges.push({ id: nid('e'), kind: 'joiner', from: id, to: id, points: [{ x: rx + 14, y: ry - M.rowGap / 2 }], label: d !== undefined ? edgeText(d) : '&' });

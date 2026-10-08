@@ -25,8 +25,8 @@ export function rowContext(boxes: Box[], b: Box | undefined): RowContext {
   if (b.kind === 'row') return { row: b, frame: frameById(b.frameId) };
   if (b.kind === 'frame') return b.frameOf === 'group' || b.frameOf === 'anyorder' ? { frame: b } : {};
   if (!LEAF_KINDS.has(b.kind)) return {};
-  const rows = boxes.filter((r) => r.kind === 'row' && inside(b, r)).sort((p, q) => area(p) - area(q));
-  const row = rows[0];
+  // The layout records each leaf's alternative; fall back to geometry for boxes without one.
+  const row = b.rowId !== undefined ? boxes.find((r) => r.id === b.rowId) : boxes.filter((r) => r.kind === 'row' && inside(b, r)).sort((p, q) => area(p) - area(q))[0];
   return row ? { row, frame: frameById(row.frameId) } : {};
 }
 
