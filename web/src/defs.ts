@@ -55,9 +55,9 @@ export function nameProblem(src: string, name: string, ignore?: string): string 
   return undefined;
 }
 
-/** A name nobody uses yet: `base`, `base2`, `base3`... */
-export function uniqueName(src: string, base = 'branch'): string {
-  const taken = new Set(parse(src).defs.map((d) => d.name));
+/** A name nobody uses yet and that is not reserved: `base`, `base2`, `base3`... */
+export function uniqueName(src: string, base = 'phrase'): string {
+  const taken = new Set([...parse(src).defs.map((d) => d.name), 'main', ...RESERVED_NAMES]);
   if (!taken.has(base)) return base;
   for (let i = 2; ; i++) if (!taken.has(base + i)) return base + i;
 }

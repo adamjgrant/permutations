@@ -21,7 +21,7 @@ test('name checks: invalid, duplicate, reserved', () => {
   assert.equal(nameProblem(SHORT, 'topic', 'topic'), undefined);
   assert.equal(nameProblem(SHORT, 'fresh_name2'), undefined);
   assert.equal(nameProblem(SHORT, 'ns.fresh'), undefined);
-  assert.equal(uniqueName(SHORT), 'branch');
+  assert.equal(uniqueName(SHORT), 'phrase');
   assert.equal(uniqueName('branch = x\nbranch2 = y\nmain = $branch', 'branch'), 'branch3');
 });
 
@@ -301,4 +301,11 @@ test('skipped definitions are reported with the core reasons', () => {
   assert.match(skippedNotice(r.skipped), /^Skipped 1 definition: a \(contains a comment/);
   const none = convertForms('main = x', 'long', ['main']);
   assert.equal(skippedNotice(none.skipped), '');
+});
+
+test('suggested names are never taken or reserved', () => {
+  assert.equal(uniqueName('main = x'), 'phrase');
+  assert.equal(uniqueName('main = x\nphrase = y'), 'phrase2');
+  assert.equal(uniqueName('main = x', 'branch'), 'branch2');
+  assert.equal(uniqueName('main = x', 'main'), 'main2');
 });

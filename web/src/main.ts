@@ -795,7 +795,7 @@ const on = (id: string, fn: () => void): void => $(id).addEventListener('click',
 on('t-new', () => {
   if (!analysis || !canEdit()) return;
   const src = analysis.source;
-  nameDialog('New branch', 'Name', uniqueName(src, 'branch'), 'Letters, digits and underscores. It is added at the end of the code in the same style as the rest.', undefined, (v) => {
+  nameDialog('New branch', 'Name', uniqueName(src), 'Letters, digits and underscores. It is added at the end of the code in the same style as the rest.', undefined, (v) => {
     const r = createDefinition(src, v);
     if (failed(r)) return r.error;
     return applyEdit(r, { then: () => gotoBranch(v) });
