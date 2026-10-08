@@ -7,6 +7,7 @@
 // reference pill to the definition it names.
 
 import type { AnyOrderNode, GroupNode, Guard, Node, Option, Range, SeqNode, Tag } from '../../src/core/types';
+import { visit } from '../../src/core/compile';
 import { Alt, alternatives, isRangeText } from './patch';
 import { trimRange } from './ranges';
 
@@ -305,7 +306,20 @@ export function layout(input: LayoutInput): Layout {
         return choiceBlock(node, d);
       case 'repeat': {
         const label = node.min === node.max ? `×${node.min}` : `×${node.min}..${node.max}`;
-        const chips: Block[] = [chip('repeat', label, { range: node.range, node })];
+        // Copies are glued with no space unless a delimiter is set: right for hex codes, a
+        // surprise for words. Flag it when the repeated part has spaces in it.
+        let words = false;
+        visit(node.inner, (n) => {
+          if ((n.kind === 'text' && /\s/.test(n.value)) || (n.kind === 'seq' && n.pieces.some((p, i) => i > 0 && p.join)) || n.kind === 'anyorder') words = true;
+        });
+        const glued = node.delimiter === undefined && node.max > 1 && words;
+        const chips: Block[] = [
+          chip('repeat', label, {
+            range: node.range,
+            node,
+            ...(glued ? { warn: true, note: 'The copies are joined with no space between them. Select this and use Delimiter… to separate them.' } : {}),
+          }),
+        ];
         if (node.delimiter !== undefined) chips.push(chip('delimiter', delimLabel(node.delimiter), { range: node.range, node }));
         return wrapper(nodeBlock(node.inner, d), chips, 'repeat', node);
       }

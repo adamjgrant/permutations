@@ -117,8 +117,9 @@ export function barActions(s: BarInput): ActionSpec[] {
   if ((b.kind === 'text' || b.kind === 'ref') && (s.branches ?? 1) > 0) {
     out.push({ id: 'insert-ref', label: 'Insert reference…', title: 'Insert $name of a branch right after this', group: 3 });
   }
-  if (s.delimFrame && (b.kind === 'frame' || b.kind === 'anyorder' || b.kind === 'delimiter')) {
-    out.push({ id: 'delimiter', label: 'Delimiter…', title: 'Set what joins the parts of this choice', group: 2 });
+  if (s.delimFrame && (b.kind === 'frame' || b.kind === 'anyorder' || b.kind === 'delimiter' || b.kind === 'repeat')) {
+    const what = s.delimFrame.frameOf === 'repeat' ? 'the copies of this repeat' : 'the parts of this choice';
+    out.push({ id: 'delimiter', label: 'Delimiter…', title: `Set what joins ${what}`, group: 2 });
   }
   if (s.canExtract) out.push({ id: 'extract', label: 'Extract…', title: 'Move this into a new branch and refer to it by name', group: 3 });
   return out;

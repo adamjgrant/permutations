@@ -287,3 +287,14 @@ test('a reference line does not run through the box under its pill', () => {
     assert.ok(!crosses, `segment ${i} crosses $b`);
   }
 });
+
+test('a repeat of words without a delimiter is flagged; a repeat of characters is not', () => {
+  const flagged = (src: string) => {
+    const a = analyze(src);
+    return layout({ main: a.main, others: a.others, source: src }).boxes.find((b) => b.kind === 'repeat')!.warn === true;
+  };
+  assert.equal(flagged('main = [Thanks a lot|Cheers]{1..2}'), true);
+  assert.equal(flagged('main = [0..9|A..F]{6}'), false);
+  assert.equal(flagged('main = [Thanks a lot|Cheers]{2; delimiter=" "}'), false);
+  assert.equal(flagged('main = [Thanks a lot]{1}'), false);
+});

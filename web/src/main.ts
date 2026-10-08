@@ -17,6 +17,7 @@ import { ActionBar, ActionId, barActions } from './actionbar';
 import { insertReference, pieceRange, WrapNode, wrapInChoice } from './insert';
 import { pathBoxes } from './trace';
 import { setDelimiter } from './delim';
+type DelimTarget = Parameters<typeof setDelimiter>[1];
 import { inside } from './nav';
 import { redo, undo } from '@codemirror/commands';
 
@@ -778,9 +779,9 @@ function runAction(id: ActionId): void {
 /** The choice or any-order group whose delimiter a selection stands for. */
 function delimFrameFor(box: Box): Box | undefined {
   const ok = (f: Box | undefined): Box | undefined =>
-    f && f.kind === 'frame' && (f.frameOf === 'group' || f.frameOf === 'anyorder') && f.node && analysis && setDelimiter(analysis.source, f.node as ChoiceNode, ' ') ? f : undefined;
+    f && f.kind === 'frame' && (f.frameOf === 'group' || f.frameOf === 'anyorder' || f.frameOf === 'repeat') && f.node && analysis && setDelimiter(analysis.source, f.node as DelimTarget, ' ') ? f : undefined;
   if (box.kind === 'frame') return ok(box);
-  if (box.kind !== 'anyorder' && box.kind !== 'delimiter') return undefined;
+  if (box.kind !== 'anyorder' && box.kind !== 'delimiter' && box.kind !== 'repeat') return undefined;
   // A chip sits in the header of the frame it describes; the any-order group is the frame inside.
   const around = chart.boxes.filter((f) => f.kind === 'frame' && inside(box, f)).sort((a, b) => a.w * a.h - b.w * b.h);
   const inner = chart.boxes.filter((f) => f.kind === 'frame' && f.frameOf === 'anyorder' && around[0] && inside(f, around[0])).sort((a, b) => b.w * b.h - a.w * a.h);
@@ -789,15 +790,18 @@ function delimFrameFor(box: Box): Box | undefined {
 
 function delimiterDialog(frame: Box, anchor: Box): void {
   if (!analysis || !frame.node) return;
-  const node = frame.node as ChoiceNode;
+  const node = frame.node as DelimTarget;
   const src = analysis.source;
-  const current = node.kind === 'group' || node.kind === 'anyorder' ? node.delimiter : undefined;
-  const around = analysis.delimiter;
+  const current = node.delimiter;
+  const around = node.kind === 'repeat' ? '' : analysis.delimiter;
   openPopover({
     title: 'Delimiter',
     label: 'What joins the parts here',
-    value: current ?? around,
-    hint: `Leave it empty for no space at all. Use default goes back to the delimiter around this choice (${JSON.stringify(around)}).`,
+    value: current ?? (node.kind === 'repeat' ? ' ' : around),
+    hint:
+      node.kind === 'repeat'
+        ? 'What goes between the copies. A space separates words; leave it empty to glue them. Use default glues them again.'
+        : `Leave it empty for no space at all. Use default goes back to the delimiter around this choice (${JSON.stringify(around)}).`,
     anchor: anchorOf(anchor),
     returnFocus: document.activeElement as HTMLElement | null,
     actions: [
