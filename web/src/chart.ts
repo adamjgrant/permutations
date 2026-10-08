@@ -12,7 +12,7 @@
 // moves into the action bar.
 
 import { Box, BoxKind, Edge, Layout, LEAF_KINDS, Measure } from './layout';
-import { Dir, focusable, navigate, readingOrder, rowContext } from './nav';
+import { Dir, focusable, inside, navigate, readingOrder, rowContext } from './nav';
 import type { Range } from './ranges';
 
 const NS = 'http://www.w3.org/2000/svg';
@@ -334,7 +334,11 @@ export class ChartView {
     if (ids.length === 1) {
       const b = this.byId(ids[0]);
       const ctx = rowContext(this.boxes, b);
-      if (ctx.row && ctx.row.id !== b?.id) this.context.add(ctx.row.id);
+      // Outline the alternative only when it holds more than the selected box itself.
+      if (ctx.row && ctx.row.id !== b?.id && b) {
+        const others = this.boxes.some((x) => x.id !== b.id && focusable(x) && x.kind !== 'tag' && x.kind !== 'guard' && inside(x, ctx.row!));
+        if (others) this.context.add(ctx.row.id);
+      }
       if (ctx.frame && ctx.frame.id !== b?.id) this.context.add(ctx.frame.id);
       if (b?.kind === 'ref' && b.target) {
         const def = this.boxes.find((x) => x.kind === 'def' && x.name === b.target);
