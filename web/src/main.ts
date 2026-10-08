@@ -763,10 +763,12 @@ function runConvert(mode: 'short' | 'long', names: string[] | undefined, label: 
 
 const chart = new ChartView($('chart'), actions);
 
-function relayout(keepTrace = false): void {
-  if (!analysis) return;
-  if (!keepTrace) clearTrace();
-  lastLayout = layout({
+/** Set by Fit: the width the branch cards wrap at, so a zoomed-out chart uses the whole pane. */
+let fitWrap: number | undefined;
+
+function layoutAt(wrapWidth: number): Layout | undefined {
+  if (!analysis) return undefined;
+  return layout({
     main: analysis.main,
     others: analysis.others,
     source: analysis.source,
@@ -774,8 +776,14 @@ function relayout(keepTrace = false): void {
     measure,
     defaultDelimiter: analysis.delimiter,
     knownTags: analysis.knownTags,
-    wrapWidth: Math.max(360, $('chart').clientWidth - 8),
+    wrapWidth,
   });
+}
+
+function relayout(keepTrace = false): void {
+  if (!analysis) return;
+  if (!keepTrace) clearTrace();
+  lastLayout = layoutAt(fitWrap ?? Math.max(360, $('chart').clientWidth - 8)) as Layout;
   chart.render(lastLayout);
   const names = [...new Set(lastLayout.boxes.filter((b) => b.kind === 'guard' && b.warn && b.guard?.kind === 'tag').map((b) => (b.guard as { name: string }).name))];
   const notes: string[] = [];
@@ -1493,15 +1501,36 @@ $('chart').addEventListener(
   { passive: false },
 );
 on('z-out', () => zoom(1 / 1.2));
+// Fit: the largest scale at which the whole chart fits the pane, with the branch cards wrapped
+// to fill the pane's width at that scale (so many branches spread across, not down a column).
 on('z-fit', () => {
-  chart.fitAll();
-  rerender();
+  const host = $('chart');
+  const w = host.clientWidth - 8;
+  const h = host.clientHeight - 8;
+  let best: { scale: number; wrap: number } | undefined;
+  for (const scale of [1, 0.9, 0.8, 0.7, 0.6, 0.5, 0.45, 0.4, 0.35, 0.3]) {
+    const wrap = Math.max(360, w / scale);
+    const l = layoutAt(wrap);
+    if (!l) return;
+    const fits = Math.min(1, w / l.width, h / l.height);
+    if (!best || fits > best.scale) best = { scale: Math.max(0.3, fits), wrap };
+    if (fits >= scale - 1e-9) {
+      best = { scale, wrap };
+      break;
+    }
+  }
+  if (!best) return;
+  chart.fit = false;
+  chart.scale = best.scale;
+  fitWrap = best.scale < 1 ? best.wrap : undefined;
+  relayoutKeepingSelection();
 });
 let resizeTimer: number | undefined;
 window.addEventListener('resize', () => {
   window.clearTimeout(resizeTimer);
   resizeTimer = window.setTimeout(
     safe(() => {
+      fitWrap = undefined;
       if (lastLayout) relayoutKeepingSelection();
     }),
     120,
