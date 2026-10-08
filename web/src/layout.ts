@@ -323,9 +323,18 @@ export function layout(input: LayoutInput): Layout {
         // Copies are glued with no space unless a delimiter is set: right for hex codes, a
         // surprise for words. Flag it when the repeated part has spaces in it.
         let words = false;
-        visit(node.inner, (n) => {
-          if ((n.kind === 'text' && /\s/.test(n.value)) || (n.kind === 'seq' && n.pieces.some((p, i) => i > 0 && p.join)) || n.kind === 'anyorder') words = true;
-        });
+        const seenDefs = new Set<string>();
+        const scan = (root: Node): void =>
+          visit(root, (n) => {
+            // Two letters in a row make a word; ranges of single characters (hex digits) do not.
+            if (n.kind === 'text' && /\p{L}{2}/u.test(n.value)) words = true;
+            if ((n.kind === 'seq' && n.pieces.some((p, i) => i > 0 && p.join)) || n.kind === 'anyorder') words = true;
+            if (n.kind === 'ref' && n.target?.kind === 'def' && !seenDefs.has(n.target.def.name)) {
+              seenDefs.add(n.target.def.name);
+              scan(n.target.def.body);
+            }
+          });
+        scan(node.inner);
         const glued = node.delimiter === undefined && node.max > 1 && words;
         const chips: Block[] = [
           chip('repeat', label, {
@@ -710,7 +719,7 @@ export function layout(input: LayoutInput): Layout {
     if (!target) continue;
     if (!targetOrder.has(target.id)) targetOrder.set(target.id, targetOrder.size);
     const from = shelfOfBox(pill);
-    const to = target.id === defBoxes[mainBlock.name] ? -1 : ns !== undefined ? shelfOfBox(target) : (shelfOf[p.target] ?? -1);
+    const to = target.id === defBoxes[mainBlock.name] ? -1 : (shelfOf[p.target] ?? shelfOfBox(target));
     const atColumnTop = to >= 0 && Math.abs(target.y - shelfTops[to]!) < 1;
     const entryY = target.y + Math.min(26, target.h / 2);
     const gutter = 6 + ((targetOrder.get(target.id) ?? 0) % 4) * 3;

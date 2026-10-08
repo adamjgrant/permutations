@@ -322,7 +322,7 @@ describe('errors', () => {
   });
 
   test('cycles', () => {
-    expect(() => compile('a = x $a\nmain = $a')).toThrow(/refer to themselves/);
+    expect(() => compile('a = x $a\nmain = $a')).toThrow(/cannot use itself/);
   });
 
   test('unknown reference reports a position', () => {

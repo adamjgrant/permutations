@@ -177,7 +177,7 @@ function applyEdit(
   try {
     analyze(next);
   } catch (e) {
-    const m = `That change would break the program (${describeError(e).message}), so it was not applied.`;
+    const m = `That change was not applied, because it would break the program: ${describeError(e).message}.`;
     notify(m, 'warn');
     return m;
   }
@@ -298,7 +298,11 @@ function toggleRow(box: Box): void {
   selectedId = row.id;
   barOn = true;
   chart.setSelected([...multi]);
-  notify(`${multi.size} ${multi.size === 1 ? 'alternative' : 'alternatives'} selected. Use Extract to branch to move them into a new branch.`);
+  notify(
+    multi.size === 1
+      ? '1 alternative selected. Shift-click more, then use Extract… in the strip.'
+      : `${multi.size} alternatives selected. Use Extract… in the strip to move them into a new branch.`,
+  );
   updateTools();
 }
 
@@ -390,7 +394,9 @@ const actions: ChartActions = {
       box.kind === 'defLabel' || box.kind === 'def'
         ? 'To delete a branch, use Delete branch… in the strip.'
         : info?.sole
-          ? 'This is all its branch holds, so it cannot be deleted on its own. Delete the branch instead.'
+          ? chart.boxes.find((d) => d.kind === 'def' && inside(box, d))?.name === analysis.main.name
+            ? 'This is all main holds, so it cannot be deleted. Change its text instead.'
+            : 'This is all its branch holds, so it cannot be deleted on its own. Delete the branch instead.'
           : 'This cannot be deleted from the chart. Delete it in the code.',
       'warn',
     );
@@ -571,7 +577,7 @@ function defAction(def: Box, action: DefAction): void {
   }
   openPopover({
     title: `Delete ${name}?`,
-    message: 'Nothing refers to it. You can undo this in the code editor.',
+    message: 'Nothing refers to it. You can undo this with ⌘Z.',
     anchor: anchorOf(def),
     returnFocus: document.activeElement as HTMLElement | null,
     actions: [
@@ -757,6 +763,10 @@ function selectionLabel(b: Box): string {
 
 function updateBar(): void {
   const box = chart.boxes.find((b) => b.id === selectedId);
+  if (hasError && !analysis) {
+    bar.hide('Fix the error in the code first.');
+    return;
+  }
   if (!barOn || !box) {
     bar.hide();
     return;
@@ -781,6 +791,10 @@ function updateBar(): void {
     delimFrame: delimFrameFor(box),
     piece: pieceInfo(box),
   });
+  if (!specs.length && box.kind !== 'def' && box.kind !== 'defLabel') {
+    bar.hide(`${selectionLabel(box)}. To change it, edit the code.`);
+    return;
+  }
   bar.show(specs, selectionLabel(box));
 }
 
@@ -1255,7 +1269,7 @@ function refresh(): void {
     editor.error(offset ?? null);
     $('stale').hidden = !analysis;
     $('ex-stale').hidden = !analysis;
-    if (!analysis) chart.render(emptyLayout());
+    if (!analysis) showBrokenStart(offset);
     updateTools();
     return;
   }
@@ -1274,6 +1288,28 @@ function refresh(): void {
     hasError = true;
     showFatal(e);
   }
+}
+
+/** The code had an error from the start, so there is no last good chart: say so plainly. */
+function showBrokenStart(offset: number | undefined): void {
+  const box = document.createElement('div');
+  box.className = 'chart-empty';
+  box.innerHTML = '<h3>The code has an error</h3><p>Fix it in the code, and the chart and the examples appear.</p>';
+  if (offset !== undefined) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'primary';
+    b.textContent = 'Go to the error';
+    b.addEventListener('click', safe(() => editor.focusAt(offset)));
+    box.appendChild(b);
+  }
+  chart.showEmpty(box);
+  $('count').textContent = '–';
+  $('count').title = 'The code has an error';
+  $('count-unit').textContent = 'permutations';
+  $('samples').innerHTML = '<li><span class="empty-state">Examples appear when the code has no error.</span></li>';
+  $('sample-note').textContent = '';
+  bar.hide('Fix the error in the code first.');
 }
 
 function emptyLayout(): Layout {
@@ -1370,7 +1406,9 @@ function renderSamples(): void {
     list.innerHTML = outs.map((o, i) => item(i + 1, o.text, o.tags, idx[i] as bigint)).join('');
     // After an edit, mark the examples it changed, so its effect is easy to see.
     // (Only when some stayed the same: when everything changed, flashing says nothing.)
-    const changed = outs.map((o, i) => lastSamples[i] !== undefined && lastSamples[i] !== o.text);
+    // A row counts as changed when its text is new, not when it merely moved down a row.
+    const before = new Set(lastSamples);
+    const changed = outs.map((o) => lastSamples.length > 0 && !before.has(o.text));
     if (flashChanges && changed.some((c) => !c) && changed.some((c) => c)) {
       list.querySelectorAll('.ex-row').forEach((row, i) => {
         if (changed[i]) row.classList.add('changed');

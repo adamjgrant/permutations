@@ -332,7 +332,7 @@ export class ChartView {
       case 'ref':
         rect(b.h / 2);
         text();
-        el('title', {}, g).textContent = `Reference to ${b.target ?? ''}. Double-click to point it at another branch.`;
+        el('title', {}, g).textContent = `Reference to ${b.target ?? ''}. Double-click to go to it.`;
         break;
       case 'value':
         rect(b.h / 2);

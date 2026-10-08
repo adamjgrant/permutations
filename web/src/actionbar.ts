@@ -174,6 +174,20 @@ export class ActionBar {
     this.actions.setAttribute('role', 'toolbar');
     this.actions.hidden = true;
     el.append(this.caption, this.actions);
+    this.actions.addEventListener('scroll', () => this.markOverflow(), { passive: true });
+    // A plain mouse wheel scrolls the row sideways.
+    this.actions.addEventListener(
+      'wheel',
+      (e) => {
+        if (Math.abs(e.deltaY) <= Math.abs(e.deltaX) || this.actions.scrollWidth <= this.actions.clientWidth) return;
+        e.preventDefault();
+        this.actions.scrollLeft += e.deltaY;
+      },
+      { passive: false },
+    );
+    new ResizeObserver(() => this.markOverflow()).observe(this.actions);
+    // Focus moving along the row reveals hidden buttons; keep the fade up to date.
+    this.actions.addEventListener('focusin', () => requestAnimationFrame(() => this.markOverflow()));
     this.actions.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         e.preventDefault();
@@ -247,6 +261,7 @@ export class ActionBar {
     this.actions.hidden = false;
     this.actions.setAttribute('aria-label', `Actions for ${label}`);
     this.hint.hidden = true;
+    this.markOverflow();
   }
 
   hide(note?: string): void {
@@ -259,6 +274,12 @@ export class ActionBar {
     // A note gets the whole strip, so it is never cut short.
     this.caption.classList.toggle('note', note !== undefined);
     this.hint.hidden = note !== undefined;
+  }
+
+  /** Fade the right edge when there are more buttons than fit, so it is clear the row scrolls. */
+  markOverflow(): void {
+    const a = this.actions;
+    a.classList.toggle('overflowing', a.scrollWidth > a.clientWidth + 1 && a.scrollLeft + a.clientWidth < a.scrollWidth - 1);
   }
 
   private rove(to: HTMLButtonElement): void {

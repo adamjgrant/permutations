@@ -384,9 +384,8 @@ kbd { font: 11.5px ui-monospace, "SF Mono", Menlo, monospace; padding: 1px 5px; 
 .ex-foot .note { min-width: 0; }
 
 .editor-wrap.help-open .cm-content { padding-right: min(390px, 62%); }
-@media (max-width: 760px) {
-  .selbar-actions { mask-image: linear-gradient(to right, #000 88%, transparent); }
-}
+/* more buttons than fit: fade the right edge (the row scrolls) */
+.selbar-actions.overflowing { mask-image: linear-gradient(to right, #000 calc(100% - 48px), transparent); }
 
 /* the code cursor's box: shown in the chart, but not a selection */
 .chart-svg .box.mirror > rect { stroke: var(--sel); stroke-width: 2; stroke-dasharray: 4 3; }

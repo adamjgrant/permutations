@@ -148,7 +148,9 @@ Any item line in a long-form block may itself be a short-form expression, so
   short form** in the selection strip, or **Long form** and **Short form** in the code pane
   for the whole file, so you can sketch fast and tidy later, or the reverse.
 - **Edits preserve the surrounding style.** When the chart edits code, it writes the form
-  already used at that spot. A new node in a long-form block is written in long form.
+  already used at that spot. A new alternative in a long-form block is its own line; a tag or
+  guard on a plain long-form line is written inline (`friend @close`, `@q: ?`), which long
+  form allows, since every plain line is a short-form expression.
 - `--auto` picks short form for a definition that fits on one line and has at most two
   nesting levels, and long form otherwise.
 

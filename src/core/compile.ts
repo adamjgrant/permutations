@@ -176,7 +176,7 @@ function checkCycles(modules: Module[]): void {
     if (s === 'done') return;
     if (s === 'visiting') {
       const chain = [...stack.slice(stack.indexOf(def)), def].map((d) => '$' + d.name).join(' -> ');
-      fail(def.module.source, `Definitions refer to themselves: ${chain}`, def.range[0]);
+      fail(def.module.source, `A branch cannot use itself, even through others: ${chain}`, def.range[0]);
     }
     state.set(def, 'visiting');
     stack.push(def);
