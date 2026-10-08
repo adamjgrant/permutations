@@ -432,6 +432,57 @@ describe('tracing a result', () => {
   });
 });
 
+describe('steady sampling', () => {
+  test('the same seed gives the same examples, with traces', () => {
+    const p = compile("main = [Hello|Oh, Hi] $g\ng = [How [are you|'s [it|everything]]|What [is new|is going on]]");
+    const a = p.sampleSteady(5, 42).map((o) => o.text);
+    expect(p.sampleSteady(5, 42).map((o) => o.text)).toEqual(a);
+    expect(new Set(a).size).toBe(5);
+    for (const o of p.sampleSteady(5, 42)) expect(o.picks.length).toBeGreaterThan(0);
+  });
+
+  test('each complete path is equally likely', () => {
+    // 4 paths: a, b c, b d, b e. Picking per choice uniformly would give a half the time.
+    const p = compile('[a|b [c|d|e]]');
+    const seen: Record<string, number> = {};
+    for (let seed = 0; seed < 4000; seed++) {
+      const t = p.sampleSteady(1, seed)[0]!.text;
+      seen[t] = (seen[t] ?? 0) + 1;
+    }
+    for (const k of ['a', 'b c', 'b d', 'b e']) {
+      expect(seen[k]).toBeGreaterThan(850);
+      expect(seen[k]).toBeLessThan(1150);
+    }
+  });
+
+  test('adding an alternative to one choice leaves the picks of the others alone', () => {
+    const before = compile('[Hi|Hello|Hey] there, [Ann|Bob|Cat|Dan] and [Eve|Fay|Gil]. Nice [day|night].');
+    const after = compile('[Hi|Hello|Hey] there, [Ann|Bob|Cat|Dan] and [Eve|Fay|Gil]. Nice [day|night|week].');
+    let kept = 0;
+    let total = 0;
+    for (let seed = 0; seed < 40; seed++) {
+      const a = before.sampleSteady(5, seed).map((o) => o.text.split(' Nice')[0]);
+      const b = after.sampleSteady(5, seed).map((o) => o.text.split(' Nice')[0]);
+      for (let i = 0; i < 5; i++) {
+        total++;
+        if (a[i] === b[i]) kept++;
+      }
+    }
+    expect(kept / total).toBeGreaterThan(0.9);
+  });
+
+  test('tags and guards stay consistent', () => {
+    const p = compile('Excuse me, [what @q|that] is really neat [@q: ?|@else: .]');
+    const texts = new Set<string>();
+    for (let seed = 0; seed < 50; seed++) for (const o of p.sampleSteady(2, seed)) texts.add(o.text);
+    expect([...texts].sort()).toEqual(['Excuse me, that is really neat.', 'Excuse me, what is really neat?']);
+  });
+
+  test('small programs give everything', () => {
+    expect(compile('[a|b|c]').sampleSteady(5, 1).map((o) => o.text).sort()).toEqual(['a', 'b', 'c']);
+  });
+});
+
 describe('ported v1 and v2 examples', () => {
   test('weather', () => {
     const src =

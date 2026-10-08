@@ -220,6 +220,11 @@ describe('engine versus an independent enumerator', () => {
         expect(key(tr)).toBe(key(prog.at(k)));
         for (const pk of tr.picks) expect(pk.option >= 0 && pk.option < pk.group.options.length).toBe(true);
       }
+      // The steady sampler only ever gives real results, with distinct texts.
+      const valid = new Set(expected.map(key));
+      const steady = prog.sampleSteady(5, i);
+      for (const o of steady) expect(valid.has(key(o))).toBe(true);
+      expect(new Set(steady.map((o) => o.text)).size).toBe(steady.length);
       if (src.includes('@')) withTags++;
       checked++;
     }

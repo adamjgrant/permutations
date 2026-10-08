@@ -22,6 +22,7 @@ type DelimTarget = Parameters<typeof setDelimiter>[1];
 import { inside } from './nav';
 import { redo, undo } from '@codemirror/commands';
 import { seededRandom, visit } from '../../src/index';
+import type { Output, Trace } from '../../src/index';
 
 const STORAGE_KEY = 'permutations.v3.source';
 const ALL_LIMIT = 1000;
@@ -1355,11 +1356,24 @@ function item(n: number, text: string, tags: Record<string, string | number | tr
 
 let traced: string | undefined;
 let tracedIndex: bigint | undefined;
+/** The traces of the examples on show in Random 5 (their rows carry the position). */
+let sampleTraces: (Trace & Output)[] = [];
+
+/** How the example behind a row was made: a stored trace for Random 5, an index for All. */
+function traceFor(btn: HTMLElement): (Trace & Output) | undefined {
+  if (!analysis || btn.dataset['index'] === undefined) return undefined;
+  const i = BigInt(btn.dataset['index']);
+  if (btn.closest('ol')?.id === 'samples') return sampleTraces[Number(i)];
+  return analysis.program.trace(i);
+}
+let tracedRow: string | undefined;
 
 /** Light the traced path again after the chart was drawn anew (zoom, resize). */
 function reapplyTrace(): void {
-  if (traced === undefined || tracedIndex === undefined || !analysis) return;
-  chart.setTrace(pathBoxes(chart.boxes, analysis.program.trace(tracedIndex)), false);
+  if (traced === undefined || !analysis || !tracedRow) return;
+  const btn = document.querySelector<HTMLElement>(tracedRow);
+  const tr = btn ? traceFor(btn) : undefined;
+  if (tr) chart.setTrace(pathBoxes(chart.boxes, tr), false);
 }
 
 function clearTrace(): void {
@@ -1379,10 +1393,12 @@ function toggleTrace(btn: HTMLElement): void {
     return;
   }
   clearTrace();
-  const tr = analysis.program.trace(BigInt(btn.dataset['index']));
+  const tr = traceFor(btn);
+  if (!tr) return;
   chart.setTrace(pathBoxes(chart.boxes, tr));
   traced = key;
   tracedIndex = BigInt(btn.dataset['index']);
+  tracedRow = `#${btn.closest('ol')?.id} .ex-row[data-index="${btn.dataset['index']}"]`;
   // On a narrow screen the chart may be scrolled out of sight: bring it into view.
   const r = $('chart').getBoundingClientRect();
   if (r.bottom < 40 || r.top > window.innerHeight - 40) $('chart').scrollIntoView({ block: 'start', behavior: 'smooth' });
@@ -1425,10 +1441,11 @@ function renderSamples(): void {
   const p = analysis.program;
   try {
     clearTrace();
-    // A fixed seed keeps the same five while you edit; Make a new 5 moves to the next seed.
-    const idx = p.sampleIndices(5, seededRandom(sampleSeed));
-    const outs = idx.map((ix) => p.at(ix));
-    list.innerHTML = outs.map((o, i) => item(i + 1, o.text, o.tags, idx[i] as bigint)).join('');
+    // Steady examples: each choice picks by the seed and its own place in the program, so an
+    // edit changes only what it touches. Make a new 5 moves to the next seed.
+    const outs = p.sampleSteady(5, sampleSeed);
+    sampleTraces = outs;
+    list.innerHTML = outs.map((o, i) => item(i + 1, o.text, o.tags, BigInt(i))).join('');
     // After an edit, mark the examples it changed, so its effect is easy to see.
     // (Only when some stayed the same: when everything changed, flashing says nothing.)
     // A row counts as changed when its text is new, not when it merely moved down a row.
@@ -1441,7 +1458,7 @@ function renderSamples(): void {
     }
     lastSamples = outs.map((o) => o.text);
     flashChanges = true;
-    note.textContent = p.count <= 5n ? 'That is every permutation. Click one to see how it is made.' : `${idx.length} distinct random outputs. Click one to see how it is made.`;
+    note.textContent = p.count <= 5n ? 'That is every permutation. Click one to see how it is made.' : `${outs.length} distinct random outputs. Click one to see how it is made.`;
   } catch (e) {
     list.innerHTML = `<li><span class="empty-state">${escapeHtml(describeError(e).message)}</span></li>`;
     note.textContent = '';

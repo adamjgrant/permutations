@@ -102,6 +102,46 @@ function allPermutations(n: number): number[][] {
   return out;
 }
 
+/** floor(u * n) for a number u in [0, 1) and a count n of any size. */
+function scaled(u: number, n: bigint): bigint {
+  const r = (BigInt(Math.floor(u * 2 ** 52)) * n) >> 52n;
+  return r < n ? r : n - 1n;
+}
+
+/** The index of the item a draw u in [0, 1) lands on, each item weighted by `w`. */
+function pickWeighted(items: { w: bigint }[], u: number): number {
+  let total = 0n;
+  for (const it of items) total += it.w;
+  if (total === 0n) return -1;
+  let k = scaled(u, total);
+  for (let i = 0; i < items.length; i++) {
+    const w = (items[i] as { w: bigint }).w;
+    if (k < w) return i;
+    k -= w;
+  }
+  return items.length - 1;
+}
+
+/** A number in [0, 1) from a string: the same string always gives the same number. */
+export function hashUnit(text: string): number {
+  // Two FNV-1a hashes with different offsets, mixed, give 52 well-spread bits.
+  let a = 0x811c9dc5;
+  let b = 0x01000193 ^ 0x9e3779b9;
+  for (let i = 0; i < text.length; i++) {
+    const c = text.charCodeAt(i);
+    a = Math.imul(a ^ c, 0x01000193);
+    b = Math.imul(b ^ c, 0x01000193) ^ (b >>> 15);
+  }
+  const mix = (x: number): number => {
+    x ^= x >>> 16;
+    x = Math.imul(x, 0x7feb352d);
+    x ^= x >>> 15;
+    x = Math.imul(x, 0x846ca68b);
+    return (x ^ (x >>> 16)) >>> 0;
+  };
+  return (mix(a) * 2 ** 20 + (mix(b) >>> 12)) / 2 ** 52;
+}
+
 export function randBelow(n: bigint, rng: () => number): bigint {
   if (n <= 1n) return 0n;
   const bits = n.toString(2).length;
@@ -324,6 +364,90 @@ export class Evaluator {
     throw new PermError('Internal error: index out of range while walking');
   }
 
+  /**
+   * Like `walk`, but each decision draws its own number from `draw(key)`, where the key names
+   * the decision's place in the program (the definition, the path of child indexes, and how
+   * many times that definition was entered). An edit in one place then leaves the decisions
+   * everywhere else alone, which keeps examples steady while you edit. Every decision is
+   * weighted by how many complete paths follow it, so the results stay uniform.
+   */
+  walkKeyed(node: Node, sIn: string, sOut: string, delim: string, key: string, draw: (key: string) => number, visits: Map<string, number>, tr?: Trace): string {
+    if (tr && node.kind !== 'seq' && node.kind !== 'group') tr.nodes.push(node);
+    switch (node.kind) {
+      case 'text':
+        return node.value;
+      case 'ref': {
+        const target = node.target;
+        if (!target) throw new PermError(`Unresolved reference $${node.path}`);
+        if (target.kind !== 'def') return target.value;
+        const base = `def:${target.def.name}`;
+        const n = visits.get(base) ?? 0;
+        visits.set(base, n + 1);
+        return this.walkKeyed(target.def.body, sIn, sOut, delim, `${base}#${n}`, draw, visits, tr);
+      }
+      case 'seq': {
+        const outs: string[] = [];
+        const scope = node.scopeDelim ?? delim;
+        let s = sIn;
+        for (let i = 0; i < node.pieces.length; i++) {
+          const piece = node.pieces[i] as SeqNode['pieces'][number];
+          const cands: { s: string; w: bigint }[] = [];
+          for (const [sMid, c1] of this.table(piece.node, s)) {
+            const r = this.seqFrom(node, i + 1, sMid).get(sOut) ?? 0n;
+            if (r > 0n) cands.push({ s: sMid, w: c1 * r });
+          }
+          const pick = cands.length === 1 ? cands[0] : cands[pickWeighted(cands, draw(`${key}/s${i}`))];
+          if (!pick) throw new PermError('Internal error: no way through a sequence');
+          outs[i] = this.walkKeyed(piece.node, s, pick.s, scope, `${key}/${i}`, draw, visits, tr);
+          s = pick.s;
+        }
+        return joinOutputs(outs, node.pieces.map((p) => p.join), node.joinDelim ?? delim);
+      }
+      case 'group': {
+        const d = node.delimiter ?? delim;
+        const cands: { o: (typeof node.options)[number]; s: string; w: bigint }[] = [];
+        for (const o of this.eligible(node, sIn)) {
+          for (const [sMid, c] of this.seqFrom(o.seq, 0, sIn)) if (applyTags(sMid, o.tags) === sOut) cands.push({ o, s: sMid, w: c });
+        }
+        const pick = cands[pickWeighted(cands, draw(`${key}/g`))];
+        if (!pick) throw new PermError('Internal error: no way through a choice');
+        const index = node.options.indexOf(pick.o);
+        tr?.picks.push({ group: node, option: index });
+        return this.walkKeyed(pick.o.seq, sIn, pick.s, d, `${key}/${index}`, draw, visits, tr);
+      }
+      case 'anyorder': {
+        const d = node.delimiter ?? delim;
+        if (!this.hasTags) {
+          const n = node.items.length;
+          const perms = factorial(n);
+          const perm = unrankPermutation(n, scaled(draw(`${key}/perm`), perms));
+          // Each item keeps the key of its place in the source, so its own picks stay put.
+          const outs = perm.map((i) => this.walkKeyed(node.items[i] as SeqNode, sIn, sOut, d, `${key}/${i}`, draw, visits, tr));
+          return joinOutputs(outs, outs.map(() => true), d);
+        }
+        const seqs = this.orderings(node);
+        const cands = seqs.map((seq, i) => ({ i, w: this.table(seq, sIn).get(sOut) ?? 0n })).filter((c) => c.w > 0n);
+        const pick = cands[pickWeighted(cands, draw(`${key}/o`))];
+        if (!pick) throw new PermError('Internal error: no ordering fits');
+        return this.walkKeyed(seqs[pick.i] as SeqNode, sIn, sOut, delim, `${key}/o${pick.i}`, draw, visits, tr);
+      }
+      case 'repeat': {
+        const cands = node.expanded.map((seq, i) => ({ i, w: this.table(seq, sIn).get(sOut) ?? 0n })).filter((c) => c.w > 0n);
+        const pick = cands[pickWeighted(cands, draw(`${key}/r`))];
+        if (!pick) throw new PermError('Internal error: no repeat count fits');
+        // The copies of a repeat are pieces of the expanded sequence: each gets its own key.
+        return this.walkKeyed(node.expanded[pick.i] as SeqNode, sIn, sOut, delim, `${key}/r`, draw, visits, tr);
+      }
+      case 'transform': {
+        const text = this.walkKeyed(node.inner, sIn, sOut, delim, `${key}/i`, draw, visits, tr);
+        const name = node.fns[Math.min(node.fns.length - 1, Math.floor(draw(`${key}/t`) * node.fns.length))] as string;
+        const fn = this.fns[name];
+        if (!fn) throw new PermError(`Unknown transform '${name}'`);
+        return fn(text);
+      }
+    }
+  }
+
   private walkSeq(seq: SeqNode, i: number, sIn: string, sOut: string, k: bigint, delim: string, outs: string[], tr?: Trace): void {
     if (i >= seq.pieces.length) return;
     const piece = seq.pieces[i] as SeqNode['pieces'][number];
@@ -474,6 +598,38 @@ export class Program {
       }
       seenText.add(text);
       out.push(i);
+    }
+    return out;
+  }
+
+  /**
+   * Up to n examples with distinct text that stay put while the program is edited: each
+   * choice draws its own number from the seed and its place in the program, so an edit in one
+   * place leaves the picks everywhere else alone. Each comes with its trace.
+   */
+  sampleSteady(n: number, seed: number): (Output & Trace)[] {
+    this.requireAny();
+    const out: (Output & Trace)[] = [];
+    const seen = new Set<string>();
+    if (this.count <= BigInt(n)) {
+      for (let i = 0n; i < this.count; i++) {
+        const t = this.trace(i);
+        if (!seen.has(t.text)) {
+          seen.add(t.text);
+          out.push(t);
+        }
+      }
+      return out;
+    }
+    const entries = [...this.ev.table(this.entry.body, '')].map(([s, w]) => ({ s, w }));
+    for (let i = 0; out.length < n && i < n * 40; i++) {
+      const draw = (key: string): number => hashUnit(`${seed}|${i}|${key}`);
+      const end = entries[pickWeighted(entries, draw('end'))] as { s: string };
+      const tr: Trace = { picks: [], nodes: [] };
+      const text = this.ev.walkKeyed(this.entry.body, '', end.s, this.opts.delimiter, 'main', draw, new Map(), tr);
+      if (seen.has(text)) continue;
+      seen.add(text);
+      out.push({ text, tags: tagsOf(end.s), ...tr });
     }
     return out;
   }
