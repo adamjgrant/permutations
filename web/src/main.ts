@@ -615,6 +615,7 @@ function currentExtraction(): ExtractSelection | undefined {
 function updateTools(): void {
   $<HTMLButtonElement>('t-new').disabled = !canEdit();
   $<HTMLButtonElement>('b-new').disabled = !analysis;
+  $<HTMLButtonElement>('b-copy5').disabled = !analysis;
   updateBar();
 }
 
@@ -1037,8 +1038,11 @@ function listAll(): void {
     i++;
   }
   $('all-list').innerHTML = rows.join('');
-  $('all-note').textContent = p.count > BigInt(ALL_LIMIT) ? `Showing the first ${formatCount(BigInt(ALL_LIMIT))} of ${formatCount(p.count)} permutations. The rest are not listed.` : `Showing all ${formatCount(p.count)}.`;
-  $('b-list').hidden = true;
+  const intro = $('all-intro');
+  const shown = p.count > BigInt(ALL_LIMIT) ? `Showing the first ${formatCount(BigInt(ALL_LIMIT))} of ${formatCount(p.count)} permutations.` : `Showing all ${formatCount(p.count)}.`;
+  intro.innerHTML = `<span>${shown}</span><button id="b-copy-all" type="button">Copy ${formatCount(BigInt(i))}</button>`;
+  $('b-copy-all').addEventListener('click', safe(() => copyTexts('#all-list')));
+  $('all-note').textContent = p.count > BigInt(ALL_LIMIT) ? 'The rest are not listed. The command line tool can write them all: perm file.perm --all' : '';
 }
 
 function showTab(which: 'random' | 'all'): void {
@@ -1050,6 +1054,18 @@ function showTab(which: 'random' | 'all'): void {
 on('tab-random', () => showTab('random'));
 on('tab-all', () => showTab('all'));
 on('b-new', renderSamples);
+on('b-copy5', () => copyTexts('#samples'));
+
+/** Copy the texts of a list of examples, one per line. */
+function copyTexts(list: string): void {
+  const texts = [...document.querySelectorAll<HTMLElement>(`${list} .ex-row .t`)].map((e) => e.textContent ?? '');
+  if (!texts.length) return;
+  const n = texts.length;
+  navigator.clipboard.writeText(texts.join('\n')).then(
+    () => toast(`Copied ${n} ${n === 1 ? 'example' : 'examples'}`),
+    () => toast('Copy failed: the browser did not allow it'),
+  );
+}
 
 // --- toolbar ---------------------------------------------------------------
 
