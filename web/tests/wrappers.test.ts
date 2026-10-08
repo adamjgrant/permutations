@@ -40,3 +40,11 @@ test('parse a count', () => {
   assert.ok('error' in parseCount('lots'));
   assert.ok('error' in parseCount('2000'));
 });
+
+test('a repeat keeps its last setting when its count changes, and loses both lines when removed', () => {
+  const src = 'main = [a|b]{2; delimiter=", " last=" and "} end';
+  assert.equal(run(src, setRepeatCount(src, rep(src), 3, 3)), 'main = [a|b]{3; delimiter=", " last=" and "} end');
+  assert.equal(run(src, removeRepeat(src, rep(src))), 'main = [a|b] end');
+  const long = 'branch main\n  repeat 2\n    delimiter ", "\n    last " and "\n    ho\n';
+  assert.equal(run(long, removeRepeat(long, rep(long))), 'branch main\n  sequence\n    ho\n');
+});

@@ -17,7 +17,7 @@ import { ActionBar, ActionId, barActions } from './actionbar';
 import { insertReference, pieceRange, varyWords, wordsOf, WrapNode, wrapInChoice } from './insert';
 import { anyOrderSequence, pathBoxes } from './trace';
 import { deletePiece, isSolePiece, locatePiece } from './remove';
-import { setDelimiter } from './delim';
+import { setDelimiter, setSettings } from './delim';
 import { parseCount, removeRepeat, removeTransform, setRepeatCount, setTransforms } from './wrappers';
 type DelimTarget = Parameters<typeof setDelimiter>[1];
 import { inside } from './nav';
@@ -963,19 +963,35 @@ function delimiterDialog(frame: Box, anchor: Box): void {
   const src = analysis.source;
   const current = node.delimiter;
   const around = node.kind === 'repeat' ? '' : analysis.delimiter;
+  // Any-order groups and repeats are lists, so they can also say what joins the final two.
+  const list = node.kind !== 'group';
+  const last = node.kind === 'group' ? undefined : node.last;
+  const items = node.kind === 'anyorder' ? Math.max(2, Math.min(3, node.items.length)) : 3;
+  const sample = (d: string, l: string): string =>
+    ['one', 'two', 'three'].slice(0, items).reduce((acc, w, i, all) => (i === 0 ? w : acc + (i === all.length - 1 && l !== '' ? l : d) + w), '');
   openPopover({
-    title: 'Delimiter',
-    label: 'What joins the parts here',
+    title: list ? 'Delimiter and last join' : 'Delimiter',
+    label: node.kind === 'repeat' ? 'Between the copies' : node.kind === 'anyorder' ? 'Between the items' : 'What joins the parts here',
     value: current ?? (node.kind === 'repeat' ? ' ' : around),
     hint:
       node.kind === 'repeat'
-        ? 'What goes between the copies. A space separates words; leave it empty to glue them. Use default glues them again.'
-        : `Leave it empty for no space at all. Use default goes back to the delimiter around this choice (${JSON.stringify(around)}).`,
+        ? 'A space separates words; leave it empty to glue the copies. Spaces count, so type " and " with a space on each side.'
+        : list
+          ? `Spaces count, so type " and " with a space on each side. Use default goes back to the delimiter around this group (${JSON.stringify(around)}).`
+          : `Leave it empty for no space at all. Use default goes back to the delimiter around this choice (${JSON.stringify(around)}).`,
+    ...(list ? { second: { label: 'Before the last one (optional)', value: last ?? '' } } : {}),
+    ...(list ? { preview: (d: string, l: string) => `Gives: “${sample(d, l)}”` } : {}),
     anchor: anchorOf(anchor),
     returnFocus: document.activeElement as HTMLElement | null,
     actions: [
-      { label: 'Set', kind: 'primary', run: (v) => applyEdit(setDelimiter(src, node, v), { focus: anchor }) },
-      ...(current !== undefined ? [{ label: 'Use default', run: () => applyEdit(setDelimiter(src, node, null), { focus: anchor }) }] : []),
+      {
+        label: 'Set',
+        kind: 'primary',
+        run: (v, l) => applyEdit(list ? setSettings(src, node, { delimiter: v, last: l === '' ? null : l }) : setDelimiter(src, node, v), { focus: anchor }),
+      },
+      ...(current !== undefined || last !== undefined
+        ? [{ label: 'Use default', run: () => applyEdit(list ? setSettings(src, node, { delimiter: null, last: null }) : setDelimiter(src, node, null), { focus: anchor }) }]
+        : []),
       { label: 'Cancel', run: () => undefined },
     ],
   });

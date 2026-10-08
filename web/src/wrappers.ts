@@ -5,9 +5,10 @@ import type { RepeatNode, TransformNode } from '../../src/core/types';
 import { EditResult, formAt } from './patch';
 import { indentOf, indentUnit, lineEnd, lineStart } from './ranges';
 
-const REPEAT_SUFFIX = /\{(\d+(?:\.\.\d+)?)(\s*;\s*delimiter\s*=\s*"(?:[^"\\]|\\.)*"\s*)?\}$/;
+const SETTING = String.raw`(?:delimiter|last)\s*=\s*"(?:[^"\\]|\\.)*"\s*`;
+const REPEAT_SUFFIX = new RegExp(String.raw`\{(\d+(?:\.\.\d+)?)(\s*;\s*(?:${SETTING})+)?\}$`);
 const TRANSFORM_SUFFIX = /:(?:[A-Za-z_]\w*|\[[^\]]*\])$/;
-const LONG_DELIM = /^[ \t]*delimiter[ \t]+"(?:[^"\\]|\\.)*"[ \t]*$/;
+const LONG_SETTING = /^[ \t]*(?:delimiter|last)[ \t]+"(?:[^"\\]|\\.)*"[ \t]*$/;
 
 const header = (src: string, at: number): [number, number] => [lineStart(src, at), lineEnd(src, at)];
 const isLongBlock = (src: string, node: { range: [number, number] }, word: string): boolean =>
@@ -69,7 +70,7 @@ export function removeTransform(src: string, node: TransformNode): EditResult | 
 
 /**
  * A long-form `repeat` or `transform` block without its effect: the header becomes `sequence`,
- * which keeps the lines under it one piece, and a delimiter line (between copies) goes.
+ * which keeps the lines under it one piece, and the delimiter and last lines (between copies) go.
  */
 function unwrapBlock(src: string, from: number, to: number): EditResult {
   const [hs, he] = header(src, from);
@@ -79,9 +80,8 @@ function unwrapBlock(src: string, from: number, to: number): EditResult {
   while (pos < to && pos < src.length) {
     const end = lineEnd(src, pos);
     const line = src.slice(pos, end);
-    if (line.startsWith(child) && !/^\s/.test(line.slice(child.length)) && LONG_DELIM.test(line)) {
+    if (line.startsWith(child) && !/^\s/.test(line.slice(child.length)) && LONG_SETTING.test(line)) {
       patches.push({ from: pos, to: Math.min(src.length, end + 1), insert: '' });
-      break;
     }
     pos = end + 1;
   }

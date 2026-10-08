@@ -284,7 +284,11 @@ export function layout(input: LayoutInput): Layout {
   const tagLabel = (t: { name: string; value?: string | undefined }): string => '@' + t.name + (t.value !== undefined ? '=' + t.value : '');
   const guardLabel = (g: NonNullable<Option['guard']>): string =>
     g.kind === 'else' ? '@else:' : '@' + (g.negate ? '!' : '') + g.name + (g.value !== undefined ? '=' + g.value : '') + ':';
-  const delimLabel = (d: string): string => 'delimiter ' + JSON.stringify(d);
+  /** The chip for a node's own settings: its delimiter, and what joins the final two (last). */
+  const settingsLabel = (d: string | undefined, l: string | undefined): string | undefined =>
+    d === undefined && l === undefined
+      ? undefined
+      : [d !== undefined ? 'delimiter ' + JSON.stringify(d) : '', l !== undefined ? 'last ' + JSON.stringify(l) : ''].filter(Boolean).join(' \u00B7 ');
   const defaultDelim = input.defaultDelimiter ?? ' ';
   const knownTags = input.knownTags;
   /** The delimiter in force below a node that sets `own`, or undefined when it is the default (nothing to label). */
@@ -343,7 +347,8 @@ export function layout(input: LayoutInput): Layout {
             ...(glued ? { warn: true, note: 'The copies are joined with no space between them. Select this and use Delimiter… to separate them.' } : {}),
           }),
         ];
-        if (node.delimiter !== undefined) chips.push(chip('delimiter', delimLabel(node.delimiter), { range: node.range, node }));
+        const repeatSettings = settingsLabel(node.delimiter, node.last);
+        if (repeatSettings) chips.push(chip('delimiter', repeatSettings, { range: node.range, node }));
         return wrapper(nodeBlock(node.inner, d), chips, 'repeat', node);
       }
       case 'transform': {
@@ -462,7 +467,8 @@ export function layout(input: LayoutInput): Layout {
       }
       chips.push(chip('anyorder', label, extra));
     }
-    if (node.delimiter !== undefined) chips.push(chip('delimiter', delimLabel(node.delimiter), { range: node.range, node }));
+    const settings = settingsLabel(node.delimiter, node.kind === 'anyorder' ? node.last : undefined);
+    if (settings) chips.push(chip('delimiter', settings, { range: node.range, node }));
     const chipsW = chips.reduce((a, c, i) => a + c.w + (i ? M.chipGap : 0), 0);
     const rowsW = rows.reduce((a, r) => Math.max(a, r.w), 0);
     const w = Math.max(rowsW, chipsW) + M.framePad * 2;

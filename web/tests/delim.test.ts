@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { setDelimiter } from '../src/delim';
+import { setDelimiter, setSettings } from '../src/delim';
 import { choices, meaning, nodes, run } from './helpers';
 import type { RepeatNode } from '../../src/core/types';
 const repeats = (s: string): RepeatNode[] => nodes<RepeatNode>(s, 'repeat');
@@ -50,4 +50,32 @@ test('repeats: set and clear the delimiter between copies, short and long form',
   const lset = run(long, setDelimiter(long, rep(long), ' '));
   assert.equal(lset, 'branch main\n  repeat 2\n    delimiter " "\n    one of\n      ho\n      ha\n');
   assert.match(meaning(lset), /"ho ha"/);
+});
+
+test('last: set it next to the delimiter, keep it when the delimiter changes, clear both', () => {
+  const src = 'main = [a & b & c]';
+  const set = run(src, setSettings(src, choices(src)[0]!, { delimiter: ', ', last: ' and ' }));
+  assert.equal(set, 'main = [a & b & c; delimiter=", " last=" and "]');
+  assert.match(meaning(set), /"a, b and c"/);
+  const changed = run(set, setDelimiter(set, choices(set)[0]!, '; '));
+  assert.equal(changed, 'main = [a & b & c; delimiter="; " last=" and "]');
+  const noDelim = run(changed, setDelimiter(changed, choices(changed)[0]!, null));
+  assert.equal(noDelim, 'main = [a & b & c; last=" and "]');
+  assert.equal(run(noDelim, setSettings(noDelim, choices(noDelim)[0]!, { last: null })), src);
+});
+
+test('last on repeats, short and long form, and never on a choice', () => {
+  const src = 'main = [x|y]{3}';
+  const rep = (s: string) => repeats(s)[0]!;
+  const set = run(src, setSettings(src, rep(src), { delimiter: ', ', last: ' or ' }));
+  assert.equal(set, 'main = [x|y]{3; delimiter=", " last=" or "}');
+  assert.match(meaning(set), /"x, y or x"/);
+  assert.equal(run(set, setDelimiter(set, rep(set), '-')), 'main = [x|y]{3; delimiter="-" last=" or "}');
+  const long = 'branch main\n  any order\n    a\n    b\n';
+  const lset = run(long, setSettings(long, choices(long)[0]!, { delimiter: ', ', last: ' and ' }));
+  assert.equal(lset, 'branch main\n  any order\n    delimiter ", "\n    last " and "\n    a\n    b\n');
+  const lclear = run(lset, setSettings(lset, choices(lset)[0]!, { delimiter: null, last: null }));
+  assert.equal(lclear, long);
+  const choice = 'main = x [a|b] y';
+  assert.equal(setSettings(choice, choices(choice)[0]!, { last: ' and ' }), undefined);
 });

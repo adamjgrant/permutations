@@ -5,8 +5,8 @@
 export interface PopoverAction {
   label: string;
   kind?: 'primary' | 'danger' | 'plain';
-  /** Return a message to keep the popover open and show it. */
-  run(value: string): string | void;
+  /** Gets the field's value, and the second field's when there is one. Return a message to keep the popover open and show it. */
+  run(value: string, second: string): string | void;
 }
 
 export interface PopoverOptions {
@@ -25,6 +25,10 @@ export interface PopoverOptions {
   suggestions?: string[];
   /** Custom content shown instead of a field (it must handle its own focus order). */
   content?: HTMLElement;
+  /** A second, optional field under the first one. */
+  second?: { label: string; value: string; placeholder?: string };
+  /** A live line under the fields showing what the values will produce. */
+  preview?: (value: string, second: string) => string;
 }
 
 let current: { close(): void } | undefined;
@@ -46,6 +50,7 @@ export function openPopover(o: PopoverOptions): { close(): void } {
   root.appendChild(h);
 
   let input: HTMLInputElement | undefined;
+  let secondInput: HTMLInputElement | undefined;
   if (o.content) {
     root.appendChild(o.content);
   } else if (o.message !== undefined) {
@@ -64,6 +69,18 @@ export function openPopover(o: PopoverOptions): { close(): void } {
     input.autocomplete = 'off';
     label.appendChild(input);
     root.appendChild(label);
+    if (o.second) {
+      const label2 = document.createElement('label');
+      label2.textContent = o.second.label;
+      secondInput = document.createElement('input');
+      secondInput.type = 'text';
+      secondInput.value = o.second.value;
+      secondInput.placeholder = o.second.placeholder ?? '';
+      secondInput.spellcheck = false;
+      secondInput.autocomplete = 'off';
+      label2.appendChild(secondInput);
+      root.appendChild(label2);
+    }
     if (o.suggestions?.length) {
       const list = document.createElement('datalist');
       list.id = 'pop-suggest';
@@ -84,6 +101,18 @@ export function openPopover(o: PopoverOptions): { close(): void } {
     root.appendChild(p);
     input?.setAttribute('aria-describedby', 'pop-hint');
   }
+  if (o.preview && input) {
+    const p = document.createElement('p');
+    p.className = 'pop-preview';
+    p.setAttribute('aria-live', 'polite');
+    const show = (): void => {
+      p.textContent = (o.preview as NonNullable<PopoverOptions['preview']>)(input?.value ?? '', secondInput?.value ?? '');
+    };
+    show();
+    input.addEventListener('input', show);
+    secondInput?.addEventListener('input', show);
+    root.appendChild(p);
+  }
   const error = document.createElement('p');
   error.className = 'pop-error';
   error.setAttribute('role', 'alert');
@@ -100,7 +129,7 @@ export function openPopover(o: PopoverOptions): { close(): void } {
     o.returnFocus?.focus({ preventScroll: true });
   };
   const run = (a: PopoverAction): void => {
-    const msg = a.run(input ? input.value : '');
+    const msg = a.run(input ? input.value : '', secondInput ? secondInput.value : '');
     if (msg) {
       error.textContent = msg;
       error.hidden = false;
@@ -129,7 +158,7 @@ export function openPopover(o: PopoverOptions): { close(): void } {
     if (e.key === 'Escape') {
       e.preventDefault();
       close();
-    } else if (e.key === 'Enter' && input && e.target === input) {
+    } else if (e.key === 'Enter' && input && (e.target === input || e.target === secondInput)) {
       e.preventDefault();
       const first = o.actions[0];
       if (first) run(first);
