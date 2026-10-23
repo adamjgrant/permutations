@@ -571,6 +571,14 @@ export interface ProgramOptions {
   delimiter: string;
   fns: Record<string, TransformFn>;
   rng?: (() => number) | undefined;
+  /** Tags already set when the walk starts, supplied by the host. */
+  tags?: Record<string, string | true> | undefined;
+}
+
+/** The tag state a walk starts in, from host tags (a bare tag is true). */
+export function startState(tags: Record<string, string | true> | undefined): string {
+  if (!tags) return '';
+  return encode(new Map(Object.entries(tags).map(([k, v]) => [k, v === true ? '' : v])));
 }
 
 export class Program {
@@ -579,14 +587,16 @@ export class Program {
   private ev: Evaluator;
   private total?: bigint;
   private rng: () => number;
+  private start: string;
 
   constructor(
     readonly entry: Def,
     private modules: Module[],
     private opts: ProgramOptions,
   ) {
+    this.start = startState(opts.tags);
     this.ev = new Evaluator(
-      modules.some((m) => m.hasTags),
+      modules.some((m) => m.hasTags) || this.start !== '',
       { ...builtinTransforms, ...opts.fns },
     );
     this.rng = opts.rng ?? Math.random;
@@ -634,7 +644,7 @@ export class Program {
   get count(): bigint {
     if (this.total === undefined) {
       let n = 0n;
-      for (const c of this.ev.table(this.entry.body, '').values()) n += c;
+      for (const c of this.ev.table(this.entry.body, this.start).values()) n += c;
       this.total = n;
     }
     return this.total;
@@ -655,9 +665,9 @@ export class Program {
   private walkAt(index: bigint, tr?: Trace): Output {
     if (index < 0n || index >= this.count) throw new RangeError('Permutation index out of range');
     let k = index;
-    for (const [sOut, c] of this.ev.table(this.entry.body, '')) {
+    for (const [sOut, c] of this.ev.table(this.entry.body, this.start)) {
       if (k < c) {
-        const text = this.ev.walk(this.entry.body, '', sOut, k, this.opts.delimiter, tr);
+        const text = this.ev.walk(this.entry.body, this.start, sOut, k, this.opts.delimiter, tr);
         return { text, tags: tagsOf(sOut) };
       }
       k -= c;
@@ -734,14 +744,14 @@ export class Program {
     const route = this.routeTo(show.group, show.option);
     if (!route) return rows;
     const seen = new Set(rows.slice(0, -1).map((r) => r.text));
-    const entries = [...this.ev.table(this.entry.body, '')].map(([s, w]) => ({ id: s, s, w }));
+    const entries = [...this.ev.table(this.entry.body, this.start)].map(([s, w]) => ({ id: s, s, w }));
     this.ev.forced = route;
     try {
       for (let attempt = 0; attempt < 40; attempt++) {
         const draw = (key: string): number => hashUnit(`${seed}|show|${attempt}|${key}`);
         const end = entries[pickRendezvous(entries, (id) => draw(`end/${id}`))] as { s: string };
         const tr: Trace = { picks: [], nodes: [] };
-        const text = this.ev.walkKeyed(this.entry.body, '', end.s, this.opts.delimiter, 'main', draw, new Map(), tr);
+        const text = this.ev.walkKeyed(this.entry.body, this.start, end.s, this.opts.delimiter, 'main', draw, new Map(), tr);
         if (seen.has(text) || !tr.picks.some((p) => p.group === show.group && p.option === show.option)) continue;
         const row = { text, tags: tagsOf(end.s), ...tr };
         return rows.length < n ? [...rows, row] : [...rows.slice(0, -1), row];
@@ -806,7 +816,7 @@ export class Program {
       }
       return out;
     }
-    const entries = [...this.ev.table(this.entry.body, '')].map(([s, w]) => ({ id: s, s, w }));
+    const entries = [...this.ev.table(this.entry.body, this.start)].map(([s, w]) => ({ id: s, s, w }));
     // Each row draws on its own. When it repeats an earlier row's text, only that row draws
     // again, so one duplicate never moves the rows after it.
     for (let row = 0; row < n; row++) {
@@ -814,7 +824,7 @@ export class Program {
         const draw = (key: string): number => hashUnit(`${seed}|${row}|${attempt}|${key}`);
         const end = entries[pickRendezvous(entries, (id) => draw(`end/${id}`))] as { s: string };
         const tr: Trace = { picks: [], nodes: [] };
-        const text = this.ev.walkKeyed(this.entry.body, '', end.s, this.opts.delimiter, 'main', draw, new Map(), tr);
+        const text = this.ev.walkKeyed(this.entry.body, this.start, end.s, this.opts.delimiter, 'main', draw, new Map(), tr);
         if (seen.has(text)) continue;
         seen.add(text);
         out.push({ text, tags: tagsOf(end.s), ...tr });

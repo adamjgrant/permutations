@@ -27,6 +27,13 @@ describe('perm CLI', () => {
     expect(typo.err).toMatch(/warning: The host value nmae is not used/);
   });
 
+  test('--tag sets a host tag that guards can test', () => {
+    const prog = 'be = [@pl: are|@else: is]\nmain = they $be [@n=2: two|@else: one]';
+    expect(run([prog]).out).toBe('they is one\n');
+    expect(run([prog, '--tag', 'pl', '--tag', 'n=2']).out).toBe('they are two\n');
+    expect(run([prog, '--tag', '=2']).code).toBe(2);
+  });
+
   test("an imported branch keeps its own file's delimiter, and inherits when the file has none", () => {
     fs.writeFileSync(path.join(dir, 'dash.perm'), 'delimiter = "-"\ngreet = [a] [b]\n');
     fs.writeFileSync(path.join(dir, 'plain.perm'), 'greet = [a] [b]\n');

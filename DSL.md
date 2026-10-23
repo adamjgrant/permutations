@@ -499,6 +499,17 @@ gives `Hi Ann`, and no `--set` gives `Hi friend`. (It replaces references, so it
 replace `main` itself.) A value that nothing refers to gets a warning, which catches typos.
 In the library, pass `values` to `compile`.
 
+**Host tags** work the same way for tags: the host sets them before the walk starts, and
+guards test them like any other tag.
+
+```sh
+perm 'they [@plural: are|@else: is] here' --tag plural     # they are here
+perm 'it is [@sure=no: probably|@else: definitely] fine' --tag sure=no
+```
+
+A host tag travels with the output, and a tag set in the program replaces it. In the library,
+pass `tags` to `compile`: `compile(src, { tags: { plural: true, sure: 'no' } })`.
+
 ## 5. Comments
 
 ```
@@ -637,6 +648,7 @@ perm FILE_OR_PROGRAM [options]
   --entry NAME        start from NAME instead of main (also lib.x or an imported x)
   --delimiter STR     global delimiter (replaces the delimiter setting of this file)
   --set key=value     host value, available as $key (section 4.12); repeatable
+  --tag name[=value]  host tag, set before the walk starts (section 4.12); repeatable
   --fn FILE           load custom transforms (section 4.9), path relative to the current
                       directory; repeatable
   --seed N            repeatable random choices (same N, same results)
@@ -883,4 +895,5 @@ A list rather than a table, so every example can be copied exactly as written:
 - Group names: `ns.name = ...`, `$ns.name`
 - Pull in a file: `use lib` or `from lib use x`
 - A value from outside: `$name` with `--set name=...`
+- A tag from outside: `[@plural: are|@else: is]` with `--tag plural`
 - A literal special character: `\[ \] \| \& \$ \: \{ \@ \; \# \\`

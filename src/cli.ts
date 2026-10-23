@@ -16,6 +16,8 @@ const USAGE = `Usage: perm <file | program> [options]
   --delimiter STR      global delimiter (default: a single space)
   --set key=value      host value, available as $key (repeatable; replaces a branch
                        of the same name, so the file can give a default)
+  --tag name[=value]   host tag, set before the walk starts so guards can test it
+                       (repeatable)
   --fn FILE            JS module exporting custom transforms
   --seed N             make the random choices repeatable (same N, same results)
   -q, --quiet          do not print warnings
@@ -40,6 +42,7 @@ interface Args {
   entry?: string;
   delimiter?: string;
   values: Record<string, string>;
+  tags: Record<string, string | true>;
   fnFiles: string[];
   seed?: number;
   quiet: boolean;
@@ -47,7 +50,7 @@ interface Args {
 }
 
 function parseArgs(argv: string[]): Args {
-  const a: Args = { all: false, count: false, json: false, values: {}, fnFiles: [], quiet: false, help: false };
+  const a: Args = { all: false, count: false, json: false, values: {}, tags: {}, fnFiles: [], quiet: false, help: false };
   const need = (i: number, flag: string): string => {
     const v = argv[i];
     if (v === undefined) throw new Error(`${flag} needs a value`);
@@ -92,6 +95,14 @@ function parseArgs(argv: string[]): Args {
         const eq = kv.indexOf('=');
         if (eq < 1) throw new Error('--set needs key=value');
         a.values[kv.slice(0, eq)] = kv.slice(eq + 1);
+        break;
+      }
+      case '--tag': {
+        const kv = need(++i, '--tag');
+        const eq = kv.indexOf('=');
+        const name = eq === -1 ? kv : kv.slice(0, eq);
+        if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) throw new Error('--tag needs a name, or name=value');
+        a.tags[name] = eq === -1 ? true : kv.slice(eq + 1);
         break;
       }
       case '--fn':
@@ -211,6 +222,7 @@ function main(): void {
       path: progPath,
       load: loader,
       values: args.values,
+      ...(Object.keys(args.tags).length ? { tags: args.tags } : {}),
       fns,
       ...(args.entry !== undefined ? { entry: args.entry } : {}),
       ...(args.delimiter !== undefined ? { delimiter: args.delimiter } : {}),

@@ -234,7 +234,7 @@ and reusing.
 Library:
 
 ```js
-const prog = compile(source, { delimiter: " ", values: { name: "Ann" }, fns: { shout } });
+const prog = compile(source, { delimiter: " ", values: { name: "Ann" }, tags: { plural: true }, fns: { shout } });
 prog.count;                // number of permutations (a BigInt)
 prog.one();                // one uniform random permutation: { text, tags }
 prog.sample(5);            // up to 5 distinct

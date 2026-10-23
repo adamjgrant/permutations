@@ -610,3 +610,27 @@ describe('steady examples can show one alternative', () => {
     }
   });
 });
+
+describe('host tags', () => {
+  const src = 'be = [@pl: are|@else: is]\nmain = they $be [@n=2: two|@else: one]';
+
+  test('guards see tags the host sets before the walk', () => {
+    expect(texts(src)).toEqual(['they is one']);
+    expect(texts(src, { tags: { pl: true } })).toEqual(['they are one']);
+    expect(texts(src, { tags: { pl: true, n: '2' } })).toEqual(['they are two']);
+  });
+
+  test('host tags travel with the output and later tags replace them', () => {
+    const p = compile('main = [x @n=3|y]', { tags: { n: '1', k: true } });
+    const out = [...p.all()].sort((a, b) => a.text.localeCompare(b.text));
+    expect(out).toEqual([
+      { text: 'x', tags: { n: 3, k: true } },
+      { text: 'y', tags: { n: 1, k: true } },
+    ]);
+  });
+
+  test('a program without tags of its own can still guard on host tags', () => {
+    expect(texts('[@q: ?|@else: .]', { tags: { q: true } })).toEqual(['?']);
+    expect(count('[@q: ?|@else: .]', { tags: { q: true } })).toBe(1n);
+  });
+});

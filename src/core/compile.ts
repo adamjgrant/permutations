@@ -21,6 +21,11 @@ export interface CompileOptions {
   values?: Record<string, string>;
   /** Custom transforms, in addition to the built-ins. */
   fns?: Record<string, TransformFn>;
+  /**
+   * Host tags, already set when the walk starts, so guards can test them (`@plural:`). A bare
+   * tag is `true`. They travel with the output like any other tag.
+   */
+  tags?: Record<string, string | true>;
   /** Entry definition, `main` by default. */
   entry?: string;
   /** Random source, for tests. */
@@ -150,10 +155,11 @@ export function compile(source: string, opts: CompileOptions = {}): Program {
     delimiter: opts.delimiter ?? root.delimiter ?? ' ',
     fns: opts.fns ?? {},
     rng: opts.rng,
+    tags: opts.tags,
   });
   // With tags, an any-order group's orderings are listed one by one, so they are capped. Say so here,
   // with a position, rather than when the counts are first needed.
-  if (all.some((m) => m.hasTags)) {
+  if (all.some((m) => m.hasTags) || opts.tags) {
     for (const module of all) {
       const bodies: Def[] = [...module.defs.values()];
       if (module.anonymous) bodies.push(module.anonymous);
@@ -168,7 +174,7 @@ export function compile(source: string, opts: CompileOptions = {}): Program {
   }
   // With tags, which guards can hold depends on what came before, so the walk's own reach is used.
   let reach: Map<number, string[]> | undefined;
-  if (all.some((m) => m.hasTags)) {
+  if (all.some((m) => m.hasTags) || opts.tags) {
     try {
       reach = program.reachStates();
     } catch {
